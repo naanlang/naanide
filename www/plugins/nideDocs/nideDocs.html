@@ -1,0 +1,23 @@
+<!--
+ === Docs Tab ===
+ -->
+ 
+<div id='NideDocsPanel' class="col-auto d-flex flex-column" style="width:20%;height:100%;margin:0;padding:0;overflow:hidden">
+    <div>
+        <div class="input-group p-2 NideDocsSearchArea">
+            <button id="NideDocsSearchHistory" class="btn btn-light border-right-0 border" type="button" ><span>🔍</span></button>
+            <input type="search" id="NideDocsSearchText" class="form-control py-2 border-left-0 border" placeholder="filter...">
+        </div>
+    </div>
+    <div class="flex-grow-1 ag-theme-dark" style="width:100%;position:relative">
+        <div id="NideDocsNav" style="height:100%;width:100%;margin:0;padding:0;position:absolute"></div>
+        <div id="NideDocsSearchNav" class="d-none" style="height:100%;width:100%;margin:0;padding:0;position:absolute"></div>
+    </div>
+</div>
+<div id='NideDocsViewArea' class="col-auto d-flex flex-column" style="width:80%;height:100%;margin:0;padding:0;overflow:hidden">
+    <div class="flex-grow-1" style="width:100%;position:relative">
+        <div class="col-auto" style="height:100%;margin:0;padding:0">
+            <div id="NideDocsViewer" class="container h-100"></div>
+        </div>
+    </div>
+</div>

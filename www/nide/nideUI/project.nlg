@@ -1,0 +1,851 @@
+/*
+ * project.nlg
+ * NaanIDE
+ *
+ *     NaanIDE UI for the project tab.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2018-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * projectBoxTab
+ *
+ *     Make a projectBoxTab object. The caller passes a dictionary defining the objects that control 
+ * each page. WHen a page goes active/inactive then it is called with .navtab(active, ident) before 
+ * it is hidden or after it has become active.
+ *
+ */
+
+closure projectBoxTab(objs, local navbar, structure, tab) {
+    navbar = new(object, this)
+
+    //
+    // This is the structure of the tabs and pages. Exactly one page is visible
+    // at a time and tabs can be enabled or disabled.
+    //
+
+    structure = [
+        {   ident:  "edit",     menu: "NideProjectBoxEdit",     page: "NideProjectNav"    },
+        {   ident:  "search",   menu: "NideProjectBoxSearch",   page: "NideProjectSearch"    }
+    ]
+    navbar.items = []
+    for item in structure {
+        tab = {
+            ident:      item.ident,
+            menu:       document.getElementById(item.menu),
+            page:       document.getElementById(item.page),
+        }
+        tab.classList = tab.menu.classList
+        closure(ident, menu) {                                              // create a listener for each click
+            menu.addEventListener("click", function() {
+                navbar.selectPage(ident)
+            })
+        } (tab.ident, tab.menu)
+        navbar.items.push(tab)
+    }
+
+    // identItem(ident) - get item for ident, else false
+    navbar.identItem = function identItem(ident) {
+        for item in navbar.items
+            if item.ident == ident
+                return (item)
+        return (false)
+    }
+
+    // disabled(ident) - true iff ident is disabled
+    navbar.disabled = function disabled(ident, local item) {
+        item = navbar.identItem(ident)
+        if not item
+            return (true)
+        return (item.classList.contains("disabled"))
+    }
+
+    // selectPage(ident) - select only the specified page
+    navbar.selectPage = function selectPage(ident) {
+        if disabled(ident)
+            return
+        navbar.active = false
+        for item in navbar.items
+            if item.ident == ident {
+                item.classList.add("nide-navlink-active")
+                item.page.style.visibility = ""
+                navbar.active = ident
+            } else {
+                if item.classList.contains("nide-navlink-active")
+                    objs[item.ident].navtab(false, item.ident)
+                item.classList.remove("nide-navlink-active")
+                item.page.style.visibility = "hidden"
+            }
+        if navbar.active
+            objs[navbar.active].navtab(true, navbar.active)
+    }
+    
+    // navbar.objForIdent(ident)    - return object for that page
+    navbar.objForIdent = function objForIdent(ident) { objs[ident] }
+
+    // nabar.activeObj()            - return object for active page
+    navbar.activeObj = function activeObj() { objs[navbar.active] }
+
+    navbar
+};
+
+
+/*
+ * projectBreadcrumb
+ *
+ *     Manage the breadcrumb element for our currently active file.
+ *
+ */
+
+closure projectBreadcrumb(divid, local crumbs) {
+    crumbs = new(object, this)
+    crumbs.div = document.getElementById(divid)
+    
+    // imagePath
+    //
+    // Return the image file path to use for a type: zero for a folder, 1 for saved, and -1 for
+    // an unsaved document.
+    //
+    function imagePath(type, local imageFile) {
+        if type == -1
+            imageFile = "DocumentUnsaved.ico"
+        else if type == 1
+            imageFile = "Document.ico"
+        else
+            imageFile = "FolderIcon.ico"
+        strcat("exlib/images/", imageFile)
+    }
+    
+    // itemHTML
+    //
+    // Return the HTML to render a breadcrumb trail item. The type is zero for a folder, 1 for saved,
+    // and -1 for unsaved.
+    //
+    function itemHTML(name, type, local classes) {
+        classes = ["breadcrumb-item", "nide-navlink"]
+        strcat("<li class='", classes.join(" "), "'>",
+            "<img class='nide-navimage' src='", imagePath(type), "'", "/>&nbsp;",
+            escapeHTML(name),  "</li>")
+    }
+
+    // setTrail
+    //
+    // Set the breadcrumb trail to the specified array of strings.
+    //
+    crumbs.setTrail = closure setTrail(trail, saved, callback, local itemdex, item, classes) {
+        crumbs.fileImageElement = false
+        crumbs.div.innerHTML = ""
+        itemdex = 0
+        for item in trail
+            closure(itemdex, item, local itemdiv, classes, type) {
+                itemdiv = document.createElement("div")
+                if itemdex < trail.length-1
+                    type = 0
+                else if saved
+                    type = 1
+                else
+                    type = -1
+                itemdiv.innerHTML = itemHTML(item, type)
+                itemdiv = itemdiv.firstChild
+                crumbs.div.append(itemdiv)
+                if type != 0
+                    crumbs.fileImageElement = itemdiv.firstChild
+                itemdiv.onclick = function (event) {
+                    event.preventDefault()
+                    callback(event, itemdex, trail, itemdiv)
+                }
+            } (itemdex++, item)
+    }
+    
+    // setSaveStatus
+    //
+    // Set the current breadcrumb trail document icon as saved or not.
+    //
+    crumbs.setSaveStatus = function setSaveStatus(saved, local type) {
+        if saved
+            type = 1
+        else
+            type = -1
+        crumbs.fileImageElement.src = imagePath(type)
+    }
+    
+    // finis
+    crumbs
+};
+
+
+/*
+ * MakeProject
+ *
+ *     Make a project tab object.
+ *
+ */
+
+closure MakeProject(niui, local project, txeditdiv, pecondiv) {
+    project = new(object, this)
+    project.storeIDs = {}
+    project.sessionList = []
+    project.hiseldiv = document.getElementById("NideProjectNav")
+    project.hisel = require("nide/nideUI/hisel.nlg").MakeHisel("NideProjectNav")
+    project.proBoxDiv = document.getElementById("NideProjectBox")
+    project.projectEditDiv = document.getElementById("NideProjectEditor")
+    project.editPreviewDiv = document.getElementById("NideEditPreviewer")
+    project.editAreaDiv = document.getElementById("NideEditArea")
+    // image editor
+    project.imageEditorDiv = document.getElementById("NideProjectImageEditor")
+    project.imageEditor = require("nide/nideUI/ped_image.nlg").MakeImageEditor(project.imageEditorDiv, project)
+    // text editor
+    project.textEditorDiv = document.getElementById("NideProjectTextEditor")
+    project.textEditor = require("nide/nideUI/ped_diff.nlg").MakeDiffEditor(project.textEditorDiv, project)
+    project.diffMode = project.textEditor.diffMode
+    // project editor
+    project.projEditorDiv = document.getElementById("NideProjectAltEditor")
+    pecondiv = document.getElementById("nideProjectEditorContent")
+    pecondiv = pecondiv.cloneNode(true)
+    project.projEditorDiv.appendChild(pecondiv)
+    project.projEditor = require("nide/nideUI/ped_project.nlg").MakeProjectEditor(pecondiv, project)
+    // header controls
+    project.prevDoc = document.getElementById("NideEditPrevious")
+    project.nextDoc = document.getElementById("NideEditNext")
+    project.butDiffEdit = document.getElementById("NideEditDiff")
+    // search
+    project.searchText = document.getElementById("NideSearchText")
+    project.searchedSelDiv = document.getElementById("NideSearchNav")
+    project.searchedSel = require("nide/nideUI/hisel.nlg").MakeSearchedSel("NideSearchNav")
+    // breadcrumb
+    project.crumbs = projectBreadcrumb("NideProjectBreadcrumb")
+    // box tab for Nav vs. Search
+    project.boxTab = projectBoxTab({                                        // these are the controller objects for each page
+        edit: project.hisel,
+        search: project.boxSearch
+    })
+    
+
+    // warnAlert
+    //
+    // Alert for an i/o failure.
+    
+    function warnAlert(path, error) {
+        niui.alert("<b>Operation failed</b><br>".concat(path, "<br>", ErrorString(error)), { class: "alert-warning" })
+    }
+
+    // navtab
+    //
+    // Informs us whether we are being shown or hidden.
+    
+    project.navtab = function navtab(visible) {
+        if visible
+            setCurrentEditor(project.activeEditor)                          // show our previously-activated editor
+        else
+            setCurrentEditor()                                              // don't show any editors
+        project.activeEditor.navtab(visible)
+    }
+        
+    // editorCleanup
+    //
+    // Verify all sessions are present and remove any that are no longer with us.
+    
+    function editorCleanup() {
+        project.imageEditor.cleanup()
+        project.textEditor.cleanup()
+        project.projEditor.cleanup()
+    }
+
+    // deleteNode
+    //
+    // Delete the selected node with confirmation dialog.
+    
+    project.deleteNode = function deleteNode(node, local result) {
+        if node.path && window.confirm("Really delete ".concat(node.path, " ?")) {
+            result = project.fm.delete(node)
+            if result.0
+                warnAlert(node.path, result.0)
+        }
+    }
+
+    // contextMenus
+    //
+    // Context menus for editor and for hisel control.
+
+    project.hiseldiv.addEventListener("contextmenu", function(event) {
+        zux.MenuContext(event,
+            ["Rename",                                                      // 0
+            "Reveal in Finder",                                             // 1
+            "Duplicate",                                                    // 2
+            "-",        
+            "Delete",                                                       // 4
+            "-",
+            "New Folder",                                                   // 6
+            "New File",                                                     // 7
+            "-",
+            "Refresh Tree"                                                  // 9
+        ], {}, function(event, itemdex, itemdiv, local node, root, result) {
+            node = project.hisel.focusedCellData()
+            root = node.path == ""
+            if itemdex == 0 {                                               // Rename selected node
+                if !root
+                    project.hisel.editFocusedCell()
+            }
+            else if itemdex == 1 {                                          // Reveal selected node
+                result = project.fm.reveal(node)
+            }
+            else if itemdex == 2 {                                          // Duplicate selected node
+                if !root
+                    result = project.fm.duplicate(node)
+            }
+            else if itemdex == 4 {                                          // Delete selected node
+                deleteNode(node)
+            }
+            else if itemdex == 6 {                                          // New Folder
+                result = project.fm.newFolder(node)
+            }
+            else if itemdex == 7 {                                          // New File
+                result = project.fm.newFile(node)
+            }
+            else if itemdex == 9 {                                          // Refresh Tree
+                project.fm.update()
+            }
+            if result.0 {
+                niui.alert("<b>Operation failed</b><br>".concat(node.path, "<br>", ErrorString(result.0)), { class: "alert-warning" })
+            }
+        })
+    })
+
+    txeditdiv = document.getElementById("NideProjectEditor")
+    txeditdiv.addEventListener("contextmenu", function(event) {
+        zux.MenuContext(event, ["txedit1", "txedit2"], {}, function(event, itemdex, itemdiv) {
+            debuglog("text editor context menu selection", itemdex)
+        })
+    })
+
+    // focus
+    
+    project.focus = function(event) {
+        project.activeEditor.updateSession(project.activeStoreID)
+        project.fm.gitRefresh()
+    }
+    
+    // setCurrentSession
+    //
+    // Make storeID the current session and frontmost of the session list.
+    
+    function setCurrentSession(treeNode, local store, storeID, sdex) {
+        store = project.fm.store(treeNode)                                  // storage for this particular file
+        storeID = store.uuid
+        sdex = project.sessionList.indexOf(storeID)
+        if sdex >= 0
+            project.sessionList.splice(sdex, 1)
+        project.sessionList.push(storeID)
+    }
+
+    // setAdjacentSession
+    //
+    // Switch editors to the adjacent session when adjusted as specified by -1, 0, or 1.
+    
+    function setAdjacentSession(adjust, local sdex, ndex, storeID, store, rowNode) {
+        sdex = project.sessionList.indexOf(project.activeStoreID)
+        if sdex >= 0 {
+            ndex = sdex + adjust
+            if ndex >= 0 && ndex < project.sessionList.length
+                storeID = project.sessionList[ndex] }
+        if storeID && (store = project.storeIDs[storeID])
+            && (rowNode = project.hisel.relpathToRowNode(store.path))
+            setEditor(rowNode.data)
+    }
+    
+    // updateSessionArrows
+    //
+    // Ensure session arrows are enabled or disabled correctly for the active session.
+    
+    function updateSessionArrows(local sdex) {
+        sdex = project.sessionList.indexOf(project.activeStoreID)
+        setElementClass(project.prevDoc, "nide-session-end", sdex <= 0)
+        setElementClass(project.nextDoc, "nide-session-end", sdex < 0 || sdex == project.sessionList.length-1)
+    }
+        
+    // prevDoc
+    // nextDoc
+
+    project.prevDoc.addEventListener("click", function(event, local storeID) {
+        event.preventDefault()
+        setAdjacentSession(-1)
+    })
+    
+    project.nextDoc.addEventListener("click", function(event) {
+        event.preventDefault()
+        setAdjacentSession(1)
+    })
+        
+    // updateDiffEdit
+    //
+    // Ensure diff mode button is set properly.
+    
+    function updateDiffEdit(local enabled) {
+        enabled = !!(project.activeEditor && project.activeEditor.enableDiffView)
+        setElementClass(project.butDiffEdit, "disabled", !enabled)
+        setElementClass(project.butDiffEdit, "btn-primary", enabled && project.diffMode)
+        setElementClass(project.butDiffEdit, "btn-outline-secondary", !(enabled && project.diffMode))
+    }
+
+    // butDiffEdit
+    
+    project.butDiffEdit.addEventListener("click", function (event) {
+        project.diffMode = !project.diffMode
+        updateDiffEdit()
+        project.diffMode = project.activeEditor.enableDiffView(project.diffMode)
+    })
+
+    // saveAll
+    // eventSave
+
+    window.addEventListener("NaanSave", function saveAll(event) {
+        project.textEditor.saveAll()
+        project.imageEditor.saveAll()
+        project.projEditor.saveAll()
+    })
+
+    project.eventSave = function eventSave(event) {
+        project.activeEditor.sessionSave(project.activeStoreID)
+    }
+    
+    // eventFind
+    
+    project.eventFind = function (event) {
+        project.activeEditor.find()
+    }
+        
+    // eventFindNext
+    
+    project.eventFindNext = function (event) {
+        project.activeEditor.findNext()
+    }
+            
+    // eventFindFiles
+    
+    project.eventFindFiles = function (event) {
+        project.boxTab.selectPage("search")                                 // make sure search is visible
+        project.searchText.select()
+        project.searchText.focus()
+    }
+
+    // eventBack
+    
+    project.eventBack = function (event) {
+        setAdjacentSession(-1)
+    }
+        
+    // eventForward
+    
+    project.eventForward = function (event) {
+        setAdjacentSession(1)
+    }
+
+    // window resize event
+    
+    window.addEventListener("resize", function() {
+        future(function winResizeF(){sizeToFit()}, 0)
+        // future(function winResizeF(){project.searchedSel.sizeToFit(20)}, 0)
+    })
+
+    // widthAdjuster
+    //
+    // Control for adjusting the width of the project box vs. the editor
+
+    project.widthAdjuster = zux.SplitAdjuster("NideProjectBoxAdjuster", project.proBoxDiv, project.projectEditDiv, { }, function(adj, pct) {
+        adj.setProportion(pct)
+        future(function divAdjustTree(){sizeToFit()}, 400)
+        future(function divAdjustEditor(){ project.activeEditor.resize() }, 10)
+    })
+    
+    // adjusterPreview
+    //
+    // Control for adjusting the width of the previewer vs. the editor
+
+    project.heightAdjuster = zux.SplitAdjuster("NideEditViewAdjuster", project.editPreviewDiv, project.editAreaDiv, {
+            minpct: 0
+            ro2: true
+        }, function(adj, pct) {
+            adj.setProportion(pct)
+            projectPreviewPct = pct
+            future(function divAdjustForPreview(){
+                project.activeEditor.resize()
+                sizeToFit() }, 1)
+    })
+    
+    // setPreviewVisibility
+    //
+    // Set the preview visible or not
+    
+    project.setPreviewVisibility = function setPreviewVisibility(vis) {
+        if vis
+            project.heightAdjuster.setProportion(projectPreviewPct)
+        else
+            project.heightAdjuster.setProportion(0)
+    }
+
+    // sizeToFit
+    //
+    // Tell the tree controls to resize
+    
+    function sizeToFit() {
+        project.hisel.sizeToFit()
+    }
+
+    // setCurrentEditor
+    //
+    // Set the specified editor to be visible, or hide them all.
+
+    function setCurrentEditor(editor, local displayText, displayImage, displayProject) {
+        displayText = displayImage = displayProject = "none"
+        if editor eq project.textEditor
+            displayText = "flex"
+        else if editor eq project.imageEditor
+            displayImage = "flex"
+        else if editor eq project.projEditor
+            displayProject = "flex"
+        project.textEditorDiv.style.display = displayText
+        project.imageEditorDiv.style.display = displayImage
+        project.projEditorDiv.style.display = displayProject
+        if editor
+            project.activeEditor = editor
+        updateDiffEdit()
+    }
+
+    // setEditor
+    //
+    // Set the active editor and edit session for the specified treeNode.  This returns true iff an
+    // editor was chosen.
+    
+    function setEditor(treeNode, lineno, local store, editor, storeID) {
+        store = project.fm.store(treeNode)                                  // storage for this particular file
+        storeID = store.uuid
+        project.storeIDs[storeID] = store
+        if storeID == project.activeStoreID
+            return                                                          // no change
+        if project.imageEditor.sessionLookup(storeID)
+            editor = project.imageEditor
+        else if project.textEditor.sessionLookup(storeID)
+            editor = project.textEditor
+        else if !treeNode.children {                                        // a file in the project
+            if project.imageEditor.test(storeID, treeNode.name)
+                editor = project.imageEditor                                // image editor willing to accept this file
+            else
+                editor = project.textEditor                                 // text editor is default
+        } else if !treeNode.path || treeNode.path == ""
+            editor = project.projEditor                                     // root of tree is project itself
+        else
+            return (false)                                                  // no change for click on directory
+        setCurrentEditor(editor)
+        editor.makeSession(storeID, treeNode.name)
+        editor.activateSession(storeID)
+        editor.updateSession(storeID, lineno)
+        project.activeTrail = treeNode.path.split(project.fm.pathsep)
+        project.crumbs.setTrail(project.activeTrail, !treeNode.data.unsaved, function(event, itemdex, trail, itemdiv, local selpath, rowNode) {
+            selpath = project.activeTrail.slice(0, itemdex+1).join(project.fm.pathsep)
+            rowNode = project.hisel.relpathToRowNode(selpath)
+            project.hisel.openAndSelect(rowNode)
+            project.boxTab.selectPage("edit")                               // make sure navigator is visible
+        })
+        project.activeStoreID = storeID
+        updateSessionArrows()
+        return (true)
+    }
+
+    // hiselNodeSelect
+    //
+    // User made a selection in the tree. This returns true to accept the selection.
+
+    project.hiselNodeSelect = function hiselNodeSelect(treeNode) {
+        setCurrentSession(treeNode)
+        setEditor(treeNode)
+    }
+        
+    // hiselNodeRename
+    //
+    // User renamed a node in the tree. Returns true to accept the rename or false to revert it.
+
+    project.hiselNodeRename = function hiselNodeRename(node, origname) {
+        if !node.path
+            false
+        else {
+            `(error, data) = project.fm.rename(node, node.name)
+            if error {
+                warnAlert(node.path, error)
+                false }                                                     // reject rename
+            else
+                true                                                        // accept the rename
+        }
+    }
+    
+    // docTest
+    //
+    // Test if the specified document is still in the tree.
+    
+    project.docTest = function docTest(storeID, local store) {
+        store = project.storeIDs[storeID]
+        store && !store.deleted && store.exists()
+    }
+    
+    // docLoad
+    //
+    // Update the current session by re-reading the file if it is unchanged.
+
+    project.docLoad = closure docLoad(storeID, options, callback, local store) {
+        store = project.storeIDs[storeID]
+        if !store || store.deleted
+            future(function(){callback(Error("document missing"))}).run()
+        else
+            store.read(options, function(error, content) {
+                if error
+                    niui.alert("<b>Trouble reading file</b><br>".concat(path, "<br>", ErrorString(error)), { class: "alert-warning" })
+                callback(error, content) 
+            })
+    }
+    
+    // docLoadRight
+    //
+    // Update the current session by re-reading the file if it is unchanged.
+
+    project.docLoadRight = closure docLoadRight(storeID, options, callback, local store) {
+        store = project.storeIDs[storeID]
+        if !store || store.deleted
+            future(function(){callback(Error("document missing"))}).run()
+        else
+            store.gitLoadFileHead(function(error, content) {
+                if error
+                    niui.alert("<b>Trouble reading git</b><br>".concat(path, "<br>", ErrorString(error)), { class: "alert-warning", timeout: 2000 })
+                callback(error, content) 
+            })
+    }
+
+    // docStatusChange
+    //
+    // The document saved/unsaved status has changed.
+    
+    project.docStatusChange = closure docStatusChange(storeID, unsaved, local rowNode, store) {
+        store = project.storeIDs[storeID]
+        if store {
+            rowNode = project.hisel.relpathToRowNode(store.path)
+            rowNode.data.unsaved = unsaved
+            project.hisel.refreshRowNode(rowNode)
+            project.crumbs.setSaveStatus(!unsaved)
+        }
+    }
+    
+    // docAnnotations
+    //
+    // Return the current document annotations, or false if none exist.
+    
+    project.docAnnotations = function docAnnotations(storeID) {
+        project.storeIDs[storeID].node().annotations
+    }
+    
+    // docSave
+    //
+    // Save the specified document.
+    //
+
+    project.docSave = closure docSave(storeID, text, callback, local store) {
+        store = project.storeIDs[storeID]
+        if !store || store.deleted
+            future(function(){callback(Error("document disappeared"))}).run()
+        else
+            store.write(text, { }, function(error, data) {
+                if error
+                    niui.alert("<b>Trouble writing file</b><br>".concat(path, "<br>", ErrorString(error)), { class: "alert-warning" })
+                callback(error, data)
+            })
+    }
+        
+    // docSaveRight
+    //
+    // Save the specified document.
+
+    project.docSaveRight = closure docSaveRight(storeID, text, callback, local store) {
+        debuglog("docSaveRight not implemented")
+    }
+
+    // search
+    //
+    // Global search for text across project.
+    
+    project.searchText.addEventListener("keyup", function(event) {
+        if (event.key == "Enter") {
+            project.searchText.select()
+            project.searchFiles(project.searchText.value)
+        }
+    })
+
+    project.searchText.addEventListener("input", function(event) {
+        if event.target.value == ""
+            project.searchedSel.setResults()
+    })
+    
+    // project.searchFiles
+    //
+    // Search files within project directory having text matching the specified pattern.
+    //
+    project.searchFiles = closure searchFiles(pattern, local config, results, matchRE) {
+        project.searchedSel.setResults()
+        project.searchedSel.setHeaderText("Searching...")
+        config = project.current.fm.findConfig()
+        config.pattern = pattern
+        matchRE = project.current.fm.findRegex(config, true)
+        results = project.current.fm.findLines(config)
+        project.searchedSel.setHeaderText("Loading...")
+        future(function() {
+            project.searchedSel.setResults(results, matchRE, function searchClick(resultnode) {
+                if resultnode.file {
+                    setCurrentSession(resultnode.file.node)
+                    setEditor(resultnode.file.node, resultnode.item)
+                    project.activeEditor.scrollTo(resultnode.item) }
+                else {
+                    setCurrentSession(resultnode.item)
+                    setEditor(resultnode.item) }
+            }) }, 100)
+    }
+
+    // projectBecameActive
+    //
+    // Configure us to work on the current project.
+
+    project.projectBecameActive = function projectBecameActive(proj) {
+        project.closeProject()
+        sizeToFit()
+        project.current = proj
+        project.fs = proj.fs
+        project.fm = proj.fm
+        project.storeIDs = {}
+        project.sessionList = []
+        project.hisel.setHeaderText("Loading...")
+        project.hisel.setTree(project.current.fm, project)
+        editorCleanup()
+        project.fm.watch(function (classID, changelist, local node, store) {
+            if changelist.deleted.length > 0
+                editorCleanup()
+            if classID == "annotations"
+                for node in changelist.changed {
+                    store = project.fm.stored(node)
+                    project.activeEditor.sessionUpdateAnnotations(store.uuid) }
+        })
+    }
+
+    // closeProject
+    //
+    // Close our project after saving any unsaved changes.
+    
+    project.closeProject = function closeProject() {
+        if project.current {
+            project.imageEditor.saveAll()
+            project.imageEditor.reset()
+            project.textEditor.saveAll()
+            project.textEditor.reset()
+            project.projEditor.saveAll()
+            project.projEditor.reset()
+            project.hisel.setTree()
+            project.current = false
+            project.storeIDs = {}
+            project.sessionList = []
+            project.fs = false
+            project.fm = false }
+    }
+    
+    //
+    // notifications
+    //
+    
+    niui.watchable.watch(function(who, changes) {
+        if changes.opened
+            projectBecameActive(changes.opened)
+        if changes.closed
+            closeProject()
+    })
+
+    // runProject
+    //
+    // Build and run our project
+
+    project.build = function build(event, local buildOnly) {
+        project.fm.clearAnnotations()
+        buildOnly = event.shiftKey
+        project.runProject(buildOnly)
+    }
+
+    project.runProject = function(buildOnly, local progress, error, buildno) {
+        progress = niui.progress()
+        `(error, buildno) = project.current.run(buildOnly)
+        progress.done()
+        if error.summary {
+            niui.alert("<h5>project failed to build</h5><hr>".concat(ErrorString(error.errors.0)),
+                {class:"alert-danger"})                                     // ### should handle multiple errors in error.errors
+            for file in error.files
+                project.fm.annotate(file.path, file.annotations)
+        }
+        else if error {
+            niui.alert("<h5>project failed to run</h5><hr>".concat(ErrorString(error)),
+                {class:"alert-warning"})
+        }
+        else {
+            niui.alert("<strong>build ".concat(buildno, " completed successfully</strong>"),
+                {class:"alert-success", timeout:1000})
+            project.fm.clearAnnotations()
+            if !buildOnly && project.current.runPageDebug
+                niui.navbar.selectPage("debug") }
+    }
+    
+    // publishProject
+    //
+    // Run our project
+    
+    project.publishProject = function(local progress, error, data) {
+        progress = niui.progress()
+        `(error, data) = project.current.config.publish()
+        progress.done()
+        if error {
+            niui.alert("<h5>failed to publish</h5><hr>".concat(ErrorString(error)),
+                {class:"alert-warning"})
+        }
+        else
+            niui.alert("<strong>publish completed successfully</strong>",
+                {class:"alert-success", timeout:1000})
+    }
+
+    // final initialization
+
+    setCurrentEditor()
+    updateSessionArrows()
+    updateDiffEdit()
+    project.widthAdjuster.setProportion(projectLeftPct)
+    project.setPreviewVisibility(false)
+    project.boxTab.selectPage("edit")
+
+    project
+};
+
+
+/*
+ * projectInit
+ *
+ *     Initialize the project tab component.
+ *
+ */
+
+function projectInit(local manifest) {
+
+    manifest = `(projectBoxTab, projectBreadcrumb, MakeProject, projectInit)
+
+    Naan.module.build(module.id, "project", function(modobj, compobj) {
+        require("nide/nideUI/nideUI.nlg")
+        compobj.manifest = manifest
+        modobj.exports.MakeProject = MakeProject
+    })
+
+    if projectLeftPct eq `projectLeftPct
+        projectLeftPct = 20
+    if projectPreviewPct eq `projectPreviewPct
+        projectPreviewPct = 20
+} ();

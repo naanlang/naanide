@@ -1,0 +1,548 @@
+/*
+ * hisel.nlg
+ * NaanIDE
+ *
+ *     Naan UI for selecting in a hierarchy.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2018-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * makeHisel
+ *
+ *     Make a hierarchy selection object.
+ *
+ */
+
+closure makeHisel(divid, local hisel, columnDefs, rowData, delayer) {
+    hisel = new(object, this)
+    hisel.divid = divid
+
+    rowData = []
+
+    function sizeCellStyle() {
+        return ({"text-align": "right"})
+    }
+
+    function innerCellRenderer(params, local image, imageFullUrl, imageStyle, textSpan, gitClass) {
+        if (params.node.data.children) {
+            if params.node.data.path != ""
+                image = "FolderIcon.ico"
+            else
+                image = "file-disk.png"
+        } else if params.node.data.unsaved
+            image = "DocumentUnsaved.ico"
+        else
+            image = "Document.ico"
+        imageFullUrl = "exlib/images/".concat(image)
+        imageStyle = "style=\"padding-bottom:3px;".concat("height: ", params.node.rowHeight * 0.7, "px\"")
+        if params.node.data.annotations
+            textSpan = "<span class='nide-filerror'>".concat(params.data.name, "</span>")
+        else
+            textSpan = params.data.name
+        if params.data.gitstat {
+            if params.data.children
+                gitClass = "nide-git nide-gitparent"
+            else
+                gitClass = "nide-git nide-gitfile"
+            return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", textSpan,
+                "<span class='", gitClass, "'>", params.data.gitstat.trim(), "</span>"))
+        } else
+            return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", textSpan))
+    }
+
+    columnDefs = [
+        {
+            headerName: "Name", field: "name", minWidth: 250,
+            editable: true,
+            resizable: true
+            sortable: true
+            filter: true
+            cellRenderer: "agGroupCellRenderer",
+            cellRendererParams: {
+                innerRenderer: function(params){ innerCellRenderer(params) },
+                suppressCount: true
+            }
+        },
+    ]
+
+    hisel.gridOptions = xnew({
+        columnDefs: columnDefs,
+        rowData: rowData,
+        rowSelection: "multiple",
+        animateRows: true,
+        rowHeight: 24,
+        groupSelectsChildren: false,
+        enableGroupEdit: true,
+        rowClass: "ag-row-even",                                            // remove zebra striping
+        suppressHorizontalScroll: true,
+        getNodeChildDetails: function(node) {
+            if node.children && !node.error
+                return ({
+                    group: true,
+                    children: node.children.filter(function(item) {
+                        !item.deleted || item.gitstat                       // keep unless deleted and no git status
+                    }),
+                    expanded: node.path == "" || hisel.openIndex[node.path]
+                })
+            else
+                return (null)
+        },
+        onRowClicked: function(params, local treenode) {
+            treenode = params.node.data
+            if hisel.delegate.hiselNodeSelect(treenode, params.node)
+                selectOnly(params.node)
+        }
+        onCellEditingStarted: function(param) {
+            hisel.origname = param.data.name
+        }
+        onCellEditingStopped: function(param) {
+            if param.data.name == "" || param.data.name != hisel.origname && !hisel.delegate.hiselNodeRename(param.data, hisel.origname) {
+                param.data.name = hisel.origname                            // revert name
+                hisel.refreshRowNode(param.node)
+            }
+            else
+                hisel.pathIndex = undefined
+        }
+        onRowGroupOpened: function(param) {
+            // debuglog("rowGroupOpened", param.expanded)
+        }
+        onGridReady: function() {
+            hisel.sizeToFit()
+        }
+    })
+
+    hisel.gridiv = document.getElementById(divid)
+    hisel.agrid = xnew(window.agGrid.Grid, hisel.gridiv, hisel.gridOptions)
+    hisel.api = hisel.gridOptions.api
+    hisel.columnApi = hisel.gridOptions.columnApi
+
+    // relpathToRowNode
+    //
+    // Update our path index that associates relpaths with rowNodes
+    
+    hisel.relpathToRowNode = function relpathToRowNode(relpath) {
+        if !hisel.pathIndex {
+            hisel.pathIndex = { }
+            hisel.api.forEachNode(function(rowNode, index, local path) {
+                path = rowNode.data.path
+                if !path
+                    path = ""
+                hisel.pathIndex[path] = rowNode
+            }) }
+        hisel.pathIndex[relpath]
+    }
+
+    //
+    // refreshRowNode
+    //
+    hisel.refreshRowNode = function refreshRowNode(rowNode, local rn) {
+        if array(rowNode)
+            for rn in rowNode
+                refreshRowNode(rn)
+        else if rowNode
+            hisel.api.refreshCells({
+                rowNodes: [rowNode],
+                force: true
+            })
+    }
+
+    //
+    // focusedCellData
+    //
+    hisel.focusedCellData = function focusedCellData(local cell) {
+        cell = hisel.api.getFocusedCell()
+        row = hisel.api.getDisplayedRowAtIndex(cell.rowIndex)
+        row.data
+    }
+    
+    //
+    // editFocusedCell
+    //
+    hisel.editFocusedCell = closure editFocusedCell(cbdone, local cell, row) {
+        cell = hisel.api.getFocusedCell()
+        row = hisel.api.getDisplayedRowAtIndex(cell.rowIndex)
+        hisel.api.startEditingCell({
+            rowIndex: cell.rowIndex
+            colKey: cell.column.colId
+        })
+    }
+
+    //
+    // selectOnly
+    //
+    hisel.selectOnly = function selectOnly(selRowNode, local nodes) {
+        nodes = hisel.api.getSelectedNodes()
+        for row in nodes
+            if row != selRowNode
+                row.setSelected(false)
+        selRowNode.setSelected(true)
+    }
+    
+    //
+    // sizeToFit
+    //
+    hisel.sizeToFit = function sizeToFit() {
+        hisel.api.sizeColumnsToFit()
+    }
+    
+    // updateTree
+    //
+    //     Update for a modified tree.
+    //
+    hisel.updateTree = function updateTree(openpaths) {
+        delayer = { }
+        if !openpaths
+            openpaths = openPaths()                                      // save existing open folders
+        hisel.openIndex = { }
+        for path in openpaths
+            hisel.openIndex[path] = true
+        hisel.fm.waitFileList(function(error, nodes, local tree) {
+            nodes = hisel.fm.fileList()
+            delayer = false
+            if nodes[0]
+                tree = [nodes[0]]
+            else
+                tree = []
+            hisel.api.setRowData(tree)
+            hisel.openIndex = undefined
+            hisel.pathIndex = undefined
+            setHeaderText()
+        })
+    }
+
+    // delayedUpdate
+    //
+    // Update the tree after after a lull in activity, for improved performance with many updates.
+    //
+    function delayedUpdate() {
+        if delayer
+            delayer.run(500)                                                // wait 500 more msec
+        else
+            delayer = future(function() {
+                delayer = false
+                updateTree()
+            }, 500)                                                         // run in 500 msec
+    }
+
+    //
+    // updateOnChange
+    //
+    function updateOnChange(classID, changelist) {
+        delayedUpdate()
+    }
+
+    //
+    // setHeaderText
+    //
+    //     Set the header text, "Project Files" if blank.
+    //
+    hisel.setHeaderText = function setHeaderText(text) {
+        if !text
+            text = "Project Files"
+        hisel.columnApi.getAllColumns().0.colDef.headerName = text
+        hisel.api.refreshHeader()
+    }
+
+    //
+    // setTree
+    //
+    //     Set the specified file manager as the new content.
+    hisel.setTree = function setTree(fm, delegate, openpaths) {
+        if hisel.fm
+            hisel.fm.unWatch(updateOnChange)
+        hisel.fm = fm
+        hisel.fm.watch(updateOnChange)
+        hisel.delegate = delegate
+        updateTree(openpaths)
+    }
+
+    // delNode
+    //
+    //     Note that a node was deleted.
+    
+    hisel.delNode = function delNode(node) {
+        hisel.api.updateRowData({
+            remove: [node]
+        })
+    }
+
+    // openPaths
+    //
+    //     Return an array of relpaths that are expanded. The path of the root is "".
+    
+    hisel.openPaths = function openPaths(local pathlist) {
+        pathlist = []
+        hisel.api.forEachNode(function(rowNode, index, local path) {
+            if rowNode.data.children && rowNode.expanded {
+                path = rowNode.data.path
+                if !path
+                    path = ""
+                pathlist.push(path)
+            }
+        })
+        pathlist
+    }
+
+    //
+    // getFileList
+    //
+    //     Return an array of files in the current tree. Each element contains the full pathname
+    // of the file.
+    
+    hisel.getFileList = function getFileList(local files) {
+        files = []
+        hisel.api.forEachLeafNode(function(rowNode, index) {
+            files.push(rowNode.data.path.concat(rowNode.data.name))
+        })
+        files
+    }
+    
+    //
+    // openAndSelect
+    //
+    //     Open the parents of the specified rowNode and then select it.
+    
+    hisel.openAndSelect = function openAndSelect(rowNode, local count) {
+        count = 0
+        function openParent(rowNode) {                                      // open chain of parents
+            if rowNode {
+                if !rowNode.expanded
+                    ++count
+                openParent(rowNode.parent)
+                if count >= 2 {
+                    rowNode.expanded = true                                 // 2 or more expansions
+                    return (true)
+                }
+                rowNode.setExpanded(true)
+                return (false) }
+        }
+        if openParent(rowNode.parent)
+            hisel.api.onGroupExpandedOrCollapsed()                          // refresh all expansions at once
+        selectOnly(rowNode)
+        hisel.api.ensureNodeVisible(rowNode)
+    }
+
+    // finis
+
+    hisel
+};
+
+
+/*
+ * searchedSel
+ *
+ *     Make a search result selection object.
+ *
+ */
+
+closure searchedSel(divid, local sesel, columnDefs, rowData) {
+    sesel = new(object, this)
+    sesel.divid = divid
+
+    rowData = []
+
+    function sizeCellStyle() {
+        return ({"text-align": "right"})
+    }
+
+    function innerCellRenderer(params, local image, imageFullUrl, imageStyle) {
+        if params.data.lines {
+            image = "Document.ico"
+            imageFullUrl = "exlib/images/".concat(image)
+            imageStyle = "style=\"padding-bottom:3px;".concat("height: ", params.node.rowHeight * 0.7, "px\"")
+            return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", params.data.item.name)) }
+        else
+            return (sesel.hilightFound(params.data.text))
+    }
+
+    columnDefs = [
+        {
+            headerName: "Results", field: "item", minWidth: 250,
+            autoHeight: true
+            resizable: true
+            sortable: true
+            filter: true
+            cellRenderer: "agGroupCellRenderer",
+            cellRendererParams: {
+                innerRenderer: function(params) { innerCellRenderer(params) },
+                suppressCount: true
+            }
+            cellStyle: function(params) {
+                if !params.data.lines
+                    return ({ whiteSpace: "normal", wordBreak: "break-all", maxHeight: "75px" })
+                else
+                    return (null)
+            }
+        }
+    ]
+
+    sesel.gridOptions = xnew({
+        columnDefs: columnDefs,
+        rowData: rowData,
+        rowSelection: "multiple",
+        animateRows: true,
+        rowHeight: 24,
+        groupSelectsChildren: false,
+        suppressHorizontalScroll: true,
+        getNodeChildDetails: function(node) {
+            if node.lines
+                return ({
+                    group: true,
+                    children: node.lines,
+                    expanded: true
+                })
+            else
+                return (null)
+        },
+        onRowClicked: function(params) {
+            if call(sesel.delegate, params.node.data, params.node)
+                selectOnly(params.node)
+        }
+        onGridReady: function() {
+            sesel.sizeToFit()
+        }
+    })
+
+    sesel.gridiv = document.getElementById(divid)
+    sesel.agrid = xnew(window.agGrid.Grid, sesel.gridiv, sesel.gridOptions)
+    sesel.api = sesel.gridOptions.api
+    sesel.columnApi = sesel.gridOptions.columnApi
+
+    //
+    // refreshRowNode
+    //
+    sesel.refreshRowNode = function(rowNode) {
+        sesel.api.refreshCells({
+            rowNodes: [rowNode],
+            force: true
+        })
+    }
+
+    //
+    // focusedCellData
+    //
+    sesel.focusedCellData = function focusedCellData(local cell) {
+        cell = sesel.api.getFocusedCell()
+        row = sesel.api.getDisplayedRowAtIndex(cell.rowIndex)
+        row.data
+    }
+
+    //
+    // selectOnly
+    //
+    sesel.selectOnly = function selectOnly(selRowNode, local nodes) {
+        nodes = sesel.api.getSelectedNodes()
+        for row in nodes
+            if row != selRowNode
+                row.setSelected(false)
+        selRowNode.setSelected(true)
+    }
+    
+    //
+    // sizeToFit
+    //
+    sesel.sizeToFit = function sizeToFit(local div, rect, width) {
+        div = document.getElementById(divid)
+        rect = div.getBoundingClientRect()
+        width = rect.right-rect.left
+        width -= 17
+        sesel.columnApi.setColumnWidth("item", width)
+    }
+    
+    //
+    // hilightFound
+    //
+    // This matches the found text expression and inserts hilighting. Unfortunately this doesn't work
+    // if the found text expression includes the HTML that is stripped. A more comprehensive solution
+    // would replace the match expressions first with something not in the original text, then strip
+    // the result, and then swap the hilights back in. While we're at it, lets strip off enough text
+    // at the beginning so that the found patterns are visible in the 3 lines of text we are willing
+    // to show. Unfortunately no time for those nuances now.
+    //
+    //     "Real artists ship" -- Steve Jobs
+    //
+    sesel.hilightFound = function hilightFound(text, local result) {
+        text = escapeHTML(text)
+        if sesel.matchRE
+            text.replace(sesel.matchRE, function(match) {
+                "<span style='background-color: #007744'>".concat(match, "</span>")
+            })
+        else
+            text
+    }
+    
+    //
+    // setHeaderText
+    //
+    //     Set the header text, "Results" if blank.
+    //
+    sesel.setHeaderText = function setHeaderText(text) {
+        if !text
+            text = "Results"
+        sesel.columnApi.getAllColumns().0.colDef.headerName = text
+        sesel.api.refreshHeader()
+    }
+
+    //
+    // setResults
+    //
+    //     Set the specified results array as the new content.
+    //
+
+    sesel.setResults = function setResults(results, matchRE, delegate, local tree, rect, width) {
+        function fileToDicts(file, local dicts, line) {
+            dicts = []
+            for line in file.lines
+                dicts.push({
+                    file: file
+                    item: line.0
+                    text: line.1
+                })
+            dicts }
+
+        if results {
+            setHeaderText(strcat(results.foundCount, " results in ", results.foundFileCount, " files"))
+            tree = []
+            for file in results.files
+                tree.push({
+                    item: file.node
+                    lines: fileToDicts(file)
+                }) }
+        else
+            setHeaderText()
+        sesel.sizeToFit()
+        sesel.api.setRowData(tree)
+        sesel.delegate = delegate
+        sesel.matchRE = matchRE
+    }
+
+    // finis
+
+    sesel
+};
+
+
+/*
+ * hisInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function hisInit(local manifest) {
+
+    manifest = `(makeHisel, searchedSel, hisInit)
+
+    Naan.module.build(module.id, "hisel", function(modobj, compobj) {
+        require("nide/nideUI/nideUI.nlg")
+        compobj.manifest = manifest
+        modobj.exports.MakeHisel = makeHisel
+        modobj.exports.MakeSearchedSel = searchedSel
+    })
+
+} ();

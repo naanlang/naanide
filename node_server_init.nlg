@@ -1,0 +1,86 @@
+/*
+ * node_server_init.nlg
+ * Naanide
+ *
+ * Loaded automatically for Node.js before REPL turned over to the user.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2020-2022 by Richard C. Zulch
+ *
+ */
+
+loglevel(3);
+chns("Play");
+
+require("node_common_init.nlg");                                                // common for Naan node instances
+require("frameworks/running/debugnub.nlg", { in: "naanlib" }).DebugNub();       // debugger nub
+require("frameworks/running/taskexec.nlg", { in: "naanlib" }).TaskExecutor();   // task executor, used by GuiDebugger
+
+
+/*
+ * versionCheck
+ *
+ *     Ensure that Node is at least as new as the specified version.
+ *
+ */
+
+function versionCheck(minver, local rxver, curver) {
+    rxver = RegExp("([0-9]+)[.]([0-9]+)[.]([0-9]+)")
+    minver = minver.match(rxver).map(function(x){Number.parseInt(x)})
+    curver = js.g.process.version.match(rxver).map(function(x){Number.parseInt(x)})
+    minver[1] < curver[1] || minver[1] == curver[1] && (minver[2] < curver[2] || minver[2] == curver[2] && minver[3] <= curver[3])
+};
+
+cond (
+    if not versionCheck("14.14.0") {                                        // for fs.rm()
+        debuglog("NodeJS too old; version 14.14.0 required.")
+        js.r("process").exit(2)
+    }
+);
+
+
+/*
+ * browserLaunch
+ *
+ *     Launch the browser on our server, once it is open.
+ *
+ */
+
+closure browserLaunch(url, local open, result) {
+    open = js.r("open")
+    result = await(open(url, { app: {
+        name: [open.apps.chrome, open.apps.safari, open.apps.edge]
+    }}))
+    return (result)
+};
+
+
+/*
+ * open the server
+ *
+ */
+
+apis = require("frameworks/node/apiserver.nlg", { in: "naanlib" });
+api = apis.MakeAPI(8008, {
+        relpath: "www"
+        guid: require("frameworks/common").UUID()
+        statics: [
+            list("", NaanPath)
+        ]
+    }, function(err, port, server, local oururl, result) {
+        if err {
+            ErrorDebuglog("can't start", err)
+            js.r("process").exit(1)
+        } else {
+            require("frameworks/node/worker.nlg", { in: "naanlib" }).WorkerController(server)
+            oururl = "http://localhost:".concat(tostring(port), "/nide.html")
+            if server.guid
+                oururl = oururl.concat("?guid=", server.guid)
+            debuglog("server access:", oururl)
+            result = browserLaunch(oururl)
+            if result.0
+                ErrorDebuglog("can't launch browser:", ErrorString(result.0))
+    }
+});
+

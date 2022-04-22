@@ -1,0 +1,553 @@
+/*
+ * nideUI.nlg
+ * NaanIDE
+ *
+ *     NaanIDE UI for browsers.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2017-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * setElementClass
+ *
+ *     Add or remove a class from a DOM element.
+ *
+ */
+    
+function setElementClass(elem, className, present) {
+    if present {
+        if !elem.classList.contains(className)
+            elem.classList.add(className)
+    } else
+        elem.classList.remove(className)
+};
+
+
+/*
+ * escapeHTML
+ *
+ *     Escape some HTML into plain text.
+ *
+ */
+
+function escapeHTML(html) {
+    document.createElement("div")
+        .appendChild(document.createTextNode(html))
+        .parentNode
+        .innerHTML
+};
+
+
+/*
+ * initToolTips
+ *
+ *     Initialize tooltips within an element and its children.
+ *
+ */
+
+function initToolTips(element, local tooltipTriggerList) {
+    tooltipTriggerList = Array.from(element.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    niui.tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        js.w.bootstrap.Tooltip.getOrCreateInstance(tooltipTriggerEl)
+    })
+};
+
+
+/*
+ * makeNavBar
+ *
+ *     Make a navBar object. The caller passes a dictionary defining the objects that control each
+ * page. WHen a page goes active/inactive then it is called with .navtab(active, ident) before it
+ * is hidden or after it has become active.
+ *
+ */
+
+closure makeNavBar(objs, local navbar, structure, item) {
+    navbar = new(object, this)
+    navbar.tabs = new(nonce)                                                // goes away with UI
+    for item in objs
+        navbar.tabs[item] = objs[item]
+    navbar.items = []
+    navbar.menu = document.getElementById("NideNav")
+    navbar.menuBefore = document.getElementById("NideRunButton")
+    navbar.main = document.getElementById("NideMain")
+
+    //
+    // This is the structure of the tabs and pages. Exactly one page is visible
+    // at a time and tabs can be enabled or disabled.
+    //
+
+    structure = [
+        {   ident:  "home",     menu: "NideNavHome",        page: "NidePageHome"    }
+        {   ident:  "project",  menu: "NideNavProject",     page: "NidePageProject" }
+        {   ident:  "debug",    menu: "NideNavDebug",       page: "NidePageDebug"   }
+    ]
+    for item in structure
+        registerTab(item.ident, item.menu, item.page)
+    
+    // registerTab - register a tab in our list
+    function registerTab(ident, menu, page, local tab) {
+        tab = {
+            ident:      ident,
+            menu:       document.getElementById(menu),
+            page:       document.getElementById(page),
+        }
+        tab.classList = tab.menu.children.0.classList
+        closure(ident, menu) {                                              // create a listener for each click
+            menu.addEventListener("click", function() {
+                navbar.selectPage(ident)
+            })
+        } (tab.ident, tab.menu)
+        tab.classList.remove("active")
+        navbar.items.push(tab)
+    }
+    
+    // appendPage - create a tab page and add to end of list
+    navbar.appendPage = function appendPage(ident, name, html, obj, local item, link, page) {
+        if navbar.tabs[ident] {
+            debuglog("page already defined:", ident)
+            return
+        }
+        item = document.getElementById("NideNavHome").cloneNode(true)
+        item.id = "NideNav_".concat(ident)
+        link = item.getElementsByTagName("a").0
+        link.text = name
+        navbar.menu.insertBefore(item, navbar.menuBefore)
+        page = document.getElementById("NidePageHome").cloneNode(true)
+        page.style.visibility = "hidden"
+        page.innerHTML = html
+        page.id = "NidePage_".concat(ident)
+        navbar.main.appendChild(page)
+        registerTab(ident, item.id, page.id)
+        navbar.tabs[ident] = obj
+    }
+
+    // identItem(ident) - get item for ident, else false
+    navbar.identItem = function identItem(ident) {
+        for item in navbar.items
+            if item.ident == ident
+                return (item)
+        return (false)
+    }
+    
+    // setEnable(ident, enable)
+    navbar.setEnable = function setEnable(ident, enable, local item) {
+        item = navbar.identItem(ident)
+        if not item
+            return
+        if item.classList.contains("disabled") {
+            if enable
+                item.classList.remove("disabled")
+        } else if !enable
+            item.classList.add("disabled")
+    }
+
+    // disabled(ident) - true iff ident is disabled
+    navbar.disabled = function disabled(ident, local item) {
+        item = navbar.identItem(ident)
+        if not item
+            return (true)
+        return (item.classList.contains("disabled"))
+    }
+
+    // selectPage(ident) - select only the specified page
+    navbar.selectPage = function selectPage(ident) {
+        if disabled(ident)
+            return
+        navbar.active = false
+        for item in navbar.items
+            if item.ident == ident {
+                item.classList.add("active")
+                item.page.style.visibility = ""
+                navbar.active = ident
+            } else {
+                if item.classList.contains("active")
+                    navbar.tabs[item.ident].navtab(false, item.ident)
+                item.classList.remove("active")
+                item.page.style.visibility = "hidden"
+            }
+        if navbar.active
+            navbar.tabs[navbar.active].navtab(true, navbar.active)
+    }
+    
+    // navbar.objForIdent(ident)    - return object for that page
+    navbar.objForIdent = function objForIdent(ident) { navbar.tabs[ident] }
+
+    // nabar.activeObj()            - return object for active page
+    navbar.activeObj = function activeObj() { navbar.tabs[navbar.active] }
+
+    navbar
+};
+
+
+/*
+ * niuiBase
+ *
+ *     Make an NaanIDE UI.
+ *
+ */
+
+closure niuiBase(nicc, local niui, pollint, version) {
+    niui = new(object, this)
+    niui.api = nicc.api
+    niui.psm = nicc.psm
+    niui.prefs = nicc.prefs
+    niui.locate = nicc.locate
+    niui.projects = nicc.projects
+    niui.getDefLocation = nicc.getDefLocation
+    niui.track = nicc.track
+    niui.getPrefs = nicc.getPrefs
+    niui.putPrefs = nicc.putPrefs
+    niui.progCount = 0
+    niui.watchable = Watchable()
+
+    // niui.alert - early version before UI is active
+    
+    niui.alert = function prealert(text) {
+        debuglog("Nide message:", text)
+    }
+
+    niui.globalAlertDiv = document.getElementById("NideGlobalAlertArea")
+    niui.terminal = document.getElementById("NaanTerminal")
+    niui.home = require("nide/nideUI/home.nlg").MakeHome(niui)
+    niui.project = require("nide/nideUI/project.nlg").MakeProject(niui)
+    niui.debug = require("nide/nideUI/debug.nlg").MakeDebug(niui)
+    // niui.test
+    // niui.options
+    niui.navbar = makeNavBar({                                              // these are the controller objects for each page
+        home: niui.home,
+        project: niui.project,
+        debug: niui.debug,
+    })
+    niui.navbar.setEnable("project", false)
+    niui.butrun = document.getElementById("NideRunButton")
+    niui.butrun.disabled = true
+    niui.butpub = document.getElementById("NidePublishButton")
+    niui.butpub.disabled = true
+    niui.spinner = document.getElementById("NideSpinner")
+    initToolTips(document)
+
+    //
+    // niui.appendCss
+    //
+    // Append CSS for a plugin.
+    //
+    
+    niui.appendCss = function appendCss(css, local style) {
+        style = document.createElement("style")
+        style.innerHTML = css
+        document.head.appendChild(style)
+    }
+    
+    //
+    // niui.alert()
+    //
+    // Display an alert with the specified text and options. If the text starts with "<" then
+    // it is assumed to be intentional HTML and no processing is performed. Otherwise the text
+    // is escaped so that no inadvertent interpretation is done. Options are:
+    // {
+    //      class:      bootstrap-4 alert class, such as "alert-danger"; default is "alert-primary"
+    //      timeout:    nnnn millisecond timeout, after which alert closes automatically
+    //      noclose:    true to disable the close button
+    // }
+    //
+    
+    niui.alert = closure(text, options, local alertTempDiv, ocDiv, child, earlier, alert) {
+        alertTempDiv = document.getElementById("nideClosableAlertTemplate")
+        ocDiv = alertTempDiv.cloneNode(true)
+        ocDiv.id = ""
+        ocDiv.style.display = ""
+        if options.class
+            ocDiv.classList.add(options.class)
+        else
+            ocDiv.classList.add("alert-primary")
+        if text.charAt(0) != "<"
+            text = escapeHTML(text)                                         // escape text if not intentionally HTML
+        ocDiv.innerHTML = ocDiv.innerHTML.replace("{alert-text}", text)
+        if options.noclose {
+            closebut = ocDiv.getElementsByClassName("btn-close")[0]
+            child.parentNode.removeChild(child)
+        }
+        earlier = niui.globalAlertDiv.children[0]
+        if earlier
+            niui.globalAlertDiv.insertBefore(ocDiv, earlier)                // put newer on top
+        else
+            niui.globalAlertDiv.append(ocDiv)
+        alert = xnew(js.w.bootstrap.Alert, ocDiv)
+        
+        if options.timeout > 0
+            future(close, options.timeout)                                  // closes automatically
+
+        //
+        // caller access functions
+        //
+
+        function close() {
+            alert.close()
+        }
+
+        function onClose(proc) {
+            ocDiv.addEventListener("close.bs.alert", proc)
+        }
+
+        function onClosed(proc) {
+            ocDiv.addEventListener("closed.bs.alert", proc)
+        }
+
+        {                                                                   // dictionary for caller to use
+            close: close,                                                   // close the alert
+            onClose: onClose,                                               // call proc on closing, start of fade-out
+            onClosed: onClosed                                              // call proc on closed, after invisible
+        }
+    }
+    
+    //
+    // niui.progress()
+    //
+    // Note that progress is occuring on an operation. The return object has the following methods:
+    //  .completed(amount)                      // amount from zero to maximum
+    //  .done()                                 // operation is completed
+    // The caller must execute .done() or the progress UI will remain visible.
+    //
+    
+    niui.progress = closure progress(max, local xxx) {
+        function opdone() {
+            --niui.progCount
+            if niui.progCount == 0 {
+                if !niui.spinner.classList.contains("invisible")
+                    niui.spinner.classList.add("invisible")
+            }
+        }
+        ++niui.progCount
+        if niui.spinner.classList.contains("invisible")
+            niui.spinner.classList.remove("invisible")
+        return ({
+            done: opdone
+        })
+    }
+
+    //
+    // niui.SetMessage()
+    //
+    // Set our status message in the header.
+    //
+
+    niui.setMessage = function setMessage(msg) {
+        jquery("#NideMessage").text(msg)
+    }
+
+    //
+    // terminal
+    //
+    // Open the terminal window.
+    //
+
+    niui.terminal.onclick = function () {
+        App.openTerm()
+        return (false)
+    }
+
+    //
+    // contextmenu events
+    //
+    // Default handler for context menus in Nide.
+    //
+
+    document.body.addEventListener("contextmenu", function(event) {
+        event.preventDefault()
+    })
+    
+    //
+    // focus & blur
+    //
+    // Capture window (tab) activation and deactivation events.
+    //
+
+    window.addEventListener("focus", function(event) {
+        niui.navbar.activeObj().focus(event)
+    })
+
+    window.addEventListener("blur", function(event) {
+        niui.navbar.activeObj().blur(event)
+    })
+
+    //
+    // command keys
+    //
+    // Default handler for command key in Nide.
+    //
+
+    document.body.addEventListener("keydown", function(event) {
+
+        function compareAndStopEqual(cmdict, tellobj, local casekey) {
+            if event.shiftKey
+                casekey = event.key.toUpperCase()
+            else
+                casekey = event.key
+            if ((event.metaKey || event.ctrlKey) && cmdict[casekey]) {
+                if not event.repeat {
+                    event.preventDefault()
+                    event.stopPropagation()
+                    tellobj[cmdict[casekey]](event)
+                    return (true)
+                }
+            }
+            return (false)
+        }
+
+        if compareAndStopEqual({
+                "S": "eventSaveAll",                                        // save everything
+                "Y": "openTerm"                                             // open the terminal
+            }, niui)
+            {}
+        else
+            compareAndStopEqual({
+                "b": "build",                                               // build & run the current project
+                "B": "build",                                               // just build the current project
+                "s": "eventSave",                                           // save current tab
+                "f": "eventFind",                                           // open search box
+                "g": "eventFindNext",                                       // find next
+                "[": "eventBack",                                           // previous edit session
+                "]": "eventForward",                                        // next edit session
+                "F": "eventFindFiles"                                       // global find
+            }, niui.navbar.activeObj())
+    })
+
+    // niui.eventSaveAll
+    //
+    // Shift-S means save everything.
+
+    niui.eventSaveAll = function(event) {
+        debuglog("save everything")
+    }
+
+    // niui.openTerm
+    //
+    // Shift-T means open IDE REPL terminal.
+
+    niui.openTerm = function(event) {
+        App.openTerm()
+    }
+
+    // niui.addLocation
+    //
+    // Switch to the addLocation UI.
+
+    niui.addLocation = function addLocation() {
+        niui.navbar.selectPage("home")
+        niui.home.addLocation()
+    }
+
+    // niui.openProject
+    //
+    // Open a project using the specified projID.
+
+    niui.openProject = function openProject(projID, local error, project, info, progress) {
+        progress = niui.progress()
+        `(error, project) = niui.projects.connect(projID, "NideProject")
+        if !error
+            `(error, info) = project.load()
+        if !error {
+            niui.setProject(project)
+            niui.navbar.setEnable("project", true)
+            niui.navbar.selectPage("project")
+        } else
+            niui.alert("<b>Project Load Failed</b><br><br>".concat(ErrorString(error)), { class: "alert-danger" })
+        progress.done()
+        list(error, project)
+    }
+    
+    // niui.setProject
+    //
+    // Set the UI for the specified project.
+    
+    niui.setProject = function setProject(project) {
+        closeProject()
+        document.title = "Project: ".concat(project.name)
+        niui.activeProject = project
+        niui.watchable.notify(niui, { opened: project })
+        niui.butrun.disabled = false
+        niui.butpub.disabled = false
+    }
+
+    //
+    // niui.closeProject
+    //
+
+    niui.closeProject = function closeProject() {
+        if !niui.activeProject
+            return
+        niui.butrun.disabled = true
+        niui.butpub.disabled = true
+        niui.watchable.notify(niui, { closed: niui.activeProject })
+        niui.activeProject.close()
+        niui.activeProject = false
+        document.title = "NaanIDE"
+        niui.navbar.setEnable("project", false)
+    }
+
+    // respond to run button
+
+    niui.butrun.onclick = function (event) {
+        niui.project.runProject(event.shiftKey)
+    }
+
+    // respond to publish button
+
+    niui.butpub.onclick = function (event) {
+        niui.project.publishProject(event.shiftKey)
+    }
+
+
+    // finish initialization
+
+    if not mangled()
+        jquery("#NideMessage").html("<font color=#ee2200><strong>Confidential - not for distribution")
+
+    niui.navbar.selectPage("home")
+
+    niui
+};
+
+
+/*
+ * niuiInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function niuiInit(local manifest, nidecommon) {
+
+    manifest = `(setElementClass, escapeHTML, initToolTips, makeNavBar, niuiBase, niuiInit)
+
+    if !js.w
+        throw("module nideUI can only be used in a browser")
+    Naan.module.build(module.id, "nideUI", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.MakeNideUI = niuiBase
+        modobj.exports.escapeHTML = escapeHTML
+        modobj.exports.initToolTips = initToolTips
+
+        function niuiReload() {
+            jspath = js.r("path")
+            window = js.w
+            document = window.document
+            jquery = window.$
+        } ()
+        module.reload = niuiReload
+    })
+
+    nidecommon = require("frameworks/common/watching.nlg")
+    Naan.module.letimport(nidecommon.Watchable)
+    Naan.module.letimport(nidecommon.UUID)
+
+    zux = require("nide/zux/zux.nlg")
+    require("nide/zux/zbox.nlg")
+    require("nide/zux/zmenu.nlg")
+    require("nide/zux/zplit.nlg")
+} ();

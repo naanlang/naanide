@@ -1,0 +1,15 @@
+/*
+ * naan_init_common.nlg
+ * Naanide
+ *
+ * Common initialization for all Naan browser environments.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2020-2021 by Richard C. Zulch
+ *
+ */
+
+require("frameworks/common/repltools.nlg").ImportReplTools();               // import our REPL tools
+require("frameworks/running/debugnub.nlg").DebugNub();                      // debugger nub for debugging IDE itself
+require("frameworks/running/taskexec.nlg").TaskExecutor();                  // used by debugger nub

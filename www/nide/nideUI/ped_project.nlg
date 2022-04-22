@@ -1,0 +1,263 @@
+/*
+ * ped_project.nlg
+ * NaanIDE
+ *
+ *     Project EDitor base for all project types.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2019-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * peprProjectEditor
+ *
+ *     Return a new Project Editor.
+ *
+ */
+
+closure peprProjectEditor(div, project, local pepr) {
+    pepr = new(object, this)
+    pepr.div = div
+    pepr.projInfoDiv = document.getElementById("nideProjEdProjInfo")
+    pepr.getpro = require("nide/nideUI/getpro.nlg")
+
+    /*
+     * selectFolderDialog
+     *
+     *     Ask the user to identify a folder in a dialog with Select and Cancel buttons.
+     *
+     */
+    
+    closure selectFolderDialog(doneCB, local fobox, modaldiv, pagediv) {
+        modaldiv = jquery("#NideBrowseModal")
+        pagediv = jquery("#NideBrowsePage")
+        pagediv.removeClass("NideModalHidden")
+        fobox = foboxUI(App.ui, "NideBrowseFobox")
+        fobox.setOptions({
+            prompt: "Select the publishing folder:"
+            filterproc: function() { false }
+            done: function(where) {
+                modaldiv.modal("hide")
+                pagediv.addClass("NideModalHidden")
+                doneCB(where) }
+        })
+        modaldiv.modal("show")
+    }
+    
+    
+    /*
+     * writeProject
+     *
+     *     Write the project configuration if changed, reporting errors to user.
+     *
+     */
+    
+    closure writeProject(local configDict, error, data) {
+        `(error, data) = project.current.config.update()
+        if error
+            App.ui.alert("<b>Project Save Failed</b><br><br>".concat(ErrorString(error)), { class: "alert-danger" })
+    }
+
+
+    // updateInfo
+    //
+    // Update our view for any changes that have occurred.
+    //
+    function updateInfo(local infoTable, config, info_loc, substr, info_loc_pub, tabstr) {
+        info_loc = App.nide.locate.info(project.current.where.locationID)
+        infoTable = [
+            ["Name:", pepr.session.name],
+            ["Location:", [
+                info_loc.name,
+                info_loc.type,
+                info_loc.where ]],
+            ["Path:", project.fs.rootpath]
+        ]
+        config = project.current.config
+        if config.configDict.publish
+            info_loc_pub = App.nide.locate.info(config.configDict.publish.where.locationID)
+        substr = UUID()
+        if info_loc_pub
+            infoTable.push(
+                ["Publish:", [
+                    info_loc_pub.name,
+                    info_loc_pub.type,
+                    info_loc_pub.where,
+                    config.configDict.publish.where.path
+                    substr ]]
+            )
+        else
+            infoTable.push(
+                ["Publish:", substr]
+            )
+        tabstr = zux.Tableize(infoTable)
+        tabstr = tabstr.replace(substr, '<a id="nidePedPubEdit" href="javascript:void(0);">Update</a>')
+        pepr.projInfoDiv.innerHTML = tabstr
+        pepr.pubUpdateButton = document.getElementById("nidePedPubEdit")
+        pepr.pubUpdateButton.onclick = function () {
+            selectFolderDialog(function(where, local config) {
+                if where {
+                    where = {
+                        name: where.name
+                        locationID: where.resID
+                        path: where.path
+                    }
+                    config = project.current.config
+                    if !config.configDict.publish
+                        config.configDict.publish = { }
+                    config.configDict.publish.where = where
+                    updateInfo()
+                    writeProject()
+                }
+            })
+        }
+    }
+
+
+    // sessionLookup
+    //
+    // True iff we have an active session for the specified storeID.
+    //
+    // This is part of the editor plugin protocol but not currently used because projecct.nlg treats
+    // the project editor as a special case.
+    //
+    pepr.sessionLookup = function sessionLookup(storeID) {
+        pepr.session.storeID == storeID
+    }
+    
+    // makeSession
+    //
+    // Make a session for the specified storeID.
+    //
+    pepr.makeSession = function makeSession(storeID, name) {
+        debuglog("Project Editor makeSession", storeID, name)
+        pepr.session = {
+            storeID: storeID
+            name: name
+        }
+    }
+        
+    // activateSession
+    //
+    // Activate a session for the specified storeID.
+    //
+    pepr.activateSession = function activateSession(storeID, name) {
+        updateInfo()
+    }
+    
+    // scrollTo
+    //
+    // Scroll to the specified item, obtained via search.
+    //
+    pepr.scrollTo = function scrollTo(item) {
+        // ### not yet implemented
+    }
+
+    // updateSession
+    //
+    // Check for needing to load (or reload) from disk.
+    //
+    pepr.updateSession = function updateSession(storeID) {
+        // ### not yet implemented
+    }
+    
+    // sessionSave
+    //
+    // Save our session to disk.
+    //
+    pepr.sessionSave = function sessionSave(storeID) {
+        // ### not yet implemented
+    }
+    
+    // saveAll
+    //
+    // Save all pending sessions by user request.
+    //
+    pepr.saveAll = function saveAll() {
+        // ### not yet implemented
+    }
+    
+    // find
+    //
+    // Open the find panel, if applicable.
+    //
+    pepr.find = function find() {
+        // ### not yet implemented
+    }
+                
+    // findNext
+    //
+    // Open the find panel, if needed and applicable, and select the next pattern instance.
+    //
+    pepr.findNext = function findNext() {
+        // ### not yet implemented
+    }
+
+    // navtab
+    //
+    // We are being shown or hidden.
+    //
+    pepr.navtab = function navtab(visible) {
+        // ### not yet implemented
+    }
+    
+    // resize
+    //
+    // We have been resized.
+    //
+    pepr.resize = function resize() {
+        
+    }
+
+    // cleanup
+    //
+    // We are going away, so clean up any resources.
+    //
+    pepr.cleanup = function cleanup() {
+        
+    }
+
+    // test
+    //
+    // True iff we know how to edit the specified storeID.
+    //
+    // This is part of the editor plugin protocol but not currently used because projecct.nlg treats
+    // the project editor as a special case.
+    //
+    pepr.test = function test(storeID, name) {
+        
+    }
+    
+    // reset
+    //
+    // Remove all sessions.
+    //
+    pepr.reset = function reset() {
+        pepr.session = false
+    }
+
+    pepr
+};
+
+
+/*
+ * peprInit
+ *
+ *     Initialize the module.
+ *
+ */
+
+function peprInit(local manifest) {
+
+    manifest = `(peprProjectEditor, peprInit)
+
+    Naan.module.build(module.id, "ped_project", function(modobj, compobj) {
+        require("nide/nideUI/nideUI.nlg")
+        compobj.manifest = manifest
+        modobj.exports.MakeProjectEditor = peprProjectEditor
+    })
+
+}();

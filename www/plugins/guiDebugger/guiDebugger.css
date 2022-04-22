@@ -1,0 +1,201 @@
+
+.nide-test-blue {
+    color: blue
+}
+
+.gude-fill {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    padding: 0;
+    margin: 0;
+    font-size: 14px;
+    line-height: normal;
+}
+
+.gude-card {
+    border:none;
+}
+
+.gude-card-body {
+    flex: 1 1 auto;
+    background-color: black;
+    color: white;
+    border:none;
+}
+
+.gude-card-header {
+    background-color: darkGray;
+}
+
+.gude-section-button {
+    width: 100%;
+    text-align: left;
+    color: black;
+    border:none;
+    background-color: darkGray;
+}
+
+.gude-section-button:focus {
+    outline: none;
+    font-weight: bold;
+}
+
+.gude-section-button.collapsed .gude-down-arrow,
+.gude-section-button .gude-right-arrow {
+    display: none;
+}
+
+.gude-section-button.collapsed .gude-right-arrow,
+.gude-section-button .gude-down-arrow {
+    display: inline-block;
+}
+
+.gude-border {
+    border-style: solid;
+    border-width: 0 1px 0 0;
+    border-color: #4a4a4a;
+}
+
+.gude-card-content {
+    background-color: black;
+    border-style: solid;
+    border-width: 1px 0 1px 0;
+    border-color: #4a4a4a;
+}
+
+.gude-column-header {
+    min-height: 35px;
+    padding-left: 12px;
+    padding-right: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-color: #302e2e;
+    border-style: solid;
+    border-width: 0 0 1px 0;
+    border-color: #4a4a4a;
+}
+
+#GudeLeft {
+    width:20%;
+    height:100%;
+    display: flex;
+    flex-direction: column;
+    border-right-style: solid;
+    border-right-width: 1px;
+    border-color: #4a4a4a;
+}
+#GudeLeftContent {
+    height:100%;
+    overflow-y:hidden;
+}
+
+#GudeCenter {
+    flex-grow:1;
+    display: flex;
+    flex-direction: column;
+}
+
+#GudeRight {
+    width:20%;
+    height:100%;
+    display: flex;
+    flex-direction: column;
+    border-left-style: solid;
+    border-left-width: 1px;
+    border-color: #4a4a4a;
+}
+#GudeRightSections {
+    height:100%;
+    overflow-y:scroll;
+}
+
+#GudeControls {
+    display: flex;
+    flex-direction: row;
+}
+
+.gude-control {
+    height:28px;
+    width:28px;
+    margin-left: 4px;
+    margin-right: 4px;
+    filter:invert(1) brightness(0.7);
+}
+.gude-control:hover {
+    cursor: default;
+    filter:invert(1) brightness(1.0);
+}
+.gude-control-hide {
+    display: none;
+}
+.gude-control-disable {
+    pointer-events:none;
+    filter:invert(1) brightness(0.5);
+}
+.gude-control-on {
+    filter: invert(1) brightness(0.5) sepia(1) saturate(100) hue-rotate(149deg) brightness(1.5);
+}
+.gude-control-on:hover {
+    cursor: default;
+    filter: invert(1) brightness(0.5) sepia(1) saturate(100) hue-rotate(149deg) brightness(2.0);
+}
+
+.gude-msg-exception {
+    background-color: darkred;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+}
+.gude-msg-breakpoint {
+    background-color: darkgreen;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+}
+.gude-msg-stepped {
+    background-color: darkorange;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+}
+.gude-msg-paused {
+    background-color: darkblue;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+}
+.gude-rounded {
+    background-color: black;
+    margin-right: 8px;
+    border-radius: 11px;
+    padding: 0 9px 0 9px;
+    font-size: larger;
+    font-weight: bold;
+}
+
+.gude-color-key {
+    color: #FF94FA;                     /* light pink */
+}
+.gude-color-number {
+    color: #DE935F;                     /* orange */
+}
+.gude-color-string {
+    color: #D0BD68;                     /* yellow-green */
+}
+.gude-color-symbol {
+    color: #BDEFFF;                     /* light blue */
+}
+.gude-color-unintern {
+    color: #33CF90;                     /* green-blue */
+}
+.gude-color-keyword {
+    color: #E8CAFF;                     /* lavender */
+}
+.gude-color-special {
+    color: #FF9A99;                     /* orange-pink */
+}
+.gude-color-procname {
+    color: #81A2BE;                     /* slate-blue */
+}

@@ -1,0 +1,151 @@
+/*
+ * docs_manager.nlg
+ * NaanIDE
+ *
+ *     Document manager for nideDocs.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * DocManager
+ *
+ *     Document access functionality.
+ *
+ */
+
+closure DocManager(nidoc, local docman) {
+    docman = new(object, this)
+    docman.mdConverter = xnew(js.w.showdown.Converter)
+    docman.mdConverter.setFlavor("github")
+
+    //
+    // fetchFile
+    //
+    
+    closure fetchFile(path, respType, local fetchpath) {
+        if !respType
+            respType = `text
+        fetchpath = js.w.location.origin.concat("/", path)
+        await(js.w.fetch(fetchpath).then(function(response) {
+            if response.ok
+                response[respType]()
+            else
+                Promise.reject(response.status)
+        }))
+    }
+    
+    //
+    // initialize
+    //
+    // Ensure we have a cache and the TOC. Wait for any current fetch operation. The cache is a nonce
+    // that is signaled when the TOC is loaded.
+
+    closure initialize(local error, content) {
+        if docman.toc {
+            if !docman.cache {                                              // Naan reloaded
+                docman.cache = new(nonce)
+                docman.cache.signal()
+            }
+        }
+        else if docman.cache
+            docman.cache.wait()                                             // wait for TOC fetch in progress
+        else {
+            docman.cache = new(nonce)                                       // fetch the TOC
+            `(error, content) = fetchFile("plugins/nideDocs/docfiles/doctoc.json", `json)
+            content = new(content)
+            for language in content.languages                               // compute fullpaths in TOC
+                function fullpaths(folder, parpath, local child) {
+                    if parpath
+                        folder.fullpath = parpath.concat(folder.name)
+                    else
+                        folder.fullpath = folder.name
+                    if folder.children
+                        for child in folder.children
+                            fullpaths(child, folder.fullpath)
+                } (content[language])
+            docman.toc = content
+            docman.cache.signal()
+        }
+    }
+    
+    //
+    // getLanguages
+    //
+    // Return an array of available languages.
+    
+    docman.getLanguage = function getLanguages() {
+        initialize()
+        docman.toc.languages
+    }
+    
+    //
+    // getTree
+    //
+    // Return the document tree for the specified language.
+    
+    docman.getTree = function getTree(language) {
+        initialize()
+        docman.toc[language]
+    }
+    
+    //
+    // getDocument
+    //
+    // Retrieve the specified document as a dictionary with source text and rendered html, from the
+    // cache if possible but otherwise by fetch and conversion. While fetching a document this puts
+    // a nonce in the cache to mark it pending.
+    
+    docman.getDocument = closure getDocument(fullpath, language, local doc, html, text, error) {
+        initialize()
+        doc = docman.cache[fullpath]
+        if !doc {
+            docman.cache[fullpath] = new(nonce)
+            `(error, text) = fetchFile("plugins/nideDocs/docfiles/".concat(language, "/", fullpath))
+            if text
+                html = docman.mdConverter.makeHtml(text)
+            doc = {
+                text: text
+                html: html
+            }
+            docman.cache[fullpath].signal(doc)
+            docman.cache[fullpath] = doc
+        } else if nonce(doc)
+            doc = doc.wait()
+        doc
+    }
+
+    // finis
+
+    docman
+};
+
+
+/*
+ * docmanInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function docmanInit(local manifest) {
+
+    manifest = `(DocManager, docmanInit)
+
+    Naan.module.build(module.id, "docs_manager", function(modobj, compobj) {
+        compobj.manifest = manifest
+
+        function ndocPostload() {
+            jspath = js.r("path")
+            window = js.w
+            document = window.document
+            App.nide.addUI(ndocIdePlugin)
+        } ()
+        module.postload = ndocPostload
+        require("./docs_panel.nlg")
+    })
+} ();

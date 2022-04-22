@@ -1,0 +1,459 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <title>NaanIDE</title>
+    <meta name="description" content="NaanIDE">
+
+    <link rel="stylesheet" href="exlib/bootstrap/bootstrap.min.css">
+    <link rel="stylesheet" href="nide.css">
+    <link rel="icon" href="exlib/images/Naan.ico" sizes="256x256 128x128 32x32 16x16">
+
+<!--[if lt IE 9]>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.js"></script>
+    <![endif]-->
+</head>
+
+<body style="background-color:black;color:white">
+    <!-- JavaScript required -->
+
+    <header>
+        <!-- Fixed navbar -->
+        <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
+            <img  id='NaanLogo' class="navbar-brand" href="#" src="exlib/images/Naan.ico" width="70" height="70" style="margin: -50px 10px -50px 10px">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarCollapse">
+                <ul id="NideNav" class="navbar-nav me-auto">
+                    <li class="nav-item" id="NideNavHome">
+                        <a class="nav-link">Home</a>
+                    </li>
+                    <li class="nav-item" id="NideNavProject">
+                        <a class="nav-link">Project</a>
+                    </li>
+                    <li class="nav-item" id="NideNavDebug">
+                        <a class="nav-link">Run</a>
+                    </li>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" style="margin: 5px 5px 5px 40px" id="NideRunButton"
+                        data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true" title="Build and Run<br>⇧ Build only">▶︎</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" style="margin: 5px 5px 5px 20px" id="NidePublishButton"
+                        data-bs-toggle="tooltip" data-bs-placement="bottom" title="Publish">⧋︎</button>
+                    <div id="NideSpinner" class="modal-spinner-icon me-auto invisible"></div>
+                </ul>
+                <div class="body mt-2 mt-md-0 ms-auto" style="white-space:nowrap;text-align:right;font-size:14px">
+                    <div id="NideMessage" style="color:#c0c0c0;margin-right:10px"></div>
+                    <div id="NideStatus" style="color:white;margin-right:10px"><span style="color:#00aa33">loading</span></div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Begin page content -->
+    <main role="main" class="container-fluid" id="NideMain">
+
+        <!-- Global Alert Area -->
+        <div class="NideAlertArea">
+            <div class="row">
+                <div class="col-md-8"></div>
+                <div class="col-md-4" id="NideGlobalAlertArea">
+                    <!-- alerts inserted here -->
+                </div>
+            </div>
+        </div>
+
+        <!--
+         === Home Tab ===
+         -->
+
+        <div class="row filltop" id="NidePageHome" style="visibility:hidden;">
+            <div class="container d-flex flex-column" style="padding-top:40px;">
+                <div class="row">
+                    <div class="col-md-2"></div>
+                    <div class="col-md-8 d-flex justify-content-center">
+                        <div class="btn-group mx-5" role="group" aria-label="Basic radio toggle button group">
+                            <input type="radio" class="btn-check" name="btnradio" id="nideph_radio1" autocomplete="off">
+                            <label id="NidePH_WelcomeRadio" class="btn btn-outline-primary" for="nideph_radio1">Welcome</label>
+                            <input type="radio" class="btn-check" name="btnradio" id="nideph_radio2" autocomplete="off">
+                            <label id="NidePH_ProjectsRadio" class="btn btn-outline-primary" for="nideph_radio2">Projects</label>
+                            <input type="radio" class="btn-check" name="btnradio" id="nideph_radio3" autocomplete="off">
+                            <label id="NidePH_LocationsRadio" class="btn btn-outline-primary" for="nideph_radio3">Accounts & Locations</label>
+                            <input type="radio" class="btn-check" name="btnradio" id="nideph_radio4" autocomplete="off">
+                            <label id="NidePH_SettingsRadio" class="btn btn-outline-primary" for="nideph_radio4">Settings</label>
+                            <input type="radio" class="btn-check" name="btnradio" id="nideph_radio5" autocomplete="off">
+                            <label id="NidePH_AboutRadio" class="btn btn-outline-primary" for="nideph_radio5">About</label>
+                        </div>
+                    </div>
+                    <div class="col-md-2"></div>
+                </div>
+                <div class="row flex-grow-1">
+                    <div class="col-md-2"></div>
+                    <div class="col-md-8" style="position:relative">
+                        <!-- welcome -->
+                        <div class="row h-100 w-100" style="position:absolute;pointer-events:none;justify-content:center">
+                            <div id="NidePH_Welcome" style="visibility:hidden;pointer-events:auto;overflow-y:auto">
+                                <h5>Welcome</h5>
+                            </div>
+                        </div>
+                        <!-- projects -->
+                        <div style="position:absolute;pointer-events:none" class="row h-100 w-100">
+                            <div id="NidePH_Projects" class="d-flex flex-column mt-4 mb-4" style="visibility:hidden;pointer-events:auto">
+                                <div class="flex-grow-1 ag-theme-dark" id="NideHomeProjectsBox" tabindex="0"></div>
+                                <div class="d-flex mt-3">
+                                    <button type="button" class="btn btn-outline-secondary btn-sm nideubx me-1" id="NideHomeAddButton">+</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm nideubx me-1" id="NideHomeNewButton">^</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm nideubx" id="NideHomeDeleteButton">-</button>
+                                    <button type="button" class="btn btn-secondary btn-sm ms-5" id="NideHomeOpenButton">Load Project</button>
+                                    <button type="button" class="btn btn-secondary btn-sm ms-auto" id="NideHomeCloseButton">Close Project</button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- locations -->
+                        <div style="position:absolute;pointer-events:none" class="row h-100 w-100">
+                            <div id="NidePH_Locations" class="d-flex flex-column mt-4 mb-4" style="visibility:hidden;pointer-events:auto">
+                                <div class="flex-grow-1 ag-theme-dark" id="NideHomeLocationsBox" tabindex="0"></div>
+                                <div class="d-flex mt-3">
+                                    <label class="control-label" style="justify-content: flex-start;" for="NideHomeLocAddButton"></label>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm nideubx me-1" id="NideHomeLocAddButton">+</button>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm nideubx" id="NideHomeLocDeleteButton">-</button>
+                                    <button type="button" class="btn btn-secondary btn-sm ms-5" id="NideHomeLocEditButton">Properties...</button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- settings -->
+                        <div class="row h-100 w-100" style="position:absolute;pointer-events:none;justify-content:center">
+                            <div id="NidePH_Settings" style="visibility:hidden;pointer-events:auto;overflow-y:auto">
+                                <h5>Settings</h5>
+                            </div>
+                        </div>
+                        <!-- about -->
+                        <div class="row h-100 w-100" style="position:absolute;pointer-events:none;justify-content:center">
+                            <div id="NidePH_About" style="visibility:hidden;pointer-events:auto;overflow-y:auto">
+                                <h5>About</h5>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-2"></div>
+                </div>
+            </div>
+        </div>
+
+        <!--
+         === Project Tab ===
+         -->
+
+        <div class="row filltop" id="NidePageProject" style="visibility:hidden">
+            <div id='NideProjectBox' class="col-auto d-flex flex-column" style="width:20%;height:100%;margin:0;padding:0;overflow:hidden">
+                <nav>
+                    <ol id="NideProjectBoxNav" class="NideHeader NideProjectBoxHeader">
+                        <li id="NideProjectBoxEdit" class="nide-page-item nide-navlink">📂 Nav</li>
+                        <li id="NideProjectBoxSearch" class="nide-page-item nide-navlink">🔍 Search</li>
+                    </ol>
+                </nav>
+                <div class="flex-grow-1 ag-theme-dark" style="width:100%;position:relative">
+                    <div id="NideProjectNav" style="height:100%;width:100%;margin:0;padding:0;position:absolute"></div>
+                    <div id="NideProjectSearch" class="d-flex flex-column" style="height:100%;width:100%;margin:0;padding:0;position:absolute">
+                        <div class="input-group p-2 NideSearchArea">
+                            <button id="NideSearchHistory" class="btn btn-light border-right-0 border" type="button" ><span>🔍</span></button>
+                            <input type="search" id="NideSearchText" class="form-control py-2 border-left-0 border" placeholder="search...">
+                        </div>
+                        <div id="NideSearchNav" class="flex-grow-1" style="width:100%"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-auto" style="position:relative;width:0px;height:100%;margin:0;padding:0;cursor:col-resize">
+                <div id='NideProjectBoxAdjuster' style="position:absolute;width:6px;height:100%;z-index:10;margin-left:-3px"></div>
+            </div>
+            <div id='NideProjectEditor' class="col-auto d-flex flex-column" style="width:80%;height:100%;margin:0;padding:0;overflow:hidden">
+                <div class="d-flex flex-row">
+                    <nav>
+                        <div class="NideHeader NideProjectEditHeader ps-2">
+                            <div id="NideEditPrevious" class="nide-session nide-navlink">⇦</div>
+                            <div id="NideEditNext" class="nide-session nide-navlink">⇨</div>
+                        </div>
+                    </nav>
+                    <nav class="flex-grow-1">
+                        <ol id= "NideProjectBreadcrumb" class="NideHeader NideProjectEditHeader">
+                        </ol>
+                    </nav>
+                    <nav class="float-right">
+                        <div class="NideHeader NideProjectEditHeader pe-2">
+                            <button id="NideEditDiff"  type="button" class="btn btn-outline-secondary btn-sm nide-diff-button">⬄︎</button>
+                        </div>
+                    </nav>
+                </div>
+                <div id="NideEditPreviewer" class="d-flex flex-row nideProject_Preview" style="height:0px">
+                </div>
+                <div class="col-auto" style="position:relative;width:100%;height:0px;margin:0;padding:0;cursor:ns-resize">
+                    <div id='NideEditViewAdjuster' style="position:absolute;width:100%;height:6px;z-index:10;margin-top:-3px"></div>
+                </div>
+                <div id="NideEditArea" class="flex-grow-1" style="width:100%;position:relative;margin-top:2px">
+                    <div class="col-auto" style="height:100%;margin:0;padding:0">
+                        <div id="NideProjectImageEditor" class="container h-100"></div>
+                        <div id="NideProjectTextEditor" style="height:100%;margin:0;padding:0"></div>
+                        <div id="NideProjectAltEditor" style="height:100%;margin:0;padding:0"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--
+         === Run Tab ===
+         -->
+
+        <div class="row filltop" id="NidePageDebug" style="visibility:hidden">
+            <div id='NideDebugBox' class="col-auto d-flex flex-column" style="width:20%;height:100%;margin:0;padding:0;overflow:hidden">
+                <div id="NideDebugBoxNav" class="NideDebugBoxHeader"></div>
+                <div class="flex-grow-1 ag-theme-dark" style="width:100%;position:relative">
+                    <div id="NideDebugNav" style="height:100%;width:100%;margin:0;padding:0;position:absolute"></div>
+                </div>
+            </div>
+            <div class="col-auto" style="position:relative;width:0px;height:100%;margin:0;padding:0;cursor:col-resize">
+                <div id='NideDebugBoxAdjuster' style="position:absolute;width:6px;height:100%;z-index:10;margin-left:-3px"></div>
+            </div>
+            <div id='NideDebugArea' class="col-auto" style="height:100%;margin:0;padding:0">
+                <div id='NideDebugContainer'>
+                </div>
+                <div id='NideReplContainer'>
+                    <div style="display:flex; flex-direction:column; height:100%; background-color:#333">
+                        <div id='NideTargetReplHeader' style="flex:0 1 auto">
+                            <div class="d-flex flex-row">
+                                <div class="NideHeader NideTargetHeader ps-2">
+                                    <div id="NideTargetClose" class="nide-close">&times;</div>
+                                </div>
+                                <div class="NideHeader NideTargetHeader ps-2">
+                                    <button id="NideTermPopup"  type="button" class="btn btn-outline-secondary btn-sm nide-diff-button">⬈︎️︎</button>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="NideHeader NideTargetHeader ps-2">
+                                        <span id="NideTargetName" class='nide-header'></span>
+                                    </div>
+                                </div>
+                                <div class="float-right">
+                                    <div class="NideHeader NideTargetHeader pe-2">
+                                        <span id="NideTargetPerformance" class='nide-header'></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id='NideTargetRepl' style="flex:1 1 auto; position:relative"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--
+         === Modal Folder browser ===
+         -->
+        
+        <div class="modal fade" id="NideBrowseModal" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="NideBrowseFolderLabel">Modal title</h5>
+                        <button type="button" class="close" id="NideBrowseFolderClose">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <!-- managed by nideUI/fobox.nlg -->
+                    <div id="NideBrowsePage" class="NideModalHidden">
+                        <div class="modal-body" style="height:450px; margin-bottom:40px">
+                            <div class="d-flex" style="margin-left:0px; margin-bottom:5px; margin-top:0px; margin-right:20px" >
+                                <button type="button" id="NideFoboxLocationButton" class="btn-sm dropdown-toggle me-1" data-toggle="dropdown">Location</button>
+                                <div class="dropdown-menu" id="NideFoboxLocationMenu"></div>
+                                <button type="button" class="btn-sm" id="NideBrowseFolderUp">
+                                    <span class="NideArrow">&uarr;</span>
+                                </button>
+                                <div id="NideBrowseFoboxPath" class="flex-grow-1 btn-sm NidePath" style="word-wrap: break-word;"></div>
+                            </div>
+                            <div class="ag-theme-fresh" id="NideBrowseFobox" style="width:100%; height:100%;"></div>
+                        </div>
+                        <div class="modal-footer justify-content-between">
+                            <button type="button" class="btn btn-secondary" id="NideBrowseFolderCancel">Cancel</button>
+                            <div class="justify-content-right">
+                                <button type="button" class="btn btn-secondary" id="NideBrowseFolderPrevious" style="margin-right:20px">Previous</button>
+                                <button type="button" class="btn btn-primary" id="NideBrowseFolderSave" style="min-width:120px">Select</button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- managed by nideUI/tybox.nlg -->
+                    <div id="NideNewPage" class="NideModalHidden">
+                        <div class="modal-body" style="height:450px; margin-bottom:40px">
+                            <div class="ag-theme-fresh" id="NideProjectTybox" style="width:100%; height:70%;"></div>
+                            <div id="NideProjectTypeText"></div>
+                            <div class="form-group row" style="margin-top:40px">
+                                <div class="col-md-1"></div>
+                                <label for="NideNewProjectName" class="col-sm-2 col-form-label">Project Name:</label>
+                                <div class="col-md-6">
+                                    <input type="text" id="NideNewProjectName" class="form-control">
+                                </div>
+                                <div class="col-md-5"></div>
+                            </div>
+                       </div>
+                        <div class="modal-footer justify-content-between">
+                            <button type="button" class="btn btn-secondary" id="NideProjectTypeCancel">Cancel</button>
+                            <div class="justify-content-right">
+                                <button type="button" class="btn btn-secondary disabled" id="NideProjectTypePrevious" style="margin-right:20px">Previous</button>
+                                <button type="button" class="btn btn-primary" id="NideProjectTypeNext" style="min-width:120px">Next</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!--
+         === Modal Location Editor ===
+         -->
+        
+        <div class="modal fade" id="NideLocationModal" tabindex="-1" role="dialog">
+            <div class="modal-dialog modal-lg" role="document">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="NideLocationTitle">Modal title</h5>
+                        <button type="button" class="close" id="NideLocationClose">
+                            <span>&times;</span>
+                        </button>
+                    </div>
+                    <div class="modal-body" style="margin-bottom:40px">
+
+                        <div class="form-group row mb-1" style="margin-top:40px">
+                            <label for="NideLocName" class="col-sm-3 text-right col-form-label">Location:</label>
+                            <div class="col-md-7">
+                                <div class="input-group mb-0">
+                                    <button id="NideTypeMenuButton" class="btn btn-outline-secondary dropdown-toggle" type="button" data-toggle="dropdown">Type</button>
+                                    <div id="NideTypeMenu" class="dropdown-menu dropdown-menu-end">
+                                        <!-- menu items -->
+                                    </div>
+                                    <input type="text" id="NideLocName" class="form-control" placeholder="your label">
+                                </div>
+                                    <p id="NideLocNameError" class="text-warning mb-1">&nbsp;</p>
+                            </div>
+                            <div class="col-md-2"></div>
+                        </div>
+
+                        <div id="NideLoc1" class="form-group row mb-1" style="display:none">
+                            <label id="NideLoc1Label" for="NideLoc1text" class="col-sm-3 text-right col-form-label">loc1</label>
+                            <div class="col-md-7">
+                                <input type="text" id="NideLoc1text" class="form-control">
+                                <p id="NideLoc1error" class="text-warning mb-1">&nbsp;</p>
+                            </div>
+                            <div class="col-md-2"></div>
+                        </div>
+                        <div id="NideLoc2" class="form-group row mb-1" style="display:none">
+                            <label id="NideLoc2Label" for="NideLoc2text" class="col-sm-3 text-right col-form-label">loc2</label>
+                            <div class="col-md-7">
+                                <input type="text" id="NideLoc2text" class="form-control">
+                                <p id="NideLoc2error" class="text-warning mb-1">&nbsp;</p>
+                            </div>
+                            <div class="col-md-2"></div>
+                        </div>
+                        <div id="NideLoc3" class="form-group row mb-1" style="display:none">
+                            <label id="NideLoc3Label" for="NideLoc3text" class="col-sm-3 text-right col-form-label">loc3</label>
+                            <div class="col-md-7">
+                                <input type="text" id="NideLoc3text" class="form-control">
+                                <p id="NideLoc3error" class="text-warning mb-1">&nbsp;</p>
+                            </div>
+                            <div class="col-md-2"></div>
+                        </div>
+                        <div id="NideLoc4" class="form-group row mb-1" style="display:none">
+                            <label id="NideLoc4Label" for="NideLoc4text" class="col-sm-3 text-right col-form-label">loc4</label>
+                            <div class="col-md-7">
+                                <input type="text" id="NideLoc4text" class="form-control">
+                                <p id="NideLoc4error" class="text-warning mb-1">&nbsp;</p>
+                            </div>
+                            <div class="col-md-2"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer justify-content-between">
+                        <button type="button" class="btn btn-secondary" id="NideLocationCancel">Cancel</button>
+                        <div class="justify-content-right">
+                            <button type="button" class="btn btn-primary" id="NideLocationSave" style="min-width:120px">Save</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!--
+     === Additional content ===
+     -->
+
+    <div style="display: none">
+        <!--
+         === project configuration editor ===
+         -->
+        
+        <div id="nideProjectEditorContent" style="width:100%;color:white;padding:5px 20px 20px 20px">
+            <h5>Project Configuration</h5>
+            <div class="container" style="margin-top:20px">
+                <div class="row nideProjectEditorRowStyle">
+                    <div class="col-md-12">
+                        <div class="float-left">
+                            <h6>Project Info</h6>
+                        </div>
+                        <br>
+                        <div id="nideProjEdProjInfo" style="margin-top:5px;">
+                        </div>
+                    </div>
+                </div>
+                <div class="row nideProjectEditorRowStyle">
+                    <div class="col-md-12">
+                        <div class="float-left">
+                            <h6>Source Control</h6>
+                        </div>
+                        <br>
+                        <div id="nideProjEdSourceControl" style="margin-top:5px;">
+                            my source control info
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!--
+         === alerts ===
+         -->
+          
+        <div id="nideClosableAlertTemplate" class="alert alert-dismissible fade show" role="alert">
+            <div>{alert-text}</div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+
+    </div>
+
+    <!--
+     === scripts & extensions ===
+     -->
+
+    <script src="https://sdk.amazonaws.com/js/aws-sdk-2.653.0.min.js"></script>
+
+    <script src="exlib/ace/ace.js"></script>
+    <script src="exlib/ace/ext-modelist.js"></script>
+    <script src="exlib/diff-patch-match/diff_match_patch.js"></script>
+    <script src="exlib/hterm/hterm_all.js"></script>
+    <script src="exlib/jquery/jquery-3.3.1.slim.min.js"></script>
+    <script src="exlib/popper/popper.min.js"></script>
+    <script src="exlib/bootstrap/bootstrap.min.js"></script>
+    <script src="exlib/ag-grid/ag-grid.js"></script>
+    <script src="exlib/spark-md5/spark-md5.min.js"></script>
+    <script src="exlib/pouchdb/pouchdb.min.js"></script>
+    <script src="exlib/showdown/showdown.min.js"></script>
+
+    
+    <script src="lib/core/naanlib.js"></script>
+
+    <script src="lib/browser/require.js"></script>
+    <script src="naan_repl.js"></script>
+    <script src="env_web.js"></script>
+
+    <!-- No Javascript fallback -->
+    <noscript><div id='NideRequired'  style="position:absolute;text-align:center;width:99%;top:50%">NaanIDE Requires JavaScript</div></noscript>
+
+    <!-- END Javascript conditionals -->
+</body>
+</html>

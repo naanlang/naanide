@@ -1,0 +1,332 @@
+/*
+ * fobox.nlg
+ * NaanIDE
+ *
+ *     Naan folder navigation listbox UI.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2017-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * foboxUI
+ *
+ *     Make a folder navigation listbox.
+ *
+ */
+
+closure foboxUI(niui, divid, local fobox, columnDefs, rowData, gridOptions) {
+    if !nonce(foboxDivs)
+        foboxDivs = new(nonce)
+    else if fobox = foboxDivs[divid] {                                      // this div already has one
+        init()
+        return (fobox)
+    }
+    fobox = new(object, this)
+    foboxDivs[divid] = fobox
+    fobox.divid = divid
+    fobox.butsel = document.getElementById("NideBrowseFolderSave")
+    fobox.butprev = document.getElementById("NideBrowseFolderPrevious")
+    fobox.butcan = document.getElementById("NideBrowseFolderCancel")
+    fobox.butclose = document.getElementById("NideBrowseFolderClose")
+    fobox.butup = document.getElementById("NideBrowseFolderUp")
+    fobox.prompt = document.getElementById("NideBrowseFolderLabel")
+    fobox.pathtext = document.getElementById("NideBrowseFoboxPath")
+    fobox.locbut = document.getElementById("NideFoboxLocationButton")
+    fobox.locmenu = document.getElementById("NideFoboxLocationMenu")
+    fobox.butsel.disabled = true
+    fobox.butup.disabled = true
+    fobox.pathsep = "/"                                                     // default, overridden later
+    fobox.curpath = ""                                                      // current path defaults to root
+
+    // return currently selected row, or undefined
+    fobox.getRow = function getRow() {
+        fobox.api.getSelectedNodes()[0].rowIndex
+    }
+
+    // select the specified row
+    fobox.setRow = function setRow(index) {
+        fobox.api.getDisplayedRowAtIndex(index).setSelected(true)
+        fobox.api.ensureIndexVisible(index, null)
+    }
+
+    // render values with icon in the filename/foldername column
+    fobox.filedirRenderer = function filedirRenderer(params, local image, imageFullUrl, imageStyle) {
+        if params.data.directory
+            image = "FolderIcon.ico"
+        else
+            image = "Document.ico"
+        imageFullUrl = "exlib/images/".concat(image)
+        imageStyle = "style=\"padding-bottom:3px;".concat("height: ", params.node.rowHeight * 0.7, "px\"")
+        return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", params.data.name))
+    }
+
+    // render modified timestamp in
+    fobox.dateRenderer = function dateRenderer(params, local stamp) {
+        if not string(params.data.modified) || params.data.modified == ""
+            stamp = ""
+        else {
+            stamp = Date(Date.parse(params.data.modified))
+            stamp.toLocaleDateString().concat(" ", stamp.toLocaleTimeString({hour12:true}))
+        }
+    }
+
+    // specify the columns
+    columnDefs = [
+        {
+            headerName: "Name",
+            field: "name",
+            cellStyle: { "text-align": "left"},
+            cellRenderer: fobox.filedirRenderer,
+            minWidth: 200
+            resizable: true
+        },
+        {
+            headerName: "Modified",
+            field: "modified",
+            cellStyle: { "text-align": "left"},
+            cellRenderer: fobox.dateRenderer
+            minWidth: 100
+            resizable: true
+        }
+    ]
+
+    // specify the data
+    rowData = [
+    ]
+
+    // let the listbox know which columns and what data to use
+    gridOptions = xnew({
+        rowSelection: single,
+        columnDefs: columnDefs,
+        rowData: rowData,
+        suppressColumnVirtualisation: true,
+        localeText: {noRowsToShow: "Directory has no selectable contents"},
+        onRowDoubleClicked: function(event) {
+            if event.data.directory
+                fobox.setRoot(jspath.join(fobox.curpath, event.data.name))
+            else
+                setResult(fobox.curpath)
+        },
+        onRowClicked: function(event) {
+            fobox.updateControls()
+        }
+    })
+
+    fobox.gridiv = document.querySelector("#".concat(divid))
+    fobox.agrid = xnew(window.agGrid.Grid, fobox.gridiv, gridOptions)
+    fobox.api = gridOptions.api
+    fobox.columnApi = gridOptions.columnApi
+
+    // setRoot
+    fobox.setRoot = closure setRoot(dirpath, local error, fs) {
+        function failed(err) {
+            ErrorDebuglog("fobox.setRoot/readDir failed: ", err)
+            fobox.api.setRowData([])
+        }
+
+        if !dirpath
+            dirpath = ""
+        else if RegExp("[A-Za-z]:$").test(dirpath)
+            dirpath = dirpath.concat("\\")                              // ### do these corrections down in the filesystem
+        `(error, fs) = niui.locate.connect(fobox.where.resID, "NideFS", "")
+        if error
+            return (failed(error))
+        fs.readir(dirpath, function (error, files, local child, node, rows, defSel) {
+            if error
+                return (failed(error))
+            fobox.where.path = dirpath
+            fobox.curpath = files.path
+            fobox.pathsep = files.data.pathsep
+            fobox.pathtext.innerHTML = fobox.curpath
+            rows = []
+            for child in files.children {
+                if child.info && not child.info.hidden {
+                    node = {
+                        name: child.name,
+                        modified: child.info.mtime
+                    }
+                    if child.info.type == "directory"
+                        node.directory = true
+                    else if child.info.type != "file"
+                        continue
+                    else if not fobox.options.filterproc(child.name)
+                        continue
+                    else
+                        defSel = node
+                    rows.push(node)
+                }
+            }
+            rows.sort(function(valueA, valueB) {
+                Math.sign(valueA.name.localeCompare(valueB.name))
+            })
+            fobox.api.setRowData(rows)
+            if defSel
+                fobox.setRow(rows.indexOf(defSel))
+            future(function resizeCols(){
+                fobox.columnApi.autoSizeColumns(["name", "modified"])
+            }, 1)
+            fobox.updateControls()
+        })
+    }
+    
+    // setWhere
+    fobox.setWhere = closure setWhere(where) {
+        where = new(where)
+        fobox.where = where
+        if !where.path
+            where.path = ""
+        fobox.locbut.textContent = where.name
+        setRoot(where.path)
+    }
+
+    // update controls for current selection, etc.
+    fobox.updateControls = function updateControls(local rowIndex, atRoot, rowDatum) {
+        rowIndex = getRow()
+        if rowIndex {
+            rowDatum = fobox.api.getDisplayedRowAtIndex(rowIndex).data
+            fobox.butsel.disabled = not rowDatum.directory && not fobox.options.filterproc(rowDatum.name)
+        }
+        else
+            fobox.butsel.disabled = false
+        atRoot = RegExp("^[\\\\/]*$").test(fobox.curpath)
+        fobox.butup.disabled = atRoot
+    }
+
+    function setResult(path) {
+        if !fobox.notified {
+            fobox.notified = true
+            if !path
+                fobox.options.done()
+            else {
+                if path != "" && not RegExp("[\\\\/]$").test(path)
+                    path = path.concat(fobox.pathsep)
+                fobox.options.done({
+                    name: jspath.basename(path)
+                    resID: fobox.where.resID
+                    path: path
+                }) } }
+    }
+
+    // response to Select button
+    fobox.butsel.onclick = function (local rowIndex, rowDatum) {
+        rowIndex = getRow()
+        if rowIndex {
+            rowDatum = fobox.api.getDisplayedRowAtIndex(rowIndex).data
+            if rowDatum.directory
+                setResult(jspath.join(fobox.curpath, rowDatum.name))
+            else
+                setResult(fobox.curpath)
+        }
+        else
+            setResult(fobox.curpath)
+    }
+
+    // response to Previous button
+    fobox.butprev.onclick = function () {
+        if !fobox.notified {
+            fobox.notified = true
+            fobox.options.previous() }
+    }
+
+    // response to Cancel button
+    fobox.butcan.onclick = function () {
+        setResult(false)
+    }
+    
+    // response to up-arrow button
+    fobox.butup.onclick = function (local pathup) {
+        pathup = fobox.curpath.replace(RegExp("[^\\\\/]+[\\\\/]*$"), "")
+        fobox.setRoot(pathup)
+    }
+    
+    jquery("#NideBrowseModal").on("hide.bs.modal", function (event) {
+        setResult(false)
+        true
+    })
+
+    // location menu
+    
+    fobox.locbut.onclick = closure updateLocationMenu(local where, labels) {
+        labels = []
+        for where in fobox.wheres
+            labels.push(where.name)
+        if labels.length != 0
+            labels.push("-")
+        labels.push("Add Location...")
+        zux.MenuDropdown(labels, {
+                menudiv: fobox.locmenu
+                refel: fobox.locbut
+            }, function(event, itemdex, itemdiv) {
+                where = fobox.wheres[itemdex]
+                if !where {
+                    niui.addLocation()
+                    setResult(false)
+                } else if fobox.where !== where
+                    fobox.setWhere(where)
+        }).show()
+    }
+
+    // setOptions
+    //
+    //     Set the options for a specific use of the dialog.
+
+    fobox.setOptions = function setOptions(options) {
+        fobox.notified = false
+        fobox.options = options
+        if options.prompt
+            fobox.prompt.innerHTML = options.prompt
+        fobox.butprev.disabled = !options.previous
+        fobox.butclose.onclick = function () {
+            setResult(false) }
+    }
+        
+    // initialize
+    //
+    //     Initialize our wheres list with all known locations at this time. Each element has the
+    // following keys:
+    //      name        - the user-visible name of the location
+    //      resID       - the resourceID of the location
+    //      path        - the current path at that location
+    //
+    fobox.wheres = []                                                       // create list of locations with paths
+    let (local defloc, resID, where) {
+        defloc = niui.getDefLocation()
+        for resID in niui.locate.resources() {
+            where = {
+                name: niui.locate.info(resID).name
+                resID: resID
+            }
+            if resID == defloc.resID {
+                where.path = defloc.path
+                fobox.setWhere(where)
+            }
+            fobox.wheres.push(where)
+        }
+    }()
+
+    // finis
+    fobox
+};
+
+
+/*
+ * foboxInit
+ *
+ *     Initialize the folder selection boxes.
+ *
+ */
+
+function foboxInit(local manifest) {
+
+    manifest = `(foboxUI, foboxInit)
+
+    Naan.module.build(module.id, "fobox", function(modobj, compobj) {
+        require("nide/nideUI/nideUI.nlg")
+        compobj.manifest = manifest
+    })
+
+} ();

@@ -1,0 +1,556 @@
+/*
+ * debug_panel.nlg
+ * NaanIDE - guiDebugger plugin
+ *
+ *     NaanIDE GUI debugger panel.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2021-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * DebugPanel
+ *
+ *     Make a debugger panel on the Run page.
+ *
+ */
+
+closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, updating, pending) {
+    depan = new(object, this)
+    depan.div = gude.debcon.regDebugger(depan)
+    depan.div.innerHTML = html
+    depan.running = true                                                    // assume running for disabled step buttons
+    depan.watchContent = { }
+
+    // left side
+    depan.divLeft = document.getElementById("GudeLeft")
+    depan.mocoBox = panelModComp("GudeLeftContent", depan)
+    
+    // center
+    depan.divCenter = document.getElementById("GudeCenter")
+    depan.divCenterContent = document.getElementById("GudeCenterContent")
+    depan.aceCenter = window.ace.edit(depan.divCenterContent)
+    depan.aceCenter.setTheme("ace/theme/tomorrow_night")
+    depan.aceCenter.setOptions({
+        vScrollBarAlwaysVisible: true
+        readOnly: true
+    })
+    depan.aceCenter.setShowPrintMargin(false)
+    session = window.ace.createEditSession("", "ace/mode/naan_lingo")
+    depan.aceCenter.setSession(session)
+    
+    // right side
+    depan.divRight = document.getElementById("GudeRight")
+    depan.conPause = document.getElementById("GudePause")
+    depan.conResume = document.getElementById("GudeResume")
+    depan.conStepOver = document.getElementById("GudeStepOver")
+    depan.conStepInto = document.getElementById("GudeStepInto")
+    depan.conStepOut = document.getElementById("GudeStepOut")
+    depan.conStop = document.getElementById("GudeStop")
+    depan.conBreakDisable = document.getElementById("GudeBreakpointDisable")
+    depan.conPauseExceptions = document.getElementById("GudePauseExceptions")
+    depan.messageText = document.getElementById("GudeMessage")
+    depan.futureBox = panelFutureBox("gude-future-list", depan)
+    depan.watchBox = panelWatchBox("gude-watch-list", depan)
+    depan.breakBox = panelBreakBox("gude-breakpoint-list", depan)
+    depan.scopeBox = panelScopeBox("gude-scope-list", depan)
+    depan.callBox = panelCallBox("gude-stack-list", depan)
+    
+
+    // focus
+    //
+    depan.focus = function(event) {
+    }
+
+    // navtab
+    //
+    // We are informed of becoming visible or not.
+    
+    depan.navtab = function navtab(visible) {
+        depan.aceCenter.setShowPrintMargin(visible)
+    }
+
+    // window resize event
+    //
+    window.addEventListener("resize", function() {
+        depan.aceCenter.resize()
+    })
+    
+    // leftWidthAdjuster
+    //
+    // Control for adjusting the width of the project box vs. the editor
+
+    depan.leftWidthAdjuster = zux.SplitAdjuster("GudeLeftColAdjuster", depan.divLeft, depan.divCenter, { }, function(adj, pct) {
+        adj.setProportion(pct)
+        future(function divAdjustTree(){ depan.mocoBox.sizeToFit() }, 400)
+        future(function divAdjustEditor(){ depan.aceCenter.resize() }, 10)
+    })
+    
+    // rightWidthAdjuster
+    //
+    // Control for adjusting the width of the project box vs. the editor
+
+    depan.rightWidthAdjuster = zux.SplitAdjuster("GudeRightColAdjuster", depan.divCenter, depan.divRight, { }, function(adj, pct) {
+        adj.setProportion(pct)
+        future(function divAdjustEditor(){ depan.aceCenter.resize() }, 10)
+        future(function divAdjustTree(){ sizeToFit() }, 400)
+    })
+
+    // setMessage
+    // Set a message above the info area.
+    //
+    function setMessage(html) {
+        depan.messageText.innerHTML = html
+    }
+    
+    // guttermousedown
+    // Called when the user is clicking the gutter for a breakpoint.
+    //
+    depan.aceCenter.on("guttermousedown", closure(event, local target, breakpoints, row) {
+        target = event.domEvent.target
+        if target.className.indexOf("ace_gutter-cell") < 0
+            return
+        if event.clientX > target+getBoundingClientRect().left + 40
+            return
+        event.preventDefault()
+        breakpoints = depan.aceCenter.session.getBreakpoints()
+        row = event.getDocumentPosition().row
+        future(function(local error, data) {
+            if !breakpoints[row] {
+                `(error, data) = depan.remote.breakAdd(depan.editModname, depan.editCompname, row, 0)
+                if !error
+                    `(error, data) = data
+                if data
+                    depan.aceCenter.session.setBreakpoint(data.first.0)
+            }
+            else {
+                `(error, data) = depan.remote.breakClear(depan.editModname, depan.editCompname, row, 0)
+                if !error
+                    `(error, data) = data
+                depan.aceCenter.session.clearBreakpoint(row)
+            }
+            `(error, data) = depan.remote.breakList()
+            if !error
+                depan.breakBox.resetContents(data)
+        }).run()
+    })
+    
+    // mocoSelect
+    //
+    depan.mocoSelect = function mocoSelect(item) {
+        if item.name && item.parent.id
+            focusSource(item.parent.id, item.name)
+    }
+    
+    // caboxSelect
+    // A row in the stackframe listbox has been expanded.
+    //
+    depan.caboxSelect = function caboxSelect(item, fdex) {
+        frameUpdates(fdex)
+    }
+    
+    // scoxExpand
+    // A row in the scope listbox has been expanded.
+    //
+    depan.scoxExpand = function scoxExpand(element, content, local error, data) {
+        element.visible = true
+        `(error, data) = depan.remote.scopeinfo(depan.curFramedex, content)
+        if !error
+            depan.scopeBox.resetContents(data)
+    }
+    
+    // scoxCollapse
+    // A row in the scope listbox has been collapsed.
+    //
+    depan.scoxCollapse = function scoxCollapse(element, content, local error, data) {
+        element.visible = undefined
+        `(error, data) = depan.remote.scopeinfo(depan.curFramedex, content)
+        if !error
+            depan.scopeBox.resetContents(data)
+    }
+    
+    // broxDoubleClick
+    // A row in the breakpoint listbox was double-clicked.
+    //
+    depan.broxDoubleClick = function broxDoubleClick(item) {
+        focusSource(item.modname, item.compname, item.first)
+    }
+
+    // watoxEdit
+    // A watchpoint was edited with new text, so update it.
+    //
+    depan.watoxEdit = function watoxEdit(watch, watchdex, text, local error, data) {
+        text = text.trim()
+        if text.length > 0
+            depan.remote.watchWrite(watchdex, text)
+        else
+            depan.remote.watchDelete(watchdex)
+        `(error, data) = depan.remote.watchInfo(depan.watchContent, depan.curFramedex)
+        if !error
+            depan.watchBox.resetContents(data)
+    }
+
+    // watoxExpand
+    // A row in the scope listbox has been expanded.
+    //
+    depan.watoxExpand = function watoxExpand(element, content, local error, data) {
+        element.visible = true
+        depan.watchContent = content
+        `(error, data) = depan.remote.watchInfo(content, depan.curFramedex)
+        if !error
+            depan.watchBox.resetContents(data)
+    }
+
+    // watoxCollapse
+    // A row in the scope listbox has been collapsed.
+    //
+    depan.watoxCollapse = function watoxCollapse(element, content, local error, data) {
+        element.visible = undefined
+        depan.watchContent = content
+        `(error, data) = depan.remote.watchInfo(content, depan.curFramedex)
+        if !error
+            depan.watchBox.resetContents(data)
+    }
+
+    // scheduleFutureRefresh
+    // Schedule a future refresh
+    //
+    closure schedule(interval) {
+        if depan.executor {
+            futuresUpdate()
+            futup = future(function futuresRefresh(){ schedule(interval) }, interval)
+        }
+    }
+
+    // attach
+    // Our GUI is now connected to an instance.
+    //
+    depan.attach = function attach(executor) {
+        depan.executor = executor
+        depan.commander = DebugCommand(depan.executor, depan)
+        depan.running = -1                                                  // no match for any state
+        runState(depan.commander.debugStatus())
+        future(function() {                                                 // don't delay the caller
+            depan.remote = depan.commander.remote()
+            updateControls()
+            schedule(5000)
+        }).run()
+    }
+
+    // detach
+    // Our GUI has disconnected from an instance.
+    //
+    depan.detach = function detach(executor) {
+        if depan.commander
+            depan.commander.detach()
+        depan.commander = false
+        depan.executor = false
+        depan.remote = false
+        depan.running = true                                                // an assumption
+        futup.cancel()
+        futup = false
+        depan.mocoBox.resetContents()
+        depan.watchBox.resetContents()
+        depan.breakBox.resetContents()
+        depan.scopeBox.resetContents()
+        depan.callBox.resetContents()
+        depan.futureBox.resetContents()
+        depan.aceCenter.session.setValue("")
+        depan.editModname = false
+        depan.editCompname = false
+        setMessage("")
+        updateControls()
+    }
+
+    // debugData
+    // Debug data has arrived from the instance.
+    //
+    depan.debugData = function debugData(executor, data, local datastr) {
+        depan.commander.debugData(data)
+    }
+    
+    // focusSource
+    // Focus the source display on the specified module, component, and line/column.
+    //
+    function focusSource(modname, compname, location, local error, data) {
+        if modname != depan.editModname || compname != depan.editCompname {
+            if modname && compname {
+                `(error, data) = depan.remote.compsources(modname, compname)
+                if error {
+                    data = ErrorString(error)
+                    modname = compname = false
+                } else
+                    data = data.trim()
+            }
+            depan.editModname = modname
+            depan.editCompname = compname
+            if !data
+                data = ""
+            depan.aceCenter.session.setValue(data)
+            depan.aceCenter.session.clearBreakpoints()
+            future(closure(local error, data) {                             // add the breakpoints afterwards
+                `(error, data) = depan.remote.breakList()
+                for item in data
+                    if modname == item.modname && compname == item.compname
+                        depan.aceCenter.session.setBreakpoint(item.first.0)
+            }, 100)
+        }
+        if integer(location.0) {                                            // why do we need the +1 here, ACE-breath?
+            depan.aceCenter.scrollToLine(location.0+1, true, false, function () { })
+            depan.aceCenter.gotoLine(location.0+1, 0, false)
+        }
+        list(error)
+    }
+    
+    // controlOp
+    // Run a control operation, but deferred during updates. When called with no arguments this runs
+    // any pending control operations.
+    //
+    function controlOp(control) {
+        if control {
+            if updating {
+                pending = control
+                return
+            }
+        } else if updating || !pending
+            return
+        else
+            control = pending
+        pending = false
+        if depan.running {                                                  // controls usable while running
+            if control === depan.conPause
+                depan.commander.pause()
+            return
+        }
+        if control === depan.conResume
+            depan.commander.resume()
+        else if control === depan.conStepOver
+            depan.commander.stepOver()
+        else if control === depan.conStepInto
+            depan.commander.stepInto()
+        else if control === depan.conStepOut
+            depan.commander.stepOut()
+        else if control === depan.conStop
+            depan.commander.stop()
+    }
+    
+    // setControlsRunState
+    // Set the controls for the current runstate.
+    //
+    function setControlsRunState() {
+        updateControls()
+        updating = true
+        try {
+            fetchUpdates()
+        } finally {
+            updating = false
+            controlOp()
+        }
+    }
+    
+    // runState
+    // Note that the instance is running or not.
+    //
+    depan.runState = function runState(status) {
+        if depan.running == status.running
+            return
+        depan.running = status.running
+        depan.bpenable = status.bpenable
+        depan.exenable = status.exenable
+        if !depan.running {                                                 // stop any delay and run now
+            delayer.cancel()
+            delayer = false
+            setControlsRunState()
+        }
+        else if delayer
+            delayer.run(50)                                                 // delay longer
+        else
+            delayer = future(function() {
+                delayer = false
+                setControlsRunState()
+            }, 50)                                                          // run after delay
+    }
+    
+    // hitException
+    // Note that the instance hit an exception.
+    //
+    depan.hitException = function hitException(exdata) {
+        setMessage("<span class='gude-msg-exception'><span class='gude-rounded'>!</span>".concat(
+            " exception: ", exdata.exceptstr, "</span>"))
+    }
+        
+    // hitBreakpoint
+    // Note that the instance hit a breakpoint.
+    //
+    depan.hitBreakpoint = function hitBreakpoint(bpdata) {
+        setMessage("<span class='gude-msg-breakpoint'><span class='gude-rounded'>i</span>".concat(
+            " breakpoint: ", bpdata.bpid, "</span>"))
+    }
+        
+    // hitStep
+    // Note that the instance "hit" a step completion.
+    //
+    depan.hitStep = function hitStep(stepdata) {
+        setMessage("<span class='gude-msg-stepped'><span class='gude-rounded'>i</span>".concat(
+            " step value: ", stepdata.value, "</span>"))
+    }
+
+    // fetchUpdates
+    // Fetch updated information from the instance.
+    closure fetchUpdates(local stopped, error, data) {
+        if depan.running {
+            depan.watchBox.resetContents()
+            depan.scopeBox.resetContents()
+            depan.callBox.resetContents()
+            setMessage("")
+        } else
+            stopped = true
+        `(error, data) = depan.remote.modcomp()
+        if !error {
+            depan.mocoBox.resetContents(data)
+            `(error, data) = depan.remote.breakList()
+        }
+        if !error {
+            depan.breakBox.resetContents(data)
+            if stopped {
+                `(error, data) = depan.remote.callStack()
+                if !error
+                    depan.callBox.resetContents(data)
+            }
+        }
+        if stopped
+            frameUpdates(0)
+    }
+
+    // frameUpdates
+    // Update for frame change.
+    closure frameUpdates(fdex, local error, data, frameInfo) {
+        if depan.running {
+            // ### clear variables, etc.
+            depan.curFramedex = false
+        }
+        else {
+            depan.curFramedex = fdex
+            `(error, data) = depan.remote.scopeinfo(fdex, { })
+            if !error
+                depan.scopeBox.resetContents(data)
+            `(error, frameInfo) = depan.remote.frameinfo(fdex)
+            if frameInfo
+                focusSource(frameInfo.modname, frameInfo.compname, frameInfo.first)
+            `(error, data) = depan.remote.watchInfo(depan.watchContent, depan.curFramedex)
+            if !error
+                depan.watchBox.resetContents(data)
+        }
+    }
+    
+    // futuresUpdate
+    // Update the futures listbox.
+    closure futuresUpdate(local error, data) {
+        if !depan.remote
+            return
+        `(error, data) = depan.remote.futureslist()
+        if data
+            depan.futureBox.resetContents(data)
+    }
+
+    //
+    // run controls
+    //
+
+    depan.conPause.addEventListener("click", function(event) {
+        event.preventDefault()
+        controlOp(depan.conPause)
+    })
+
+    depan.conResume.addEventListener("click", function(event) {
+        event.preventDefault()
+        controlOp(depan.conResume)
+    })
+
+    depan.conStepOver.addEventListener("click", function(event) {
+        event.preventDefault()
+        controlOp(depan.conStepOver)
+    })
+
+    depan.conStepInto.addEventListener("click", function(event) {
+        event.preventDefault()
+        controlOp(depan.conStepInto)
+    })
+
+    depan.conStepOut.addEventListener("click", function(event) {
+        event.preventDefault()
+        controlOp(depan.conStepOut)
+    })
+
+    depan.conStop.addEventListener("click", function(event) {
+        event.preventDefault()
+        controlOp(depan.conStop)
+    })
+
+    depan.conBreakDisable.addEventListener("click", function(event) {
+        event.preventDefault()
+        depan.bpenable = depan.remote.breakGlobalEnable(!depan.bpenable).1
+        updateControls()
+    })
+
+    depan.conPauseExceptions.addEventListener("click", function(event) {
+        event.preventDefault()
+        depan.exenable = depan.remote.catchGlobalEnable(!depan.exenable).1
+        updateControls()
+    })
+
+    // updateControls
+    // Update our controls for the current conditions.
+    depan.updateControls = function updateControls() {
+        setElementClass(depan.conPause, "gude-control-disable", !depan.remote)
+        setElementClass(depan.conResume, "gude-control-disable", !depan.remote)
+        setElementClass(depan.conPause, "gude-control-hide", depan.remote && !depan.running)
+        setElementClass(depan.conResume, "gude-control-hide", !depan.remote || depan.running)
+        setElementClass(depan.conStepOver, "gude-control-disable", depan.running)
+        setElementClass(depan.conStepInto, "gude-control-disable", depan.running)
+        setElementClass(depan.conStepOut, "gude-control-disable", depan.running)
+        setElementClass(depan.conStop, "gude-control-disable", depan.running)
+        setElementClass(depan.conBreakDisable, "gude-control-on", depan.remote && depan.bpenable)
+        setElementClass(depan.conBreakDisable, "gude-control-disable", !depan.remote)
+        setElementClass(depan.conPauseExceptions, "gude-control-on", depan.remote && depan.exenable)
+        setElementClass(depan.conPauseExceptions, "gude-control-disable", !depan.remote)
+    }
+    
+    // initialize UI
+    
+    updateControls()
+    depan.leftWidthAdjuster.setProportion(debugLeftPct)
+    depan.rightWidthAdjuster.setProportion(debugRightPct)
+    
+    // finis
+
+    depan
+};
+
+
+/*
+ * debInit
+ *
+ *     Initialize the debugger panel.
+ *
+ */
+
+function debInit(local manifest) {
+
+    manifest = `(DebugPanel, debInit)
+
+    Naan.module.build(module.id, "debug_panel", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.DebugPanel = DebugPanel
+        letimport(require("frameworks/running/debugcom.nlg"))
+        require("./debug_boxes.nlg")
+        zux = require("nide/zux/zux.nlg")
+        if debugLeftPct eq `debugLeftPct
+            debugLeftPct = 25
+        if debugRightPct eq `debugRightPct
+            debugRightPct = 70
+    })
+}();

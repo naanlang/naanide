@@ -1,0 +1,44 @@
+/*
+ * zux.nlg
+ *
+ * Zulch User eXperience for naan
+ * ---- you have been warned ----
+ *
+ *     The purpose of the Zux module is to implement browser user interface objects, initially for
+ * the Nide IDE. The strategy is to build the UI, find patterns, generalize to more generic objects,
+ * and locate them here for shared use. This assumes Naan, HTML5 browsers with JavaScript and CSS,
+ * and Bootstrap 4 or later.
+ *     This zux component contains global symbols and initialization for the entire ZUX module. Any
+ * utility functions not associated with a specific UI element are in zutil.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2020-2021 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * zuxInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function zuxInit(local manifest) {
+    manifest = `(zuxInit)
+
+    Naan.module.build(module.id, "zux", function(modobj, compobj) {
+        compobj.manifest = manifest
+
+        function zuxReload() {
+            jspath = js.r("path")
+            window = js.w
+            document = window.document
+            jquery = window.$
+        } ()
+        module.reload = zuxReload
+        Naan.module.require("nide/zux/zutil.nlg")
+    })
+
+} ();

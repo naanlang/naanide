@@ -1,0 +1,44 @@
+/*
+ * naan_init.nlg
+ * Naanide
+ *
+ * Loaded automatically to initialize the main Naanide browser thread.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2017-2022 by Richard C. Zulch
+ *
+ */
+
+loglevel(3);
+chns("Play");
+
+require("naan_init_common.nlg");                                            // initialization for all Naan instances
+
+
+/*
+ * loadNide
+ *
+ *     Load Naanide into the browser, whether for the first time or after reload.
+ *
+ */
+
+serverurl = js.w.location.protocol.concat("//", js.w.location.host);
+authGuid = false;
+authState = { };
+
+function loadNide(local guid, baseurl, bapi, bide, bui) {
+    guid = xnew(js.w.URL, js.w.location.href).searchParams.get("guid")
+    if guid {                                                               // remove the GUID from the visible URL
+        authGuid = guid
+        authState.guid = guid
+        baseurl = js.w.location.href.replace(RegExp("[?].*$"), "")
+        js.w.history.replaceState(authState, "", baseurl)
+    }
+    bapi = require("frameworks/client/apiclient.nlg").MakeNideAPIclient(serverurl, authGuid)
+    bide = require("nide/nideClient/nideClient.nlg").MakeNideController(bapi)
+    bui = require("nide/nideUI/nideUI.nlg").MakeNideUI(bide)
+    bide.setUI(bui)
+} ();
+
+module.postload = loadNide;                                                 // called again after reload

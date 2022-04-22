@@ -1,0 +1,22 @@
+{
+    "name": "@naanlang/naanide",
+    "version": "0.9.1-1",
+    "author": "Richard C. Zulch",
+    "description": "NaanIDE",
+    "main": "./node_server.js",
+    "dependencies": {
+        "aws-sdk": "^2.647.0",
+        "body-parser": "^1.19.0",
+        "express": "^4.17.1",
+        "pouchdb": "^7.1.1",
+        "ws": "^7.3.1",
+        "open": "^8.2.0",
+        "@naanlang/naan": "^1.0.3"
+    },
+    "devDependencies": {},
+    "keywords": [],
+    "license": "MIT",
+    "scripts": {
+        "start": "node ./node_server.js"
+    }
+}

@@ -1,0 +1,101 @@
+<!--
+ === GuiDebugger Panel ===
+ -->
+ 
+<div id='GuiDebugger' class="gude-fill">
+    <div id='GudeLeft'>
+        <div id='GudeLeftHeader' class="gude-column-header">Components</div>
+        <div id='GudeLeftContent' class="ag-theme-balham-dark"></div>
+    </div>
+    <div class="col-auto" style="position:relative;width:0px;height:100%;margin:0;padding:0;cursor:col-resize">
+        <div id='GudeLeftColAdjuster' style="position:absolute;width:6px;height:100%;z-index:10;margin-left:-3px"></div>
+    </div>
+    <div id='GudeCenter'>
+        <div id='GudeCenterHeader' class="gude-column-header">Source</div>
+        <div id='GudeCenterContent' style="width:100%;height:100%"></div>
+    </div>
+    <div class="col-auto" style="position:relative;width:0px;height:100%;margin:0;padding:0;cursor:col-resize">
+        <div id='GudeRightColAdjuster' style="position:absolute;width:6px;height:100%;z-index:10;margin-left:-3px"></div>
+    </div>
+    <div id='GudeRight'>
+        <div id='GudeRightHeader' class="gude-column-header">
+            <div id='GudeControls'>
+                <img  id='GudePause' class="gude-control" href="#" src="exlib/images/Pause.ico">
+                <img  id='GudeResume' class="gude-control gude-control-hide" href="#" src="exlib/images/Resume.ico">
+                <img  id='GudeStepOver' class="gude-control" href="#" src="exlib/images/StepOver.ico">
+                <img  id='GudeStepInto' class="gude-control" href="#" src="exlib/images/StepInto.ico">
+                <img  id='GudeStepOut' class="gude-control" href="#" src="exlib/images/StepOut.ico">
+                <img  id='GudeStop' class="gude-control" href="#" src="exlib/images/StopPoof.ico">
+                <div class="gude-border"></div>
+                <img  id='GudeBreakpointDisable' class="gude-control" href="#" src="exlib/images/BreakpointSlash.ico">
+                <img  id='GudePauseExceptions' class="gude-control" href="#" src="exlib/images/PauseExceptions.ico">
+            </div>
+        </div>
+        <div id='GudeRightSections'>
+            <div class="card gude-card">
+                <div class="gude-card-body">
+                    <div id='GudeMessage'></div>
+                </div>
+            </div>
+            <div class="card gude-card">
+                <div class="gude-card-body">
+                    <button class="gude-section-button" type="button" data-bs-toggle="collapse" data-bs-target="#gude-watch-list">
+                        <span class="gude-right-arrow">▶</span>︎
+                        <span class="gude-down-arrow">▼</span>︎
+                        Watch
+                    </button>
+                    <div id='gude-watch-list' class="gude-card-content collapse show ag-theme-balham-dark">
+                    </div>
+                </div>
+            </div>
+            <div class="card gude-card">
+                <div class="gude-card-body">
+                    <button class="gude-section-button" type="button" data-bs-toggle="collapse" data-bs-target="#gude-breakpoint-list">
+                        <span class="gude-right-arrow">▶</span>︎
+                        <span class="gude-down-arrow">▼</span>︎
+                        Breakpoints
+                    </button>
+                    <div id='gude-breakpoint-list' class="gude-card-content collapse show ag-theme-balham-dark">
+                    </div>
+                </div>
+            </div>
+            <div class="card gude-card">
+                <div class="gude-card-body">
+                    <button class="gude-section-button" type="button" data-bs-toggle="collapse" data-bs-target="#gude-scope-list">
+                        <span class="gude-right-arrow">▶</span>︎
+                        <span class="gude-down-arrow">▼</span>︎
+                        Scopes
+                    </button>
+                    <div id='gude-scope-list' class="gude-card-content collapse show ag-theme-balham-dark">
+                    </div>
+                </div>
+            </div>
+            <div class="card gude-card">
+                <div class="gude-card-body">
+                    <button class="gude-section-button" type="button" data-bs-toggle="collapse" data-bs-target="#gude-stack-list">
+                        <span class="gude-right-arrow">▶</span>︎
+                        <span class="gude-down-arrow">▼</span>︎
+                        Call Stack
+                    </button>
+                    <div id='gude-stack-list' class="gude-card-content collapse show ag-theme-balham-dark">
+                    </div>
+                </div>
+            </div>
+            <div class="card gude-card">
+                <div class="gude-card-body">
+                    <button class="gude-section-button" type="button" data-bs-toggle="collapse" data-bs-target="#gude-future-list">
+                        <span class="gude-right-arrow">▶</span>︎
+                        <span class="gude-down-arrow">▼</span>︎
+                        Futures
+                    </button>
+                    <div id='gude-future-list' class="gude-card-content collapse show ag-theme-balham-dark">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!--
+ -->

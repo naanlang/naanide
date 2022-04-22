@@ -1,0 +1,898 @@
+/*
+ * debug_boxes.nlg
+ * NaanIDE - guiDebugger plugin
+ *
+ *     Listboxes for DebugPanel.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2021 by Richard C. Zulch
+ *
+ */
+ 
+
+/*
+ * colorExpression
+ *
+ *     Colorize an expression with HTML, where the expression is a symbol/value element dictionary.
+ *
+ */
+
+function colorExpression(element, local colorLUTkeys, colorLUT, output) {
+    colorLUTkeys = {
+        string:         "gude-color-key"
+        integer:        "gude-color-key"
+        float:          "gude-color-key"
+        numeric:        "gude-color-key"
+    }
+    colorLUT = {
+        builtin:        "gude-color-keyword"
+        uninterned:     "gude-color-unintern"
+        tuple:          false
+        symbol:         "gude-color-symbol"
+        string:         "gude-color-string"
+        integer:        "gude-color-number"
+        float:          "gude-color-number"
+        xobject:        false
+        namespace:      false
+        numeric:        "gude-color-number"
+        array:          false
+        dictionary:     false
+        object:         false
+        nonce:          "gude-color-special"
+        weakmap:        "gude-color-special"
+        channel:        "gude-color-special"
+    }
+    if element.chunk
+        return ("<span class='gude-color-key'>".concat(escapeHTML(element.value), "</span>"))
+    symclass = colorLUTkeys[element.symtype]
+    if !symclass
+        symclass = colorLUT[element.symtype]
+    if symclass
+        output = "<span class='".concat(symclass, "'>", escapeHTML(element.symbol), "</span>")
+    else
+        output = tostring(element.symbol)
+    valclass = colorLUT[element.valtype]
+    if valclass
+        output = output.concat(": <span class='", valclass, "'>", escapeHTML(element.value), "</span>")
+    else
+        output = output.concat(": ", escapeHTML(element.value))
+};
+
+
+/*
+ * panelModComp
+ *
+ *     Make a listbox of modules and components for an execution instance.
+ *
+ */
+
+closure panelModComp(divid, delegate, local mocobox, columnDefs) {
+    mocobox = new(object, this)
+    mocobox.divid = divid
+
+    //
+    // resetContents
+    //
+    //     Reset the contents of the tree.
+    //
+    mocobox.resetContents = function resetContents(modules, local mod, content, item) {
+        modules = new(modules)
+        modules.sort(function(a, b) {
+            b.created <=> a.created                                         // newest first
+        })
+        content = []
+        for mod in modules {
+            item = {
+                name: mod.id
+                children: mod.components.map(function(component) {
+                    {
+                        name: component
+                        parent: mod
+                    }
+                }).sort(function(a, b) {
+                    if a.name == mod.id                                     // list lead component first
+                        return (-1)
+                    else if b.name == mod.id
+                        return (1)
+                    a.name <=> b.name                                       // "alphabetical" order
+                })
+            }
+            if !item.children {
+                item.children = []
+                item.closed = true }
+            if mod.locpath == "" && mod.id != "Play"                        // ### how about a more generic mechanism?
+                item.closed = true
+            content.push(item)
+        }
+        if mocobox.lastContent && content == mocobox.lastContent
+            return
+        mocobox.lastContent = content
+        mocobox.box.setRowData(content)
+    }
+
+    //
+    // defSelect
+    //
+    //     Select a default instance.
+    
+    mocobox.defSelect = function defSelect(local found) {
+        mocobox.box.forEachLeafNode(function(rowNode, index) {
+            if !found
+                found = rowNode
+        })
+        if found && delegate.mocoSelect(found.data)
+            mocobox.box.selectOnly(found)
+    }
+
+    //
+    // initialize
+    //
+
+    columnDefs = [
+        {
+            headerName: "Name", field: "name", minWidth: 250,
+            resizable: true
+            sortable: true
+            filter: true
+        }
+    ]
+
+    // innerCellRenderer
+    //
+    function innerCellRenderer(params, local image, imageFullUrl, imageStyle) {
+        if params.node.data.children
+            image = "FolderIcon.ico"
+        else
+            image = "Naan.ico"
+        imageFullUrl = "exlib/images/".concat(image)
+        imageStyle = "style=\"padding-bottom:3px;".concat("height: ", params.node.rowHeight * 0.7, "px\"")
+        return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", params.data.name))
+    }
+
+    // childDetails
+    //
+    function childDetails(node) {
+        if node.children
+            return ({
+                group: true,
+                children: node.children,
+                expanded: !node.closed
+            })
+    }
+    
+    // rowClick
+    //
+    function rowClick(params) {
+        delegate.mocoSelect(params.node.data)
+    }
+
+    mocobox.box = zux.BoxHierarchy(divid, columnDefs, {
+        headerHeight: 0
+        renderer: innerCellRenderer
+        childDetails: childDetails
+        rowClick: rowClick
+    })
+
+    // finis
+    
+    mocobox
+};
+
+
+/*
+ * panelBreakBox
+ *
+ *     Make a listbox of breakpoints for an execution instance.
+ *
+ */
+
+closure panelBreakBox(divid, delegate, local brox, columnDefs) {
+    brox = new(object, this)
+    brox.divid = divid
+
+    //
+    // resetContents
+    //
+    //     Reset the contents of the tree.
+    //
+    brox.resetContents = function resetContents(breakpoints, local bp, content) {
+        content = []
+        for bp in breakpoints
+            content.push({
+                breaker: {
+                    bpid:       bp.bpid
+                    enable:     bp.enable
+                    count:      bp.count
+                    modname:    bp.modname
+                    compname:   bp.compname
+                    procname:   bp.procname
+                    first:      bp.first
+                    line:       bp.line
+                    top:        true
+                }
+            })
+        brox.box.setRowData(content)
+    }
+
+    //
+    // childDetails
+    //
+
+    function childDetails(node) {
+        if node.breaker.top
+            return ({
+                group: true
+                expanded: true
+                children: [{
+                    breaker: {
+                        bpid:       node.breaker.bpid
+                        enable:     node.breaker.enable
+                        count:      node.breaker.count
+                        modname:    node.breaker.modname
+                        compname:   node.breaker.compname
+                        procname:   node.breaker.procname
+                        first:      node.breaker.first
+                        line:       node.breaker.line
+                    }
+                }]
+            })
+    }
+
+    //
+    // initialize
+    //
+
+    columnDefs = [
+        {
+            headerName: "Breakpoint", field: "breaker", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+        }
+    ]
+
+    // innerCellRenderer
+    //
+    function innerCellRenderer(params, local breaker) {
+        breaker = params.data.breaker
+        if breaker.top
+            return (breaker.bpid.tostring.concat(": ", breaker.modname, "::", breaker.procname))
+        else
+            return (breaker.line)
+    }
+    
+    // rowClick
+    //
+    function rowClick(event) {
+        delegate.broxSelect(event.node.data.breaker)
+    }
+    
+    // doubleClick
+    //
+    function doubleClick(event) {
+        delegate.broxDoubleClick(event.node.data.breaker)
+    }
+
+    brox.box = zux.BoxHierarchy(divid, columnDefs, {
+        headerHeight: 0
+        domLayout: "autoHeight"
+        renderer: innerCellRenderer
+        rowClick: rowClick
+        doubleClick: doubleClick
+        noRowsText: "no <i>breakpoints</i>"
+        childDetails: childDetails
+    })
+
+    // finis
+    
+    brox
+};
+
+
+/*
+ * panelWatchBox
+ *
+ *     Make a listbox of watchpoints for an execution instance.
+ *
+ */
+
+closure panelWatchBox(divid, delegate, local watox, columnDefs) {
+    watox = new(object, this)
+    watox.divid = divid
+    nextID = 1
+
+    //
+    // numberTree
+    //
+    //     Traverse the watches tree that forms our content and index the nodes so that we can trans-
+    // late our box nodes into the original tree elements.
+
+    function numberTree(watches) {
+        function recur(item, local child) {
+            item.boxID = nextID++
+            if array(item.more)
+                for child in item.more
+                    recur(child)
+        }
+
+        watox.content = watches
+        watches.forEach(recur.proc)
+    }
+
+    //
+    // findOriginal
+    //
+    //     For a data element in our box, return an applicable element and content tree as a tuple.
+    // The content tree is stripped down for better performance in sending back to watchInfo().
+
+    function findOriginal(data, local element, preceding) {
+        function recur(item, local output, child) {
+            output = { }
+            if item.visible
+                output.visible = item.visible
+            if item.chunk
+                output.chunk = item.chunk
+            if item.chunked
+                output.chunked = item.chunked
+            if item.boxID == data.boxID
+                element = output
+            if array(item.more) {
+                output.more = []
+                for child in item.more
+                    output.more.push(recur(child))
+            }
+            output
+        }
+
+        preceding = []
+        watox.content.forEach(function(item) {
+            preceding.push(recur(item))
+        })
+        list(element, preceding)
+    }
+
+    //
+    // resetContents
+    //
+    //     Reset the contents of the listbox to be the specified watchpoints. There is always one
+    // empty watchpoint at the end to allow room for adding a new one.
+
+    watox.resetContents = function resetContents(watches, local content, watch) {
+        content = []
+        if watches {
+            numberTree(watches)
+            for watch in watches {
+                content.push({
+                    watch: watch
+                    boxID: watch.boxID
+                    top: true
+                })
+            }
+            content.push({
+                watch: {
+                    empty: true
+                    source: ""
+                }
+            })
+        }
+        watox.box.setRowData(content)
+    }
+
+    //
+    // childDetails
+    //
+
+    function childDetails(data, local more, output) {
+        more = new(data.watch.more)
+        if !more
+            more = []
+        output = {
+            group: data.top || data.watch.more
+            expanded: data.watch.visible
+            children: more.map(function(item) {
+                {
+                    watch: item
+                    boxID: item.boxID
+                }
+            })
+        }
+        output
+    }
+    
+    //
+    // expandRow
+    //
+    
+    function expandRow(params, local element, preceding) {
+        `(element, preceding) = findOriginal(params.node.data)
+        if array(element.more)
+            delegate.watoxExpand(element, preceding)
+    }
+    
+    //
+    // collapseRow
+    //
+    
+    function collapseRow(params, local data, element, preceding) {
+        `(element, preceding) = findOriginal(params.node.data)
+        if array(element.more)
+            delegate.watoxCollapse(element, preceding)
+    }
+
+    // innerCellRenderer
+    //
+    function innerCellRenderer(node, local watch) {
+        watch = node.data.watch
+        if string(watch)
+            watch
+        else if watch.empty
+            "<i>add watch expression</i>"
+        else {
+            if !symbol(watch.symbol) && watch.source {
+                watch = new(watch)
+                watch.symtype - undefined
+                watch.symbol = watch.source
+            }
+            colorExpression(watch)
+        }
+    }
+    
+    // rowClick
+    //
+    function rowClick(params) {
+        delegate.watoxSelect(params.node.data)
+    }
+    
+    // editAllowed
+    //
+    function editAllowed(params, local watch) {
+        watch = params.data.watch
+        if string(watch)
+            return (true)
+        if watch.source && !watox.editwatch {
+            watox.editwatch = params.data.watch
+            params.data.watch = watch.source                                // edit the source text
+            true
+        }
+    }
+
+    // editStart
+    //
+    function editStart(params) {
+    }
+
+    // editStop
+    //
+    function editStop(params, local text, watch) {
+        text = params.data.watch
+        watch = watox.editwatch
+        params.data.watch = watch                                           // revert to original
+        if watch.source != text {
+            watch.empty = undefined
+            delegate.watoxEdit(watch, params.rowIndex, text)
+        }
+        watox.editwatch = false
+        true
+    }
+
+    //
+    // initialize
+    //
+
+    columnDefs = [
+        {
+            headerName: "Watch", field: "watch", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+            editable: editAllowed.proc
+        }
+    ]
+
+    watox.box = zux.BoxHierarchy(divid, columnDefs, {
+        headerHeight: 0
+        domLayout: "autoHeight"
+        renderer: innerCellRenderer
+        rowClick: rowClick
+        noRowsText: "<i>no watches while running</i>"
+        childDetails: childDetails
+        expandRow: expandRow
+        collapseRow: collapseRow
+        editStart: editStart
+        editStop: editStop
+    })
+
+    // finis
+    
+    watox
+};
+
+
+/*
+ * panelScopeBox
+ *
+ *     Make a listbox of in-scope variables for an execution instance.
+ *
+ */
+
+closure panelScopeBox(divid, delegate, local scox, nextID, columnDefs) {
+    scox = new(object, this)
+    scox.divid = divid
+    nextID = 1
+
+    //
+    // numberTree
+    //
+    //     Traverse the scopes tree that forms our content and index the nodes so that we can trans-
+    // late our box nodes into the original tree elements.
+
+    function numberTree(scopes) {
+        function recur(item, local child) {
+            item.boxID = nextID++
+            if array(item.variables)
+                for child in item.variables
+                    recur(child)
+            if array(item.more)
+                for child in item.more
+                    recur(child)
+        }
+
+        scox.content = scopes
+        scopes.forEach(recur.proc)
+    }
+
+    //
+    // findOriginal
+    //
+    //     For a data element in our box, return an applicable element and content tree as a tuple.
+    // The content tree is stripped down for better performance in sending back to scopeinfo().
+
+    function findOriginal(data, local element, preceding) {
+        function recur(item, local output, child) {
+            output = { }
+            if item.visible
+                output.visible = item.visible
+            if item.chunk
+                output.chunk = item.chunk
+            if item.chunked
+                output.chunked = item.chunked
+            if item.boxID == data.boxID
+                element = output
+            if array(item.variables) {
+                output.variables = []
+                for child in item.variables
+                    output.variables.push(recur(child))
+            }
+            if array(item.more) {
+                output.more = []
+                for child in item.more
+                    output.more.push(recur(child))
+            }
+            output
+        }
+
+        preceding = []
+        scox.content.forEach(function(item) {
+            preceding.push(recur(item))
+        })
+        list(element, preceding)
+    }
+
+    //
+    // resetContents
+    //
+    //     Reset the contents of the listbox according to the stackframe.
+
+    scox.resetContents = function resetContents(scopes, local content, scope) {
+        numberTree(scopes)
+        content = []
+        for scope in scopes {
+            content.push({
+                scope: scope
+                boxID: scope.boxID
+            })
+        }
+        scox.box.setRowData(content)
+    }
+
+    //
+    // childDetails
+    //
+
+    function childDetails(data, local more, output) {
+        if data.scope.variables
+            return ({
+                group: true
+                expanded: true
+                children: data.scope.variables.map(function(item) {
+                    {
+                        scope: item
+                        boxID: item.boxID
+                    }
+                })
+            })
+        more = new(data.scope.more)
+        if array(more) {
+            output = {
+                group: true
+                expanded: data.scope.visible
+                children: more.map(function(item) {
+                    {
+                        scope: item
+                        boxID: item.boxID
+                    }
+                })
+            }
+            output
+        }
+    }
+    
+    //
+    // expandRow
+    //
+    
+    function expandRow(params, local element, preceding) {
+        `(element, preceding) = findOriginal(params.node.data)
+        if array(element.more)
+            delegate.scoxExpand(element, preceding)
+    }
+    
+    //
+    // collapseRow
+    //
+    
+    function collapseRow(params, local data, element, preceding) {
+        `(element, preceding) = findOriginal(params.node.data)
+        if array(element.more)
+            delegate.scoxCollapse(element, preceding)
+    }
+
+    //
+    // initialize
+    //
+
+    columnDefs = [
+        {
+            headerName: "Scope", field: "scope", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+        }
+    ]
+
+    // innerCellRenderer
+    //
+    function innerCellRenderer(params, local scope, image, imageFullUrl, imageStyle) {
+        scope = params.data.scope
+        if scope.procscope
+            return (scope.procscope)
+        else if scope.previous && scope.symbol !== scope.previous
+            return (colorExpression(scope).concat(" <", scope.previous, ">"))
+        else
+            return (colorExpression(scope))
+    }
+    
+    // rowClick
+    //
+    function rowClick(params) {
+        delegate.scoxSelect(params.node.data)
+    }
+
+    scox.box = zux.BoxHierarchy(divid, columnDefs, {
+        headerHeight: 0
+        domLayout: "autoHeight"
+        renderer: innerCellRenderer
+        rowClick: rowClick
+        noRowsText: "<i>no scopes</i>"
+        childDetails: childDetails
+        expandRow: expandRow
+        collapseRow: collapseRow
+    })
+
+    // finis
+    
+    scox
+};
+
+
+/*
+ * panelCallBox
+ *
+ *     Make a listbox of stackframes for an execution instance.
+ *
+ */
+
+closure panelCallBox(divid, delegate, local cabox, columnDefs) {
+    cabox = new(object, this)
+    cabox.divid = divid
+
+    //
+    // resetContents
+    //
+    //     Reset the contents of the tree.
+    //
+    cabox.resetContents = function resetContents(frames, local frame, content, record) {
+        content = []
+        for frame in frames {
+            if frame.type == "interrupt"
+                record = {
+                    stack: "interrupt ".concat(frame.variant)
+                }
+            else
+                record = {
+                    stack: frame.type.concat(space, frame.namespace, "::", frame.procname, "()")
+                }
+            content.push(record)
+        }
+        cabox.box.setRowData(content)
+    }
+
+    //
+    // initialize
+    //
+
+    columnDefs = [
+        {
+            headerName: "Stack", field: "stack", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+        }
+    ]
+
+    // innerCellRenderer
+    //
+    function innerCellRenderer(params) {
+        return (params.data.number)
+    }
+    
+    // rowClick
+    //
+    function rowClick(params) {
+        delegate.caboxSelect(params.node.data, params.rowIndex)
+    }
+
+    cabox.box = zux.BoxBasic(divid, columnDefs, {
+        headerHeight: 0
+        domLayout: "autoHeight"
+        renderer: innerCellRenderer
+        rowClick: rowClick
+        noRowsText: "<i>no call stack</i>"
+    })
+
+    // finis
+    
+    cabox
+};
+
+
+/*
+ * panelFutureBox
+ *
+ *     Make a listbox of futures for an execution instance.
+ *
+ */
+
+closure panelFutureBox(divid, delegate, local futox, columnDefs) {
+    futox = new(object, this)
+    futox.divid = divid
+
+    //
+    // resetContents
+    //
+    //     Reset the contents of the listbox according to the stackframe.
+
+    futox.resetContents = function resetContents(futures, local content, future, record) {
+        content = []
+        for future in futures {
+            record = {
+                start: future.start
+                count: future.count
+                delay: future.delay
+            }
+            if future.execute
+                record.items = [{
+                    proc: future.execute
+                    wait: false
+                }]
+            if future.waiting {
+                if !record.items
+                    record.items = []
+                record.items = record.items.concat(future.waiting.map(function(item) {
+                    { proc: item, wait: true }
+                }))
+            }
+            content.push({
+                future: record
+            })
+        }
+        futox.box.setRowData(content)
+    }
+
+    //
+    // childDetails
+    //
+
+    function childDetails(node) {
+        if node.future.items
+            return ({
+                group: true
+                expanded: true
+                children: node.future.items.map(function(item) {
+                    { future: item }
+                })
+            })
+    }
+
+    //
+    // initialize
+    //
+
+    columnDefs = [
+        {
+            headerName: "Futures", field: "future", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+        }
+    ]
+
+    // innerCellRenderer
+    //
+    function innerCellRenderer(params, local future, delayms, delays, delaystr) {
+        future = params.data.future
+        if future.start {
+            if future.delay {
+                delayms = Math.trunc(future.delay)
+                delays = Math.trunc(delayms/1000)
+                delayms -= delays * 1000
+                delaystr = tostring(delays).concat(".", prepad(delayms, 3, "0"))
+            }
+            else
+                delaystr = ""
+            strcat(dtFormatter.format(future.start), space, delaystr)
+        }
+        else if future.wait
+            "wait: ".concat(future.proc)
+        else
+            "exec: ".concat(future.proc)
+    }
+    
+    // rowClick
+    //
+    function rowClick(params) {
+        delegate.futoxSelect(params.node.data)
+    }
+
+    futox.box = zux.BoxHierarchy(divid, columnDefs, {
+        headerHeight: 0
+        domLayout: "autoHeight"
+        renderer: innerCellRenderer
+        rowClick: rowClick
+        noRowsText: "<i>no futures</i>"
+        childDetails: childDetails
+    })
+
+    // finis
+    
+    futox
+};
+
+
+/*
+ * deboxInit
+ *
+ *     Initialize the debugger panel list boxes.
+ *
+ */
+
+function deboxInit(local manifest) {
+
+    manifest = `(colorExpression, panelModComp, panelWatchBox, panelBreakBox, panelScopeBox,
+        panelCallBox, panelFutureBox, deboxInit)
+
+    Naan.module.build(module.id, "debug_boxes", function(modobj, compobj) {
+        compobj.manifest = manifest
+    })
+}();

@@ -1,0 +1,13 @@
+/*
+ * node_common_init.nlg
+ * Naanide
+ *
+ * Common initialization for all Naan node environments.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2020-2021 by Richard C. Zulch
+ *
+ */
+
+require("frameworks/common/repltools.nlg", { in: "naanlib" }).ImportReplTools();    // import our REPL tools

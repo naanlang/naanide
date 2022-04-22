@@ -1,0 +1,131 @@
+/*
+ * zutil.nlg
+ * Zux module
+ *
+ *     The zutil component contains helpful utilities for Zux that are not associated with a specific
+ * user interface element.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2020-2021 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * setElementClass
+ *
+ *     Add or remove a class from a DOM element.
+ *
+ */
+    
+function setElementClass(elem, className, present) {
+    if present {
+        if !elem.classList.contains(className)
+            elem.classList.add(className)
+    } else
+        elem.classList.remove(className)
+};
+
+
+/*
+ * elemVisible
+ *
+ *     Return true iff a DOM element is visible, i.e. taking up space on the page.
+ *
+ */
+
+function elemVisible(elem) {
+    !!(elem.offsetWidth || elem.offsetHeight || elem.getClientRects().length)
+};
+
+
+/*
+ * escapeHTML
+ *
+ *     Escape some HTML into plain text.
+ *
+ */
+
+function escapeHTML(html) {
+    document.createElement("div")
+        .appendChild(document.createTextNode(html))
+        .parentNode
+        .innerHTML
+};
+
+
+/*
+ * Tableize
+ *
+ *     Convert an array of text elements to an HTML table. The source array should have an element
+ * for each row and column, and either text for the cell contents, or an array of strings for 
+ * multiple lines in the cell. Options allow for the text to be HTML-escaped:
+ *
+ *  {
+ *      allow_html: <default false>
+ *  }
+ *
+ */
+
+function Tableize(data, options, local nlregx, indent, output, row, rowout, col, colout) {
+    nlregx = RegExp("\n|\r", "g")
+
+    // escaper
+    // Escape HTML so that it's displayed and not interpreted. This also removes newlines and
+    // returns because they can mess up the table formatting.
+    //
+    function escaper(txt) {
+        txt = txt.replace(nlregx, "")
+        if options.options
+            txt
+        else
+            escapeHTML(txt)
+    }
+    
+    // indented
+    // Return the indented form of a string
+    //
+    function indented(txt, indent) {
+        space.repeat(indent*4).concat(txt)
+    }
+
+    output = "<table class='table'>\n"
+        "    <tbody>\n"
+    indent = 1
+    for row in data {
+        rowout = indented("<tr>\n", ++indent)
+        for col in row {
+            colout = indented("<td>", ++indent)
+            if array(col)
+                for line in col
+                    colout = colout.concat(escaper(line), "<br/>")
+            else
+                colout = colout.concat(escaper(col))
+            rowout = rowout.concat(colout, "</td>\n")
+            --indent
+        }
+        output = output.concat(rowout, indented("</tr>\n", indent--))
+    }
+    output.concat("    </tbody>\n"
+        "</table>\n")
+};
+
+
+/*
+ * zutilInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function zutilInit(local manifest) {
+    manifest = `(setElementClass, elemVisible, escapeHTML, Tableize, zutilInit)
+
+    Naan.module.build(module.id, "zutil", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.elemVisible = elemVisible
+        modobj.exports.escapeHTML = escapeHTML
+        modobj.exports.Tableize = Tableize
+    })
+} ();

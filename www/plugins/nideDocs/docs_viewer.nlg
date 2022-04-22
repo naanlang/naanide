@@ -1,0 +1,59 @@
+/*
+ * viewer.nlg
+ * NaanIDE
+ *
+ *     Documentation viewing.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * DocsViewer
+ *
+ *     A documentation viewer object.
+ *
+ */
+
+closure DocsViewer(niui, local viewer) {
+    viewer = new(object, this)
+    viewer.viewAreaDiv = document.getElementById("NideDocsViewArea")
+    viewer.viewerDiv = document.getElementById("NideDocsViewer")
+
+    //
+    // setViewHtml
+    //
+    // Set the viewer html, or false for none.
+    //
+    viewer.setViewHtml = function setViewHtml(html local dcontent) {
+        if viewer.viewerDiv.firstChild {
+            viewer.viewerDiv.removeChild(viewer.viewerDiv.firstChild) }
+        dcontent = document.createElement("div")
+        viewer.viewerDiv.append(dcontent)
+        viewer.viewerDiv.firstChild.innerHTML = html
+    }
+
+    // finis
+
+    viewer
+};
+
+
+/*
+ * docvInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function projectInit(local manifest) {
+
+    manifest = `(DocsViewer, docvInit)
+
+    Naan.module.build(module.id, "docs_viewer", function(modobj, compobj) {
+        compobj.manifest = manifest
+    })
+} ();

@@ -1,0 +1,39 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+
+    <title>Naan Terminal</title>
+    <meta name="description" content="Naan Terminal">
+    <link rel="stylesheet" href="naan_term.css">
+
+    <!--[if lt IE 9]>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.js"></script>
+    <![endif]-->
+</head>
+
+<body style="background-color:black;color:white">
+    <!-- JavaScript required -->
+    
+    <div id='NaanTerm' style="position:absolute;width:100%;height:100%;top:0">
+        <div style="display:flex; flex-direction:column; height:100%; background-color:#333">
+            <div id='NaanREPLheader' style="flex:0 1 auto"></div>
+            <div id='NaanREPL' style="flex:1 1 auto; position:relative">
+        </div>
+        </div>
+        <div id='NaanTermLoading' style="display:none;position:absolute;text-align:center;width:99%;top:50%">
+            Naan Terminal Loading...
+        </div>
+    </div>
+    <script>document.getElementById('NaanTermLoading').style.display='';</script>
+    <script src="exlib/hterm/hterm_all.js"></script>
+    <script src="naan_repl.js"></script>
+    <script src="naan_term.js"></script>
+    
+    <!-- No Javascript fallback -->
+    <noscript><div id='NaanTermRequired'  style="position:absolute;text-align:center;width:99%;top:50%">Naan Terminal Requires JavaScript</div></noscript>
+
+    <!-- END Javascript conditionals -->
+</body>
+</html>

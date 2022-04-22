@@ -1,0 +1,476 @@
+/*
+ * docs_nav.nlg
+ * NaanIDE
+ *
+ *     Navigation for documentation viewing, by outline and search.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2018-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * DocsNavOutline
+ *
+ *     An outline selection object.
+ *
+ */
+
+closure DocsNavOutline(divid, local dono, columnDefs, rowData) {
+    dono = new(object, this)
+    dono.divid = divid
+
+    rowData = []
+
+    function sizeCellStyle() {
+        return ({"text-align": "right"})
+    }
+
+    function innerCellRenderer(params, local image, imageFullUrl, imageStyle, textSpan) {
+        if (params.node.data.children) {
+            if params.node.data.path != ""
+                image = "FolderIcon.ico"
+            else
+                image = "file-disk.png"
+        } else
+            image = "Document.ico"
+        imageFullUrl = "exlib/images/".concat(image)
+        imageStyle = "style=\"padding-bottom:3px;".concat("height: ", params.node.rowHeight * 0.7, "px\"")
+        textSpan = params.data.title
+        return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", textSpan))
+    }
+
+    columnDefs = [
+        {
+            headerName: "Name", field: "title", minWidth: 250,
+            resizable: true
+            sortable: true
+            filter: true
+            cellRenderer: "agGroupCellRenderer",
+            cellRendererParams: {
+                innerRenderer: function(params){ innerCellRenderer(params) },
+                suppressCount: true
+            }
+        },
+    ]
+
+    dono.gridOptions = xnew({
+        columnDefs: columnDefs,
+        rowData: rowData,
+        rowSelection: "multiple",
+        animateRows: true,
+        rowHeight: 24,
+        groupSelectsChildren: false,
+        rowClass: "ag-row-even",                                            // remove zebra striping
+        suppressHorizontalScroll: true,
+        getNodeChildDetails: function(node) {
+            if node.children
+                return ({
+                    group: true,
+                    children: node.children
+                    expanded: node.path == "" || dono.openIndex[node.path]
+                })
+            else
+                return (null)
+        },
+        onRowClicked: function(params, local treenode) {
+            treenode = params.node.data
+            if dono.delegate.outlineNodeSelect(treenode, params.node)
+                selectOnly(params.node)
+        }
+        onRowGroupOpened: function(param) {
+            // debuglog("rowGroupOpened", param.expanded)
+        }
+        onGridReady: function() {
+            dono.sizeToFit()
+        }
+    })
+
+    dono.gridiv = document.getElementById(divid)
+    dono.agrid = xnew(window.agGrid.Grid, dono.gridiv, dono.gridOptions)
+    dono.api = dono.gridOptions.api
+    dono.columnApi = dono.gridOptions.columnApi
+
+    // relpathToRowNode
+    //
+    // Update our path index that associates relpaths with rowNodes
+    
+    dono.relpathToRowNode = function relpathToRowNode(relpath) {
+        if !dono.pathIndex {
+            dono.pathIndex = { }
+            dono.api.forEachNode(function(rowNode, index, local path) {
+                path = rowNode.data.path
+                if !path
+                    path = ""
+                dono.pathIndex[path] = rowNode
+            }) }
+        dono.pathIndex[relpath]
+    }
+
+    //
+    // refreshRowNode
+    //
+    dono.refreshRowNode = function refreshRowNode(rowNode, local rn) {
+        if array(rowNode)
+            for rn in rowNode
+                refreshRowNode(rn)
+        else if rowNode
+            dono.api.refreshCells({
+                rowNodes: [rowNode],
+                force: true
+            })
+    }
+
+    //
+    // focusedCellData
+    //
+    dono.focusedCellData = function focusedCellData(local cell) {
+        cell = dono.api.getFocusedCell()
+        row = dono.api.getDisplayedRowAtIndex(cell.rowIndex)
+        row.data
+    }
+    
+    //
+    // editFocusedCell
+    //
+    dono.editFocusedCell = closure editFocusedCell(cbdone, local cell, row) {
+        cell = dono.api.getFocusedCell()
+        row = dono.api.getDisplayedRowAtIndex(cell.rowIndex)
+        dono.api.startEditingCell({
+            rowIndex: cell.rowIndex
+            colKey: cell.column.colId
+        })
+    }
+
+    //
+    // selectOnly
+    //
+    dono.selectOnly = function selectOnly(selRowNode, local nodes) {
+        nodes = dono.api.getSelectedNodes()
+        for row in nodes
+            if row != selRowNode
+                row.setSelected(false)
+        selRowNode.setSelected(true)
+    }
+    
+    //
+    // sizeToFit
+    //
+    dono.sizeToFit = function sizeToFit() {
+        dono.api.sizeColumnsToFit()
+    }
+    
+    // updateTree
+    //
+    //     Update for a modified tree.
+    //
+    dono.updateTree = function updateTree(tree, openpaths) {
+        if !openpaths
+            openpaths = openPaths()                                      // save existing open folders
+        dono.openIndex = { }
+        for path in openpaths
+            dono.openIndex[path] = true
+        if tree
+            tree = [tree]
+        else
+            tree = []
+        dono.api.setRowData(tree)
+        dono.openIndex = undefined
+        dono.pathIndex = undefined
+        setHeaderText()
+    }
+
+    //
+    // setHeaderText
+    //
+    //     Set the header text, "Topics" if blank.
+    //
+    dono.setHeaderText = function setHeaderText(text) {
+        if !text
+            text = "Topics"
+        dono.columnApi.getAllColumns().0.colDef.headerName = text
+        dono.api.refreshHeader()
+    }
+
+    //
+    // setTree
+    //
+    //     Set the specified document tree as the new content.
+    dono.setTree = function setTree(tree, delegate, openpaths) {
+        dono.delegate = delegate
+        updateTree(tree, openpaths)
+    }
+
+    // openPaths
+    //
+    //     Return an array of relpaths that are expanded. The path of the root is "".
+    
+    dono.openPaths = function openPaths(local pathlist) {
+        pathlist = []
+        dono.api.forEachNode(function(rowNode, index, local path) {
+            if rowNode.data.children && rowNode.expanded {
+                path = rowNode.data.path
+                if !path
+                    path = ""
+                pathlist.push(path)
+            }
+        })
+        pathlist
+    }
+
+    //
+    // getFileList
+    //
+    //     Return an array of files in the current tree. Each element contains the full pathname
+    // of the file.
+    
+    dono.getFileList = function getFileList(local files) {
+        files = []
+        dono.api.forEachLeafNode(function(rowNode, index) {
+            files.push(rowNode.data.path.concat(rowNode.data.title))
+        })
+        files
+    }
+    
+    //
+    // openAndSelect
+    //
+    //     Open the parents of the specified rowNode and then select it.
+    
+    dono.openAndSelect = function openAndSelect(rowNode, local count) {
+        count = 0
+        function openParent(rowNode) {                                      // open chain of parents
+            if rowNode {
+                if !rowNode.expanded
+                    ++count
+                openParent(rowNode.parent)
+                if count >= 2 {
+                    rowNode.expanded = true                                 // 2 or more expansions
+                    return (true)
+                }
+                rowNode.setExpanded(true)
+                return (false) }
+        }
+        if openParent(rowNode.parent)
+            dono.api.onGroupExpandedOrCollapsed()                          // refresh all expansions at once
+        selectOnly(rowNode)
+        dono.api.ensureNodeVisible(rowNode)
+    }
+
+    // finis
+
+    dono
+};
+
+
+/*
+ * DocsNavSearch
+ *
+ *     A search results selection object.
+ *
+ */
+
+closure DocsNavSearch(divid, local dons, columnDefs, rowData) {
+    dons = new(object, this)
+    dons.divid = divid
+
+    rowData = []
+
+    function sizeCellStyle() {
+        return ({"text-align": "right"})
+    }
+
+    function innerCellRenderer(params, local image, imageFullUrl, imageStyle) {
+        if params.data.lines {
+            image = "Document.ico"
+            imageFullUrl = "exlib/images/".concat(image)
+            imageStyle = "style=\"padding-bottom:3px;".concat("height: ", params.node.rowHeight * 0.7, "px\"")
+            return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", params.data.item.name)) }
+        else
+            return (dons.hilightFound(params.data.text))
+    }
+
+    columnDefs = [
+        {
+            headerName: "Results", field: "item", minWidth: 250,
+            autoHeight: true
+            resizable: true
+            sortable: true
+            filter: true
+            cellRenderer: "agGroupCellRenderer",
+            cellRendererParams: {
+                innerRenderer: function(params) { innerCellRenderer(params) },
+                suppressCount: true
+            }
+            cellStyle: function(params) {
+                if !params.data.lines
+                    return ({ whiteSpace: "normal", wordBreak: "break-all", maxHeight: "75px" })
+                else
+                    return (null)
+            }
+        }
+    ]
+
+    dons.gridOptions = xnew({
+        columnDefs: columnDefs,
+        rowData: rowData,
+        rowSelection: "multiple",
+        animateRows: true,
+        rowHeight: 24,
+        groupSelectsChildren: false,
+        suppressHorizontalScroll: true,
+        getNodeChildDetails: function(node) {
+            if node.lines
+                return ({
+                    group: true,
+                    children: node.lines,
+                    expanded: true
+                })
+            else
+                return (null)
+        },
+        onRowClicked: function(params) {
+            if call(dons.delegate, params.node.data, params.node)
+                selectOnly(params.node)
+        }
+        onGridReady: function() {
+            dons.sizeToFit()
+        }
+    })
+
+    dons.gridiv = document.getElementById(divid)
+    dons.agrid = xnew(window.agGrid.Grid, dons.gridiv, dons.gridOptions)
+    dons.api = dons.gridOptions.api
+    dons.columnApi = dons.gridOptions.columnApi
+
+    //
+    // refreshRowNode
+    //
+    dons.refreshRowNode = function(rowNode) {
+        dons.api.refreshCells({
+            rowNodes: [rowNode],
+            force: true
+        })
+    }
+
+    //
+    // focusedCellData
+    //
+    dons.focusedCellData = function focusedCellData(local cell) {
+        cell = dons.api.getFocusedCell()
+        row = dons.api.getDisplayedRowAtIndex(cell.rowIndex)
+        row.data
+    }
+
+    //
+    // selectOnly
+    //
+    dons.selectOnly = function selectOnly(selRowNode, local nodes) {
+        nodes = dons.api.getSelectedNodes()
+        for row in nodes
+            if row != selRowNode
+                row.setSelected(false)
+        selRowNode.setSelected(true)
+    }
+    
+    //
+    // sizeToFit
+    //
+    dons.sizeToFit = function sizeToFit(local div, rect, width) {
+        div = document.getElementById(divid)
+        rect = div.getBoundingClientRect()
+        width = rect.right-rect.left
+        width -= 17
+        dons.columnApi.setColumnWidth("item", width)
+    }
+    
+    //
+    // hilightFound
+    //
+    // This matches the found text expression and inserts hilighting. Unfortunately this doesn't work
+    // if the found text expression includes the HTML that is stripped. A more comprehensive solution
+    // would replace the match expressions first with something not in the original text, then strip
+    // the result, and then swap the hilights back in. While we're at it, lets strip off enough text
+    // at the beginning so that the found patterns are visible in the 3 lines of text we are willing
+    // to show. Unfortunately no time for those nuances now.
+    //
+    //     "Real artists ship" -- Steve Jobs
+    //
+    dons.hilightFound = function hilightFound(text, local result) {
+        text = escapeHTML(text)
+        if dons.matchRE
+            text.replace(dons.matchRE, function(match) {
+                "<span style='background-color: #007744'>".concat(match, "</span>")
+            })
+        else
+            text
+    }
+    
+    //
+    // setHeaderText
+    //
+    //     Set the header text, "Results" if blank.
+    //
+    dons.setHeaderText = function setHeaderText(text) {
+        if !text
+            text = "Results"
+        dons.columnApi.getAllColumns().0.colDef.headerName = text
+        dons.api.refreshHeader()
+    }
+
+    //
+    // setResults
+    //
+    //     Set the specified results array as the new content.
+    //
+
+    dons.setResults = function setResults(results, matchRE, delegate, local tree, rect, width) {
+        function fileToDicts(file, local dicts, line) {
+            dicts = []
+            for line in file.lines
+                dicts.push({
+                    file: file
+                    item: line.0
+                    text: line.1
+                })
+            dicts }
+
+        if results {
+            setHeaderText(strcat(results.foundCount, " results in ", results.foundFileCount, " files"))
+            tree = []
+            for file in results.files
+                tree.push({
+                    item: file.node
+                    lines: fileToDicts(file)
+                }) }
+        else
+            setHeaderText()
+        dons.sizeToFit()
+        dons.api.setRowData(tree)
+        dons.delegate = delegate
+        dons.matchRE = matchRE
+    }
+
+    // finis
+
+    dons
+};
+
+
+/*
+ * docnavInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function docnavInit(local manifest) {
+    manifest = `(DocsNavOutline, DocsNavSearch, docnavInit)
+    Naan.module.build(module.id, "docs_nav", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.DocsNavOutline = DocsNavOutline
+        modobj.exports.DocsNavSearch = DocsNavSearch
+    })
+} ();

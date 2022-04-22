@@ -1,0 +1,101 @@
+/*
+ * guiDebugger.nlg
+ * NaanIDE - guiDebugger plugin
+ *
+ *     NaanIDE plugin for a GUI debugger.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2021 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * setElementClass
+ *
+ *     Add or remove a class from a DOM element.
+ *
+ */
+    
+function setElementClass(elem, className, present) {
+    if present {
+        if !elem.classList.contains(className)
+            elem.classList.add(className)
+    } else
+        elem.classList.remove(className)
+};
+
+
+/*
+ * escapeHTML
+ *
+ *     Escape some HTML into plain text.
+ *
+ */
+
+function escapeHTML(html) {
+    document.createElement("div")
+        .appendChild(document.createTextNode(html))
+        .parentNode
+        .innerHTML
+};
+
+
+/*
+ * gudeIdePlugin
+ *
+ *     Add a GUI debugger panel to the Run tab.
+ *
+ */
+
+closure gudeIdePlugin(niui, local gude) {
+    gude = new(object, this)
+    gude.niui = niui
+
+    // get resources and add us to debug page
+
+    niui.api.get("plugins/guiDebugger/guiDebugger.css", function(error, req, e) {
+        if !error && req.responseText.length > 0
+            niui.appendCss(req.responseText)
+        else
+            debuglog("get css failed", error, req.responseText.length, req.responseText)
+        niui.api.get("plugins/guiDebugger/guiDebugger.html", function(error, req, e) {
+            if !error && req.responseText.length > 0 {
+                gude.debcon = niui.navbar.objForIdent("debug")
+                gude.panel = DebugPanel(gude, gude.debcon, req.responseText)
+            }
+            else
+                debuglog("get html failed", error, req.responseText.length, req.responseText)
+        })
+    })
+
+    // finis
+
+    gude
+};
+
+
+/*
+ * gudeInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function gudeInit(local manifest) {
+    manifest = `(setElementClass, escapeHTML, gudeIdePlugin, gudeInit)
+
+    Naan.module.build(module.id, "guiDebugger", function(modobj, compobj) {
+        compobj.manifest = manifest
+        function gudePostload() {
+            jspath = js.r("path")
+            window = js.w
+            document = window.document
+            dtFormatter = xnew(js.w.Intl.DateTimeFormat, "en" , { timeStyle: "medium" })
+            App.nide.addUI(gudeIdePlugin)
+        } ()
+        module.postload = gudePostload
+        require("./debug_panel.nlg")
+    })
+} ();

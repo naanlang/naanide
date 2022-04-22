@@ -1,0 +1,294 @@
+/*
+ * getpro.nlg
+ * NaanIDE
+ *
+ *     Get new or existing project UI.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2017-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * getproUI
+ *
+ *     Make a folder navigation listbox.
+ *
+ */
+
+closure getproUI(niui, divid, local getpro, columnDefs, rowData, gridOptions) {
+    if !nonce(getproDivs)
+        getproDivs = new(nonce)
+    else if getproDivs[divid]
+        return (getproDivs[divid])                                           // this div already has one
+    getpro = new(object, this)
+    getproDivs[divid] = getpro
+    getpro.divid = divid
+    getpro.butnext = document.getElementById("NideProjectTypeNext")
+    getpro.butprev = document.getElementById("NideProjectTypePrevious")
+    getpro.butcan = document.getElementById("NideProjectTypeCancel")
+    getpro.prompt = document.getElementById("NideBrowseFolderLabel")
+    getpro.typetext = document.getElementById("NideProjectTypeText")
+    getpro.nametext = document.getElementById("NideNewProjectName")
+    getpro.butprev.disabled = true
+    getpro.savename = ""
+    getpro.nametext.addEventListener("input", function() { getpro.updateControls() })
+
+    // return currently selected row, or undefined
+    getpro.getRow = function getRow() {
+        getpro.api.getSelectedNodes()[0].rowIndex
+    }
+
+    // select the specified row
+    getpro.setRow = function setRow(index) {
+        getpro.api.getDisplayedRowAtIndex(index).setSelected(true)
+        getpro.api.ensureIndexVisible(index, null)
+    }
+
+    // specify the columns
+    columnDefs = [
+        {
+            headerName: "Name",
+            field: "name",
+            cellStyle: { "text-align": "left"},
+            minWidth: 200
+            resizable: true
+        },
+        {
+            headerName: "Description",
+            field: "description",
+            cellStyle: { "text-align": "left"},
+            minWidth: 300
+            resizable: true
+        }
+    ]
+
+    // specify the data
+    rowData = [
+    ]
+
+    // let the listbox know which columns and what data to use
+    gridOptions = xnew({
+        rowSelection: single,
+        columnDefs: columnDefs,
+        rowData: rowData,
+        suppressColumnVirtualisation: true,
+        onRowDoubleClicked: function(event) {
+            setResult(getpro.curtype)
+        },
+        onRowClicked: function(event) {
+            getpro.updateControls()
+        }
+    })
+
+    getpro.gridiv = document.querySelector("#".concat(divid))
+    getpro.agrid = xnew(window.agGrid.Grid, getpro.gridiv, gridOptions)
+    getpro.api = gridOptions.api
+    getpro.columnApi = gridOptions.columnApi
+
+    getpro.projectTypes = closure projectTypes(local projTypeID, rows, node, defSel) {
+        rows = []
+        for projTypeID in niui.projects.classIDs() {
+            node = {
+                type: projTypeID,
+                name: niui.projects.className(projTypeID),
+                description: {
+                    clientserver: "NodeJS backend that launches Chrome front end"
+                    console: "Run anywhere with console interaction"
+                    folder: "Simple folder browser with no build rules"
+                    lambda: "Run as Amazon lambda function"
+                    static: "Run in browser from static website"
+                }[projTypeID]
+            }
+            if !defSel || defSel.type != getpro.options.deftype
+                defSel = node
+            rows.push(node)
+        }
+        getpro.api.setRowData(rows)
+        if defSel
+            getpro.setRow(rows.indexOf(defSel))
+        future(function resizeCols(){
+            getpro.columnApi.autoSizeColumns(["name", "description"])
+        }, 200)
+        getpro.updateControls()
+    }
+
+    // update controls for current selection, etc.
+    getpro.updateControls = function updateControls(local rowIndex, rowDatum) {
+        rowIndex = getRow()
+        if rowIndex {
+            rowDatum = getpro.api.getDisplayedRowAtIndex(rowIndex).data
+            getpro.curtype = rowDatum.type
+            getpro.typetext = ""
+            // ### update text
+        }
+        if getpro.curtype == "folder" {
+            if !getpro.nametext.disabled {
+                getpro.savename = getpro.nametext.value
+                getpro.nametext.value = ""
+                getpro.nametext.disabled = true }
+            getpro.butnext.disabled = false
+        } else {
+            if getpro.nametext.disabled {
+                getpro.nametext.value = getpro.savename
+                getpro.nametext.disabled = false }
+            getpro.butnext.disabled = getpro.nametext.value == ""
+        }
+    }
+
+    function setResult(ptype) {
+        if !getpro.notified {
+            getpro.notified = true
+            if ptype {
+                getpro.options.done({
+                    name: getpro.nametext.value
+                    typeID: ptype
+                }) }
+            else
+                getpro.options.done() }
+    }
+
+    // response to Next button
+    getpro.butnext.onclick = function (local rowIndex, rowDatum) {
+        rowIndex = getRow()
+        if rowIndex {
+            rowDatum = getpro.api.getDisplayedRowAtIndex(rowIndex).data
+            getpro.curtype = rowDatum.type
+        }
+        setResult(getpro.curtype)
+    }
+
+    // response to Cancel button
+    getpro.butcan.onclick = function () {
+        setResult(false)
+    }
+
+    jquery("#NideBrowseModal").on("shown.bs.modal", function () {
+        jquery(getpro.nametext).focus()
+    })
+
+    jquery("#NideBrowseModal").on("hide.bs.modal", function (event) {
+        setResult(false)
+        true
+    })
+
+    // setOptions
+    //
+    //     Set the options for a specific use of the dialog.
+
+    getpro.setOptions = function setOptions(options) {
+        getpro.notified = false
+        getpro.options = options
+        if options.prompt
+            getpro.prompt.innerHTML = options.prompt
+        getpro.butclose.onclick = function () {                             // ### getpro.butclose not defined
+            setResult(false) }                                              // ### can't cancel on first pane of New Project dialog
+        future(function getTypes(){
+            getpro.projectTypes()
+        }, 1)
+    }
+        
+    // finis
+
+    getpro
+};
+
+
+/*
+ * existingProjectDialog
+ *
+ *     Ask the user to identify a folder in a dialog with Select and Cancel buttons.
+ *
+ */
+
+closure existingProjectDialog(niui, doneCB, local fobox, modaldiv, pagediv) {
+    modaldiv = jquery("#NideBrowseModal")
+    pagediv = jquery("#NideBrowsePage")
+    pagediv.removeClass("NideModalHidden")
+    fobox = foboxUI(niui, "NideBrowseFobox")
+    fobox.setOptions({
+        prompt: "Select the project folder:"
+        filterproc: function() { false }
+        done: function(where) {
+            modaldiv.modal("hide")
+            pagediv.addClass("NideModalHidden")
+            doneCB(where) }
+    })
+    modaldiv.modal("show")
+};
+
+
+/*
+ * newProjectDialog
+ *
+ *     Run a multipane new project dialog ending in folder selection.
+ *
+ */
+ 
+closure newProjectDialog(niui, doneCB, local getpro, fobox, modaldiv, newdiv, savediv, state) {
+    modaldiv = jquery("#NideBrowseModal")
+    getpro = getproUI(niui, "NideProjectTybox")
+    fobox = foboxUI(niui, "NideBrowseFobox")
+    newdiv = jquery("#NideNewPage")
+    savediv = jquery("#NideBrowsePage")
+
+    function showTypePage(result) {
+        newdiv.removeClass("NideModalHidden")
+        getpro.setOptions({
+            prompt: "Choose project type and options:"
+            deftype: state.typeID
+            done: function(result) {
+                newdiv.addClass("NideModalHidden")
+                if result {
+                    state = result                                          // name and type
+                    showSavePage() }
+                else
+                    modaldiv.modal("hide")
+    } }) }
+    
+    function showSavePage() {
+        savediv.removeClass("NideModalHidden")
+        fobox.setOptions({
+            prompt: "Select project location:"
+            filterproc: function() { false }
+            previous: function() {
+                savediv.addClass("NideModalHidden")
+                showTypePage() }
+            done: function(where) {
+                modaldiv.modal("hide")
+                savediv.addClass("NideModalHidden")
+                if where {
+                    where.typeID = state.typeID
+                    where.name = state.name
+                    doneCB(where) }
+                else
+                    doneCB() }
+        })
+    }
+
+    showTypePage()
+    modaldiv.modal("show")
+};
+
+
+/*
+ * getproInit
+ *
+ *     Initialize the folder selection boxes.
+ *
+ */
+
+function getproInit(local manifest) {
+
+    manifest = `(getproUI, existingProjectDialog, newProjectDialog, getproInit)
+
+    Naan.module.build(module.id, "getpro", function(modobj, compobj) {
+        require("nide/nideUI/nideUI.nlg")
+        compobj.manifest = manifest
+        modobj.exports.ExistingProjectDialog = existingProjectDialog
+        modobj.exports.NewProjectDialog = newProjectDialog
+    })
+
+} ();

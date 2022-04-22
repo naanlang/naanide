@@ -1,0 +1,98 @@
+/*
+ * nideDocs.nlg
+ * NaanIDE
+ *
+ *     NaanIDE plugin for Documentation viewing.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * ndocIdePlugin
+ *
+ *     Add a tab to the Nide main navigation area.
+ *
+ */
+
+closure ndocIdePlugin(niui, local nidoc, html) {
+    nidoc = new(object, this)
+    App.nidoc = nidoc
+    nidoc.docman = DocManager(nidoc)
+
+    //
+    // fetchFile
+    //
+    
+    closure fetchFile(path, respType, local fetchpath) {
+        if !respType
+            respType = `text
+        fetchpath = js.w.location.origin.concat("/", path)
+        await(js.w.fetch(fetchpath).then(function(response) {
+            if response.ok
+                response[respType]()
+            else
+                Promise.reject(response.status)
+        }))
+    }
+    
+    //
+    // Retrieve TOC and append our UI to navbar
+    //
+
+    future(function(error, content local language) {
+        `(error, content) = fetchFile("plugins/nideDocs/nideDocs.css")
+        if content.length > 0
+            niui.appendCss(req.responseText)
+        `(error, content) = fetchFile("plugins/nideDocs/nideDocs.html")
+        if content.length > 0 {
+            niui.navbar.appendPage("docs", "Docs", content, nidoc)
+            language = "en"
+            nidoc.panel = DocsPanel(nidoc, language)
+        }
+    }).run()
+    
+    //
+    // Tab activation/deactivation
+    //
+
+    nidoc.navtab = function navtab(visible) {
+    }
+
+    // finis
+
+    nidoc
+};
+
+
+/*
+ * ndocInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function ndocInit(local manifest) {
+
+    manifest = `(ndocIdePlugin, ndocInit)
+
+    Naan.module.build(module.id, "nideDocs", function(modobj, compobj) {
+        compobj.manifest = manifest
+
+        function ndocPostload() {
+            jspath = js.r("path")
+            window = js.w
+            document = window.document
+            jquery = window.$
+            App.nide.addUI(ndocIdePlugin)
+        }
+        module.postload = ndocPostload
+        require("./docs_manager.nlg")
+        require("./docs_panel.nlg")
+        require("./docs_nav.nlg")
+        require("./docs_viewer.nlg")
+    })
+} ();

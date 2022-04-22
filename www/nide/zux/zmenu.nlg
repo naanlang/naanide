@@ -1,0 +1,188 @@
+/*
+ * zmenu.nlg
+ * Zux module
+ *
+ *     The zmenu component contains implementations for all menu-related user interface elements.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2017-2022 by Richard C. Zulch
+ *
+ */
+
+zmenuActiveDropdown;
+
+
+/*
+ * zmenuDropdown
+ *
+ * column positioning:                          //                          //                      !
+ * Drop open a dropdown menu for the specified array of choice strings, for either a transient or
+ * persistent menu div. The callback is called if and when the user selects a menu item. Each item in
+ * the array of choices can be:
+ *      - "<..." for HTML source code item,
+ *          e.g.: "<a class='dropdown-item-text' href='#'>Text Link</a>"
+ *      - "-" for a disabled horizontal divider
+ *      - "~<text>" for a disabled item
+ *      - "/<text>" to ignore above prefix characters
+ *      - "<text>" for an ordinary menu item with default styles (but don't start with a prefix
+ *          character)
+ * The options dictionary is required and includes:
+ *      - x: <x>, y: <y>                        - menu top-left (required iff no menudiv)
+ *      - menudiv:  <div || divID string>       - reset the existing menu contents as specified
+ *      - refel:    <refel || refID string>     - reference element
+ * The callback is:
+ *      callback(event, itemindex, itemdiv)
+ * The returned object provides some methods:
+ *      dropdown.show()                         - show the dropped menu
+ *      dropdown.hide()                         - hide the dropped menu
+ * Note that the show() operation doesn't work until the menu is visible.
+ *
+ */
+
+closure zmenuDropdown(items, options, callback,
+    local dropdown, zindex, wrapperdiv, button, menudiv, xoptions) {
+    dropdown = new(object, this)
+    if zmenuActiveDropdown {
+        zmenuActiveDropdown.hide()
+        zmenuActiveDropdown = false
+    }
+    if options.zindex
+        zindex = options.zindex
+    else
+        zindex = 1100
+    if options.menudiv {
+        if string(options.menudiv)
+            menudiv = document.getElementById(options.menudiv)
+        else
+            menudiv = options.menudiv
+        if string(options.refel)
+            button = document.getElementById(options.refel)
+        else
+            button = options.refel
+        if !menudiv || !button
+            return (false)
+        menudiv.innerHTML = ""                                              // remove existing menu items
+    } else {                                                                // build the complete menu
+        wrapperdiv = document.createElement("div")
+        wrapperdiv.classList.add("dropdown")
+    
+        button = document.createElement("button")
+        button.type = "button"
+        button.style.cssText = "z-index:".concat(zindex, ";display:none")
+        button.classList.add("btn","btn-secondary")
+    
+        menudiv = document.createElement("div")
+        menudiv.classList.add("dropdown-menu")
+    
+        wrapperdiv.append(button)
+        wrapperdiv.append(menudiv)
+        document.body.append(wrapperdiv)
+    }
+    button.setAttribute("data-bs-toggle", "dropdown")
+
+    let (local itemdex, item, classes) {                                    // build the menu items
+        itemdex = 0
+        for item in items
+            closure(itemdex, item, local itemdiv) {
+                itemdiv = document.createElement("div")
+                if item == "-"
+                    itemdiv.innerHTML = "<div class='dropdown-divider'></div>"
+                else if item.charAt(0) != "<" {
+                    classes = ["dropdown-item"]
+                    if item.charAt(0) == "~" {
+                        classes.push("disabled")
+                        item = item.substring(1)                            // disabled item
+                    } else if item.charAt(0) == "/"
+                        item = item.substring(1)                            // allows starting item with < or ~
+                    itemdiv.innerHTML = "<button class='".concat(classes.join(" "), "' type='button'>", item, "</button>")
+                } else
+                    itemdiv.innerHTML = item
+                itemdiv = itemdiv.firstChild
+                menudiv.append(itemdiv)
+                itemdiv.onclick = function (event) {
+                    event.preventDefault()
+                    callback(event, itemdex, itemdiv)
+                }
+            } (itemdex++, item)
+    } ()
+
+    if wrapperdiv {                                                         // prepare and display the dropdown menu
+        wrapperdiv.style.position = "fixed"
+        wrapperdiv.style.zIndex = zindex
+        wrapperdiv.style.top = "0px"
+        wrapperdiv.style.left = "0px"
+        button.style.cssText = "position:absolute;visibility:hidden;".concat(
+            "top:", tostring(options.y), "px;",
+            "left:", tostring(options.x), "px")
+        wrapperdiv.addEventListener("hidden.bs.dropdown", function() {
+            future(function() {                                             // schedule the remove() to not be recursively inside event
+                if wrapperdiv {
+                    wrapperdiv.remove()
+                    wrapperdiv = false }
+            }).run()
+        })
+    }
+    xoptions = xnew()
+    xoptions.popperConfig = function (defBSconfig, local config) {          // change the placement
+        config = new(defBSconfig)
+        config
+    }
+    dropdown.bsdd = xnew(window.bootstrap.Dropdown, button, xoptions)
+    zmenuActiveDropdown = dropdown.bsdd
+
+    // show (drop)
+    //
+    dropdown.show = function show() {
+        dropdown.bsdd.show()
+    }
+
+    // hide
+    //
+    dropdown.hide = function hide() {
+        dropdown.bsdd.hide()
+    }
+
+    // finis
+
+    dropdown
+};
+
+
+/*
+ * zmenuContext
+ *
+ * Drop a context menu for the specified mouse click event. The options argument may be
+ * false for the default.
+ *
+ */
+
+closure zmenuContext(event, items, options, callback, local dropdown) {
+    event.preventDefault()
+    event.stopPropagation()
+    options = new(options)
+    options.x = event.pageX
+    options.y = event.pageY
+    dropdown = zmenuDropdown(items, options, callback)
+    dropdown.bsdd.show()
+    dropdown
+};
+
+
+/*
+ * zmenuInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function zmenuInit(local manifest) {
+    manifest = `(zmenuDropdown, zmenuContext, zmenuInit)
+
+    Naan.module.require("nide/zux/zux.nlg")
+    Naan.module.build(module.id, "zmenu", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.MenuDropdown = zmenuDropdown
+        modobj.exports.MenuContext = zmenuContext
+    })
+} ();

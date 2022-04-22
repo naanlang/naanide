@@ -1,0 +1,340 @@
+/*
+ * debug.nlg
+ * NaanIDE
+ *
+ *     Nide Debugger Page.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2019-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * debugExecs
+ *
+ *     Make a listbox of execution instances grouped by type. Since we want to point to instances but
+ * JavaScript objects cannot point to Naan objects, this maps to integers and back.
+ *
+ */
+
+closure debugExecs(niui, divid, delegate, local dexbox, columnDefs) {
+    dexbox = new(object, this)
+    dexbox.divid = divid
+    dexbox.nextID = 1
+
+    // resetMap
+    // Reset the execution item / ID map.
+    //
+    function resetMap() {
+        dexbox.exmap = new(weakmap)
+        dexbox.idmap = { }
+    }
+    
+    // ex2box
+    // Map an execution item to an ID for the listbox.
+    //
+    function ex2box(exec, local id) {
+        id = dexbox.exmap[exec]
+        if id
+            { }
+        else {
+            id = dexbox.nextID++
+            dexbox.idmap[id] = exec
+            dexbox.exmap[exec] = id
+        }
+    }
+    
+    // box2ex
+    // Map an ID for the listbox to an execution item.
+    //
+    function box2ex(id) {
+        dexbox.idmap[id]
+    }
+
+    //
+    // resetContents
+    //
+    //     Reset the contents of the tree.
+    //
+    dexbox.resetContents = function resetContents(local execlist, exec, types, data, type, content) {
+        resetMap()
+        execlist = niui.track.enumlist()
+        types = {}
+        for exec in execlist {
+            data = {
+                type: exec.type
+                name: exec.name
+                id: ex2box(exec)
+            }
+            if types[exec.type]
+                types[exec.type].push(data)
+            else
+                types[exec.type] = [data]
+        }
+        content = []
+        for type in types
+            content.push({
+                name: type
+                children: types[type]
+            })
+        dexbox.box.setRowData(content)
+    }
+
+    //
+    // selectExec
+    //
+    //     Select an instance.
+    
+    dexbox.selectExec = function selectExec(exec, local id, found) {
+        id = ex2box(exec)
+        dexbox.box.forEachLeafNode(function(rowNode, index) {
+            if rowNode.data.id  == id
+                found = rowNode
+        })
+        if found && delegate.execSelect(box2ex(found.data.id))
+            dexbox.box.selectOnly(found)
+    }
+
+    //
+    // defSelect
+    //
+    //     Select a default instance.
+    
+    dexbox.defSelect = function defSelect(local found) {
+        dexbox.box.forEachLeafNode(function(rowNode, index) {
+            if !found
+                found = rowNode
+        })
+        if found && delegate.execSelect(box2ex(found.data.id))
+            dexbox.box.selectOnly(found)
+    }
+
+    //
+    // initialize
+    //
+
+    columnDefs = [
+        {
+            headerName: "Name", field: "name", minWidth: 250,
+            resizable: true
+            sortable: true
+            filter: true
+        }
+    ]
+
+    // innerCellRenderer
+    //
+    function innerCellRenderer(params, local image, imageFullUrl, imageStyle) {
+        if params.node.data.children
+            image = "FolderIcon.ico"
+        else
+            image = "Naan.ico"
+        imageFullUrl = "exlib/images/".concat(image)
+        imageStyle = "style=\"padding-bottom:3px;".concat("height: ", params.node.rowHeight * 0.7, "px\"")
+        return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", params.data.name))
+    }
+
+    // childDetails
+    //
+    function childDetails(node) {
+        if node.children
+            return ({
+                group: true,
+                children: node.children,
+                expanded: true
+            })
+    }
+    
+    // rowClick
+    //
+    function rowClick(params) {
+        delegate.execSelect(box2ex(params.node.data.id))
+    }
+
+    dexbox.box = zux.BoxHierarchy(divid, columnDefs, {
+        rowHeight: 24
+        renderer: innerCellRenderer
+        childDetails: childDetails
+        rowClick: rowClick
+    })
+
+    // finis
+    
+    dexbox
+}
+
+
+/*
+ * MakeDebug
+ *
+ *     Make a debugger page.
+ *
+ */
+
+closure MakeDebug(niui, local debug) {
+    debug = new(object, this)
+    debug.debex = debugExecs(niui, "NideDebugNav", debug)
+    debug.debugBoxDiv = document.getElementById("NideDebugBox")
+    debug.debugAreaDiv = document.getElementById("NideDebugArea")
+    debug.debuggerDiv = document.getElementById("NideDebugContainer")
+    debug.replDiv = document.getElementById("NideTargetRepl")
+    debug.targetClose = document.getElementById("NideTargetClose")
+    debug.targetName = document.getElementById("NideTargetName")
+    debug.targetPerf = document.getElementById("NideTargetPerformance")
+    debug.butPopup = document.getElementById("NideTermPopup")
+    debug.repl = xnew(window.Naanlang.NaanREPL, debug.replDiv, function(repl) {
+        debug.terminalReady()
+        document.activeElement.blur()
+    })
+
+    // focus on terminal when we become active (visible)
+    debug.navtab = function navtab(active, ident) {
+        debug.repl.Focus()
+        if debug.connection
+            debug.connection.termActive(active)
+        debug.guidb.navtab(active)
+    }
+
+    //
+    // eventSave
+    //
+
+    window.addEventListener("NaanSave", function (event) {
+        // ### save state - we are going away
+    })
+
+    //
+    // window resize event
+    //
+    
+    window.addEventListener("resize", function() {
+        future(function termResized(){debug.debex.sizeToFit()}, 0)
+    })
+    
+    //
+    // close-click
+    //
+
+    debug.targetClose.addEventListener("click", function(event) {
+        debug.exec.destroy()
+        debug.exec = false
+        debug.targetName.textContent = ""
+        debug.targetPerf.textContent = ""
+        debug.repl.Reset()
+    })
+
+    //
+    // terminalReady
+    //
+    //
+    debug.terminalReady = function terminalReady(local m1, m2, m3, m4, m5) {
+        m1 = niui.track.spawn("Local", "NaanIDE", "NaanIDE")
+        m2 = niui.track.spawn("Local", "Play", "NaanIDE-Play")
+        m3 = niui.track.spawn("Host", "NaanIDE Server", "NideServer")
+        m4 = niui.track.spawn("Host", "Play", "NaanIDE-Server-Play")
+        m5 = niui.track.spawn("Lambda", false, "my lambda")
+        debug.debex.resetContents()
+        niui.track.watch(closure(changes) {
+            if changes.added || changes.deleted
+                future(debug.debex.resetContents, 0)
+            else if changes.attention
+                future(function(){ debug.debex.selectExec(changes.attention.0) }, 10)
+                
+        })
+        future(function adjustResize(){debug.debex.sizeToFit()}, 400)
+        debug.debex.defSelect()
+        App.clone = function() {
+            niui.track.spawn("Local", "NaanIDE Clone", "NaanIDE-Debug")
+        }
+    }
+    
+    // regDebugger
+    //
+    // Register the specified GUI debugger, returning its div. It will receive messages when context
+    // changes for selected or unselected instances.
+    //
+    debug.regDebugger = function regDebugger(guidb) {
+        debug.guidb = guidb
+        debug.debuggerDiv
+    }
+    
+    //
+    // execSelect
+    //
+    // A selection was made in the exec instance listbox.
+    //
+    debug.execSelect = function execSelect(instance) {
+        debug.butPopup.disabled = true
+        if instance.children
+            return (false)
+        if debug.connection
+            debug.connection.termDetach(debug.repl, debug.guidb)
+        debug.connection = false
+        debug.exec = instance
+        debug.targetName.textContent = instance.type.concat(" : ", instance.name)
+        debug.targetPerf.textContent = ""
+        debug.connection = instance.termAttach(debug.repl, debug.guidb, function(instance, status) {
+            if status.sample {
+                debug.targetPerf.textContent = "cpu: ".concat(status.sample.cpu, " peak: ", status.sample.peak, " avg: ", status.sample.average)
+            } else
+                debuglog("non-status message in status channel", instance.name, status, status.*)
+        })
+        if debug.connection.popup
+            debug.butPopup.disabled = false
+        debug.connection.termActive(true)                                   // we have to be active
+        true
+    }
+
+    //
+    // butPopup.onclick
+    //
+    // The user clicked the popup button.
+    //
+    debug.butPopup.onclick = function () {
+        debug.popup = App.openTerm()
+    }
+
+    //
+    // widthAdjuster
+    //
+    // Control for adjusting the width of the navigator box vs. the debugger
+    //
+
+    debug.widthAdjuster = zux.SplitAdjuster("NideDebugBoxAdjuster", debug.debugBoxDiv, debug.debugAreaDiv, { }, function(adj, pct) {
+        adj.setProportion(pct)
+        future(function divAdjustBox(){ debug.debex.sizeToFit() }, 400)
+    })
+
+    //
+    // final initialization
+    //
+
+    debug.widthAdjuster.setProportion(debugLeftPct)
+
+    debug
+};
+
+
+/*
+ * debugInit
+ *
+ *     Initialize the debugger page.
+ *
+ */
+
+function debugInit(local manifest) {
+
+    manifest = `(debugExecs, MakeDebug, debugInit)
+
+    Naan.module.build(module.id, "debug", function(modobj, compobj) {
+        require("nide/nideUI/nideUI.nlg")
+        compobj.manifest = manifest
+        modobj.exports.MakeDebug = MakeDebug
+    })
+
+    nideClient_terminals = require("frameworks/browser/terminals.nlg")
+    if debugLeftPct eq `debugLeftPct
+        debugLeftPct = 15
+} ();

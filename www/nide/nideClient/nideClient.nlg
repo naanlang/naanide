@@ -1,0 +1,570 @@
+/*
+ * nideClient.nlg
+ * NaanIDE version 0.9.1-1
+ *
+ *     Naan IDE controller for browsers.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2017-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * NideClient
+ *
+ *     This runs in browsers to implement an IDE. It requires NideCommon and NideUI to operate. The
+ * following are explanations of key Nide components and designs.
+ *
+ * Location
+ *
+ *     A Location is a named dictionary describing a place where project storage can take place.
+ * Locations are referred to by name, which is a user-visible string.
+ *
+ * ProjectWhere
+ *
+ *     A ProjectWhere dictionary has the following structure:
+ * {
+ *     location: <string>   -- name of location containing project storage access information
+ *     path: <string>       -- path of project within location
+ *     name: <string>       -- name of project for user
+ *     typeID: <string>     -- project type ID, which is decoded for the user
+ * }
+ *
+ * The ProjectWhere structure is designed to have enough information to find the project
+ * or explain to the user why it cannot be found. The name does not exist when the project is just
+ * a location with no independent state, like a folder.
+ *
+ */
+
+
+/*
+ * niccPrefs
+ *
+ *     Preferences object for persistent preferences outside of projects. This also opens the Nide
+ * database for local browser storage.
+ *
+ */
+
+closure niccPrefs(nicc, dbname, local prefs, error, data) {
+    `(error, data) = require("frameworks/storage/dbt_pouch.nlg").PouchDB(dbname)
+    if error {
+        ErrorDebuglog("Can't access Nide local browser database", error)
+        return (false)
+    }
+    nicc.db = data
+    `(error, data) = nicc.db.table("NideData")
+    if error {
+        ErrorDebuglog("Can't access NideData table", error)
+        return (false)
+    }
+    nicc.dbtable = data
+    prefs = new(object, this)
+    
+    // save
+    // Save preferences to pouchDB
+    prefs.save = function save() {
+        if prefs.doc {
+            prefs.doc.content = prefs.data
+            `(error, data) = nicc.dbtable.update(prefs.doc)
+            prefs.doc = data }
+        else {
+            `(error, data) = nicc.dbtable.add("NidePreferences", prefs.data)
+            prefs.doc = data }
+        if error
+            nicc.alert("<b>Error saving preferences</b><br>".concat(ErrorString(error)), { class: "alert-danger" })
+    }
+
+    // default
+    // Load default preferences
+    prefs.default = closure default(local pending) {
+        pending = new(nonce)
+        nicc.api.readFile("nide_options.cfg", function(error, req, event, local config) {
+            if error {
+                ErrorDebuglog("Can't read nide_options.cfg", error)
+                config = { } }
+            else {
+                `(error, config) = JsonParse(req.responseText)
+                if error {
+                    ErrorDebuglog("Can't decode nide_options.cfg", error)
+                    config = { }
+                } else
+                    config = new(config)
+            }
+            pending.signal(config)
+        })
+        pending.wait()
+    }
+
+    // load
+    // Load preferences from pouchDB
+    prefs.load = function load() {
+        `(error, data) = nicc.dbtable.get("NidePreferences")
+        if error {                                                          // missing preferences or other error
+            if error.status != 404
+                ErrorDebuglog("Can't load preferences", error)
+            prefs.data = { } }
+        else {
+            prefs.doc = data
+            prefs.data = data.content
+        }
+        data = default()
+        for key in data
+            if !prefs.data[key]
+                prefs.data[key] = data[key]                                 // bring in any new keys from configuration
+    }
+    prefs.load()
+    
+    // loadplugins
+    // Load listed plugins
+    prefs.loadplugins = function loadplugins(local folder, path, name) {
+        folder = "plugins/"
+        path = folder.concat("plugins.cfg")
+        pending = new(nonce)
+        nicc.api.readFile(path, function(error, req, event, local config) {
+            if error
+                ErrorDebuglog("Can't read ".concat(path), error)
+            else {
+                `(error, config) = JsonParse(req.responseText)
+                if error
+                    ErrorDebuglog("Can't decode ".concat(path), error)
+                else
+                    prefs.plugins = new(config)
+            }
+            pending.signal(config)
+        })
+        pending.wait()
+        for name in prefs.plugins.load {
+            path = folder.concat(name)
+            try {
+                require(path)
+            } catch {
+                if true
+                    ErrorDebuglog("Exception requiring: ", path, exception)
+            }
+        }
+    }
+
+    // finis
+    prefs
+};
+
+
+/*
+ * niccExecTrack
+ *
+ *     Track Naan execution instances by location. The data model is as follows:
+ *  instance: {
+ *      location: <parent>
+ *          exec: <execution instance>
+ *  }
+ *
+ */
+
+closure niccExecTrack(nicc, local xtrak) {
+    xtrak = new(object, this)
+    xtrak.instances = []
+    xtrak.watchers = []
+    
+    // notify
+    // Notify the watchers by calling a named procedure
+    
+    function notify(fname, exec, local watch) {
+        for watch in xtrak.watchers
+            watch[fname](exec)
+    }
+
+    // add
+    // Add an execution instance at the specified location.
+
+    xtrak.add = function add(location, exec, local instance) {
+        instance = new(nonce)
+        instance.location = location
+        instance.exec = exec
+        xtrak.instances.push(instance)
+        notify(execAdd, exec)
+    }
+
+    // delete
+    // Delete an execution instance.
+
+    xtrak.delete = function delete(exec) {
+        notify(execDelete, exec)
+        xtrak.instances.filter(function(item){
+            !(item.exec eq exec)
+        })
+    }
+
+    // update
+    // Notify watchers of an update on an execution instance.
+
+    xtrak.update = function update(exec) {
+        notify(execUpdate, exec)
+    }
+    
+    // enumlist
+    // Enumerate the list of execs for the specified location, or the locations list if false.
+    
+    xtrak.enumlist = function enumlist(location, local results) {
+        results = []
+        for instance in xtrak.instances {
+            if location {
+                if instance.location eq location
+                    results.push(instance.exec)
+            } else {
+                if results.indexOf(instance.location) < 0
+                    results.push(instance.location)
+            }
+        }
+        results
+    }
+
+    // watch
+    // Watch for changes on execution instance status.
+
+    xtrak.watch = function watch(watcher) {
+        if xtrak.watchers.indexOf(watcher) < 0
+            xtrak.watchers.push(watcher)
+    }
+
+    // unwatch
+    // Stop watching for changes on execution instance status.
+
+    xtrak.unwatch = function unwatch(watcher) {
+        xtrak.watchers.filter(function(item){
+            !(item eq watcher)
+        })
+    }
+    
+    // finis
+    xtrak
+};
+
+
+/*
+ * niccTermControl
+ *
+ *     Control the IDE REPL window, including saving and restoring, closing at quit, etc.
+ *
+ */
+
+closure niccTermControl(local newin, termState, winOpen) {
+    
+    // getTS
+    //
+    function getTS(local wfeatures) {
+        termState = js.t.LoadPref("nideTerm")
+        if !termState
+            termState = {
+                height: 500
+                width: 900
+            }
+        winOpen = termState.open
+        wfeatures = strcat("height=", termState.height, ",width=", termState.width)
+        if termState.screenX
+            wfeatures = wfeatures.concat(",screenX=", termState.screenX, ",screenY=", termState.screenY)
+        wfeatures
+    }
+    
+    // putTS
+    //
+    function putTS() {
+        js.t.SavePref("nideTerm", termState)
+    }
+    
+    // saveTermWin
+    //
+    function saveTermWin() {                                                // save window size/position on close
+        if newin {
+            termState.screenX = newin.screenX
+            termState.screenY = newin.screenY
+            termState.height = newin.innerHeight+1
+            termState.width = newin.innerWidth
+            putTS()
+        }
+    }
+
+    //
+    // App.openTerm
+    //
+    // Open or reopen the IDE REPL terminal.
+    //
+
+    App.openTerm = function() {
+        newin = js.w.open(js.w.location.origin.concat("/naan_term.html"), "naan_term", getTS())
+        winOpen = true
+        newin.addEventListener("beforeunload", function(e) {                // save terminal window size/position on close
+            winOpen = false                                                 // mark as closed for future save
+            saveTermWin()
+            newin = false
+        })
+        
+        js.w.addEventListener("beforeunload", function (e) {                // close terminal window when IDE closes
+            termState.open = winOpen                                        // desired restart state
+            saveTermWin()
+            newin.close()
+        })
+
+        newin
+    }
+    
+    //
+    // initialize
+    //
+    
+    getTS()
+    if winOpen
+        App.openTerm()                                                      // like last time
+};
+
+
+/*
+ * niccController
+ *
+ *     Make an NaanIDE object. This does not perform any UI operations.
+ *
+ */
+
+closure niccController(api, local nicc, pollint, version) {
+    nicc = new(object, this)
+    App.nide = nicc
+    nicc.api = api
+    niccTermControl()                                                       // open/prepare terminal early
+    nicc.prefs = niccPrefs(nicc, "Nide")
+    nicc.uilist = []
+    nicc.psm = require("frameworks/client/psm_client.nlg").MakeClientPSM(nicc, "Nide")
+    nicc.locate = nicc.psm.tracker()                                        // storage locations
+    nicc.locate.open()
+    nicc.track = ExecutorTracker()
+    nicc.track.register(localWorker, "Local")
+    nicc.track.register(hostWorker, "Host")
+    nicc.projman = require("frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
+    nicc.projects = nicc.projman.tracker()
+    nicc.projects.open()
+    require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.1-1")
+    result = nicc.locate.ensureExists("PouchDB", {
+        label: "Local"
+        urlName: "NideProjects"
+        existing: true
+        locked: true })
+    if result.0
+        ErrorDebuglog("result", result.0, result.0.*)
+    nicc.deflocation = nicc.getPrefs("DefLocName")
+    if !nicc.deflocation
+        setDefault("NodeFS", "Host", "/Users/richardz")                     // ### need generic default
+
+    // localWorker
+    //
+    // Instantiate a local worker.
+    
+    function localWorker(track, name, workerID, options) {
+        if !options
+            options = {
+                startup: {
+                    initcmds: "require('naan_init_workers.nlg');;\n"
+                }
+            }
+        require("frameworks/browser/terminals.nlg").TermLocal(track, name, workerID, options)
+    }
+
+    // hostWorker
+    //
+    // Instantiate a host worker.
+    
+    function hostWorker(track, name, workerID, options) {
+        if !options
+            options = { }
+        require("frameworks/browser/terminals.nlg").TermHost(track, nicc.api, name, workerID, options)
+    }
+
+    // nicc.getPrefs
+    // nicc.putPrefs
+    //
+    // Get and put preferences through functions so that changes can be tracked for debugging.
+    
+    nicc.getPrefs = function getPrefs(key) {
+        nicc.prefs.data[key]
+    }
+
+    nicc.putPrefs = function putPrefs(key, data) {
+        nicc.prefs.data[key] = data
+        nicc.prefs.save()
+    }
+    
+    // nicc.alert - early version before UI is active
+    
+    nicc.alert = function prealert(text) {
+        debuglog("Nide message:", text)
+    }
+        
+    // nicc.openTerm
+    //
+    // Open the separate IDE terminal window, using the saved state if we have it.
+    
+    nicc.openTerm = closure openTerm(local newin, termState, wfeatures) {
+        
+        // getTS
+        //
+        function getTS() {
+            termState = js.t.LoadPref("nideTerm")
+            if !termState
+                termState = {
+                    height: 500
+                    width: 900
+                }
+        }
+        
+        // putTS
+        //
+        function putTS() {
+            js.t.SavePref("nideTerm", termState)
+        }
+        
+        // saveTermWin
+        //
+        function saveTermWin(local result) {                                // save window size/position on close
+            termState.screenX = newin.screenX
+            termState.screenY = newin.screenY
+            termState.height = newin.innerHeight+1
+            termState.width = newin.innerWidth
+            termState.open = !newin.closed
+            putTS()
+        }
+
+        getTS()
+        wfeatures = strcat("height=", termState.height, ",width=", termState.width)
+        if termState.screenX
+            wfeatures = wfeatures.concat(",screenX=", termState.screenX, ",screenY=", termState.screenY)
+        newin = js.w.open(js.w.location.origin.concat("/naan_term.html"), "naan_term", wfeatures)
+        newin.addEventListener("beforeunload", saveTermWin.proc)            // save window size/position on close
+        js.w.addEventListener("beforeunload", function (e) {                // close terminal window when IDE closes
+            newin.close()
+        })
+        js.w.addEventListener("NaanSave", function (e) {
+            js.w.naanlang.SavePref()
+            saveTermWin()
+        })
+    }
+
+    //
+    // status polling
+    //
+    //     This uses long polling to the API to receive server-initiated messages and detect
+    // disconnection.
+    //
+
+    pollint = 10000                                                         // timeout in 10 seconds
+    version = "NaanIDE 0.9.1-1"
+    js.w."$"("#NideStatus").html(version.concat("&nbsp;&nbsp;<font color=#00aa33>loading"))
+    function statusPoll(timeoutms) {
+        api.status(function (status) {
+            if not status {
+                nicc.connected = false
+                js.w."$"("#NideStatus").html(version.concat("&nbsp;&nbsp;<font color=#aa3300>disconnected"))
+                future(function poll1(){statusPoll(pollint)}, pollint)
+            }
+            else {
+                nicc.connected = true
+                if status.length > 0
+                    js.w."$"("#NideStatus").text(version.concat("&nbsp;&nbsp;", status[0].message))
+                else
+                    js.w."$"("#NideStatus").html(version.concat("&nbsp;&nbsp;<font color=#00aa33>ready"))
+                future(function poll2(){statusPoll(pollint)}, 1)
+            }
+            js.w.nideHost.setConnectivity(nicc.connected)
+        }, timeoutms)
+    }(1000)                                                                 // 1 second initial check
+
+    //
+    // setUI
+    //
+    // Ensure we can get to the UI, e.g. for alerts.
+
+    nicc.setUI = function setUI(niui) {
+        App.ui = niui
+        nicc.ui = niui
+        nicc.alert = niui.alert
+        if !nicc.prefs
+            nicc.alert("<b>Local database failure</b><br>operations are severely curtailed", { class: "alert-danger" })
+        else {
+            while nicc.uilist.length > 0
+                call(nicc.uilist.pop(), niui)                               // call pending UI plugins
+            nicc.uilist = false }
+    }
+    
+    //
+    // getDefLocation
+    //
+    // Get the default location.
+
+    nicc.getDefLocation = function getDefLocation() {
+        nicc.deflocation
+    }
+
+    //
+    // setDefault
+    //
+    // Set the default location and optional path.
+
+    nicc.setDefault = function setDefault(classID, resID, path) {
+        nicc.deflocation = {
+            classID: classID
+            resID: resID
+            path: path
+        }
+        nicc.putPrefs("DefLocName", nicc.deflocation)
+    }
+    
+    //
+    // addUI
+    //
+    // Add procedure to be called when UI is ready.
+    
+    nicc.addUI = function addUI(proc) {
+        if nicc.uilist
+            nicc.uilist.push(proc)
+        else
+            proc(nicc.ui)
+    }
+    
+    //
+    // load plugins
+    //
+    
+    nicc.prefs.loadplugins()
+
+    // finis
+
+    nicc
+};
+
+
+/*
+ * niccInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function niccInit(local manifest, nideRunning) {
+
+    manifest = `(niccPrefs, niccExecTrack, niccTermControl, niccController, niccInit)
+
+    Naan.module.build(module.id, "nideClient", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.MakeNideController = niccController
+        function niccReload() {
+            jspath = js.r("path")
+        } ()
+        module.reload = niccReload
+    })
+
+    require("../common").LiveImport()
+    require("frameworks/storage/dbt_pouch.nlg")
+    require("frameworks/project/projects.nlg")
+    nideRunning = require("frameworks/running/executors.nlg")
+    Naan.module.letimport(nideRunning.ExecutorTracker)
+    Naan.module.letimport(nideRunning.ExecutorBase)
+    require("frameworks/client/psm_client.nlg")
+} ();

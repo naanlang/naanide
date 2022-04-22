@@ -1,0 +1,526 @@
+/*
+ * home.nlg
+ * NaanIDE
+ *
+ *     Naan UI for the home tab.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2017-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * homeTabs
+ *
+ *     Make a homeTabs object. The caller passes a dictionary defining the objects that control each
+ * panel. When a page goes active/inactive then it is called with .navtab(active, ident) before it is
+ * it is hidden or after it has become active.
+ *
+ */
+
+closure homeTabs(objs, local navbar, structure, tab) {
+    navbar = new(object, this)
+
+    //
+    // This is the structure of the tabs and pages. Exactly one page is visible
+    // at a time and tabs can be enabled or disabled.
+    //
+
+    structure = [
+        {   ident:  "welcome",      button: "NidePH_WelcomeRadio",      page: "NidePH_Welcome"      }
+        {   ident:  "projects",     button: "NidePH_ProjectsRadio",     page: "NidePH_Projects"     }
+        {   ident:  "locations",    button: "NidePH_LocationsRadio",    page: "NidePH_Locations"    }
+        {   ident:  "settings",     button: "NidePH_SettingsRadio",     page: "NidePH_Settings"     }
+        {   ident:  "about",        button: "NidePH_AboutRadio",        page: "NidePH_About"     }
+    ]
+    navbar.items = []
+    for item in structure {
+        tab = {
+            ident:      item.ident,
+            button:     document.getElementById(item.button),
+            page:       document.getElementById(item.page),
+            active:     false
+        }
+        tab.butobj = js.w.bootstrap.Button.getOrCreateInstance(tab.button)
+        tab.label = document.getElementById(tab.button.htmlFor)
+        closure(ident, button) {                                            // create a listener for each click
+            button.addEventListener("click", function() {
+                navbar.selectPage(ident)
+            })
+        } (tab.ident, tab.button)
+        navbar.items.push(tab)
+    }
+
+    // identItem(ident) - get item for ident, else false
+    navbar.identItem = function identItem(ident) {
+        for item in navbar.items
+            if item.ident == ident
+                return (item)
+        return (false)
+    }
+
+    // disabled(ident) - true iff ident is disabled
+    navbar.disabled = function disabled(ident, local item) {
+        item = navbar.identItem(ident)
+        if not item
+            return (true)
+        return (item.classList.contains("disabled"))
+    }
+
+    // selectPage(ident) - select only the specified page
+    navbar.selectPage = function selectPage(ident) {
+        if disabled(ident)
+            return
+        navbar.active = false
+        for item in navbar.items
+            if item.ident == ident {
+                if !item.active
+                    item.butobj.toggle()
+                item.active = true
+                item.page.style.visibility = ""
+                navbar.active = ident
+            } else {
+                item.label.checked = false
+                if item.active
+                    item.butobj.toggle()
+                item.active = false
+                objs[item.ident].navtab(false, item.ident)
+                item.page.style.visibility = "hidden"
+            }
+        if navbar.active
+            objs[navbar.active].navtab(true, navbar.active)
+    }
+    
+    // navbar.objForIdent(ident)    - return object for that page
+    navbar.objForIdent = function objForIdent(ident) { objs[ident] }
+
+    // nabar.activeObj()            - return object for active page
+    navbar.activeObj = function activeObj() { objs[navbar.active] }
+
+    navbar
+};
+
+
+/*
+ * homeMarkdown
+ *
+ *     Markdown display panel.
+ *
+ */
+closure homeMarkdown(home, niui, options local markd) {
+    markd = new(object, this)
+    markd.div = document.getElementById(options.divid)
+    markd.mdConverter = xnew(js.w.showdown.Converter)
+    markd.mdConverter.setFlavor("github")
+
+    // resize our view area
+
+    function resizer(local divTop, parenTop, bodyBottom, margin, needBottom) {
+        divTop = markd.div.getBoundingClientRect().top
+        parenTop = markd.div.parentElement.getBoundingClientRect().top
+        bodyBottom = js.w.document.body.getBoundingClientRect().bottom
+        margin = divTop - parenTop
+        needBottom = bodyBottom - margin
+        markd.div.style.height = tostring(needBottom - divTop).concat("px")
+    }
+
+    // window resize event
+    
+    window.addEventListener("resize", function() {
+        future(resizer, 0)
+    })
+    
+    // navtab
+    // We were activated.
+
+    markd.navtab = closure navtab(active, ident local fetchpath, error, content) {
+        if !active || markd.html
+            return
+        future(function(){
+            fetchpath = js.w.location.origin.concat(options.filepath)
+            `(error, content) = await(js.w.fetch(fetchpath).then(function(response) {
+                if response.ok
+                    response.text()
+                else
+                    Promise.reject(response.status)
+            }))
+            if error
+                content = options.placeholder
+            markd.html = markd.mdConverter.makeHtml(content)
+            markd.div.firstElementChild.outerHTML = markd.html
+            future(resizer, 10)
+        }).run()
+    }
+
+    // finis
+    markd
+};
+
+
+/*
+ * homeSettings
+ *
+ *     Settings panel.
+ *
+ */
+
+closure homeSettings(home, niui, local hoset) {
+    hoset = new(object, this)
+    
+    hoset
+};
+
+
+/*
+ * projBox
+ *
+ *     Projects navigation listbox.
+ *
+ */
+
+closure projBox(home, niui, local prox, columnDefs, rowData) {
+    prox = new(object, this)
+    prox.gridiv = document.getElementById("NideHomeProjectsBox")
+    prox.butadd = document.getElementById("NideHomeAddButton")
+    prox.butnew = document.getElementById("NideHomeNewButton")
+    prox.butdelete = document.getElementById("NideHomeDeleteButton")
+    prox.butopen = document.getElementById("NideHomeOpenButton")
+    prox.butclose = document.getElementById("NideHomeCloseButton")
+    prox.butdelete.disabled = true
+    prox.butopen.disabled = true
+    prox.butclose.disabled = true
+    prox.activeProject = false
+
+    // updateButtons
+    //
+    // Update controls for current selection, etc.
+
+    prox.updateButtons = function updateButtons() {
+        prox.butdelete.disabled = prox.butopen.disabled = !prox.box.selRow()
+        prox.butclose.disabled = !prox.activeProject
+    }
+
+    // keyDown
+    //
+    // Intercept useful keystrokes.
+
+    prox.keyDown = function keyDown(event) {
+        if !prox.butdelete.disabled {
+            if (event.key == "Delete")
+                call(prox.butdelete.onclick)
+        }
+        if key == "Enter"
+            event.preventDefault()
+    }
+    
+    // doubleClick
+    //
+    // User double-clicked on a row.
+    
+    prox.doubleClick = function doubleClick(event) {
+        openProject()
+    }
+
+    // specify the columns
+    columnDefs = [
+        {
+            headerName: "Name",
+            field: "name",
+            cellStyle: { "text-align": "left"},
+            minWidth: 180
+        },
+        {
+            headerName: "Type",
+            field: "type",
+            cellStyle: { "text-align": "left"},
+            minWidth: 100,
+        },
+        {
+            headerName: "Location",
+            field: "location",
+            cellStyle: { "text-align": "left"},
+            minWidth: 120
+        },
+        {
+            headerName: "Path",
+            field: "path",
+            cellStyle: { "text-align": "left"},
+            minWidth: 300
+        }
+    ]
+
+    prox.box = zux.BoxBasic("NideHomeProjectsBox", columnDefs, {
+        update: updateButtons
+        keyDown: keyDown
+        doubleClick: doubleClick
+        rowClassRules: {
+            "nide-project-active": function(params) {
+                prox.activeProject.projID == params.data.projID
+            }
+        }
+    })
+
+    // respond to add button
+    prox.butadd.onclick = function (event) {
+        home.selectExistingProject(event)
+    }
+
+    // respond to new button
+    prox.butnew.onclick = function (event) {
+        home.selectNewProject(event)
+    }
+
+    // respond to delete button
+    prox.butdelete.onclick = function (projID) {
+        projID = prox.box.selRow().data.projID
+        if projID == home.activeProject.projID
+            niui.closeProject()                                             // closing the active project
+        niui.projects.deleteResource(projID)
+    }
+
+    // respond to open project button
+    prox.butopen.onclick = function openProject() {
+        niui.openProject(prox.box.selRow().data.projID)
+    }
+
+    // respond to close project button
+    prox.butclose.onclick = function () {
+        niui.closeProject()
+    }
+    
+    // setActiveProject
+    //
+    // Tell us the active project, or false if none.
+    
+    prox.setActiveProject = function setActiveProject(proj, local oldRowNode, newRowNode) {
+        if proj === prox.activeProject
+            return
+        oldRowNode = prox.box.findField(`projID, prox.activeProject.projID)
+        prox.activeProject = proj
+        newRowNode = prox.box.findField(`projID, proj.projID)
+        if oldRowNode
+            prox.box.redrawRow(oldRowNode)
+        if newRowNode
+            prox.box.redrawRow(newRowNode)
+        prox.box.scheduleUpdate()
+    }
+    
+    // projIdToData
+    //
+    // Convert a location resID to data for a row.
+
+    function projIdToData(projID, local projInfo, locInfo) {
+        projInfo = niui.projects.info(projID)
+        locInfo = niui.locate.info(projInfo.locationID)
+        {
+            name: projInfo.name
+            location: locInfo.name
+            path: projInfo.path
+            type: projInfo.type
+            projID: projID
+        }
+    }
+
+    // openProjectList
+    //
+    // Open our list of projects.
+
+    prox.openProjectList = closure openProjectList(local rows, projID) {
+        rows = []
+        for projID in niui.projects.resources()
+            rows.push(projIdToData(projID))
+        prox.box.setRowData(rows)
+        niui.projects.watch(updateOnChange)
+    }
+
+    // closeProjectList
+    //
+    // Close our list of projects.
+
+    prox.closeProjectList = closure closeProjectList() {
+        niui.projects.unWatch(updateOnChange)
+        prox.box.setEmpty()
+    }
+    
+    // updateOnChange
+    //
+    // Process changes from the PSM manager
+
+    function updateOnChange(classID, changelist, local projID, rowNode) {
+        for projID in changelist.added
+            prox.box.addRow(projIdToData(projID))
+        for projID in changelist.changed {
+            rowNode = prox.box.findFields({ projID: projID }).0
+            if rowNode
+                prox.box.refreshRow(rowNode)
+        }
+        for projID in changelist.deleted {
+            rowNode = prox.box.findFields({ projID: projID }).0
+            if rowNode
+                prox.box.delRow(rowNode)
+        }
+    }
+
+    // finis
+
+    prox
+};
+
+/*
+ * makeHome
+ *
+ *     Make an home tab object.
+ *
+ */
+
+closure makeHome(niui, local home, oldprojs) {
+    home = new(object, this)
+    home.browseModal = document.getElementById("NideBrowseModal")
+    home.welcome = homeMarkdown(home, niui, {
+        divid:          "NidePH_Welcome"
+        filepath:       "/welcome.md"
+        placeholder:    "Welcome to Naan!"
+    })
+    home.about = homeMarkdown(home, niui, {
+        divid:          "NidePH_About"
+        filepath:       "/about.md"
+        placeholder:    "About NaanIDE"
+    })
+    home.settings = homeSettings(home, niui)
+    home.projbox = projBox(home, niui)
+    home.fobox = require("nide/nideUI/fobox.nlg")
+    home.getpro = require("nide/nideUI/getpro.nlg")
+    home.locabox = locaBox(niui)
+    home.homeTabs = homeTabs({                                              // these are the controller objects for each page
+        welcome: home.welcome,
+        projects: home.projbox
+        locations: home.locabox
+        settings: home.settings
+        about: home.about
+    })
+    if niui.projects.resources().length == 0
+        home.homeTabs.selectPage("welcome")                                 // no projects yet
+    else
+        home.homeTabs.selectPage("projects")
+    
+    // addLocation
+    //
+    // Go to the add locations UI.
+    //
+    home.addLocation = function addLocation() {
+        home.homeTabs.selectPage("locations")
+        home.locabox.addLocation()
+    }
+
+    //
+    // selectNewProject
+    //
+    home.selectNewProject = function selectNewProject(event) {
+        home.getpro.NewProjectDialog(niui, function(where, local projID, error, project, data) {
+            if where {
+                where = {
+                    typeID: where.typeID
+                    name: where.name
+                    locationID: where.resID
+                    path: where.path
+                }
+                projID = niui.projects.findByLocation(where)
+                if projID
+                    error = Error("A project already exists at that location")
+                if !error
+                    `(error, projID) = niui.projects.addResource(where.typeID, where)
+                if !error
+                    `(error, project) = niui.projects.connect(projID, "NideProject")
+                if !error
+                    `(error, data) = project.create(where.name)
+                if error {
+                    niui.projects.deleteResource(projID)
+                    niui.alert("<b>Create Project Failed</b><br>".concat(ErrorString(error)), { class: "alert-danger" })
+                }
+                else
+                    niui.openProject(projID)
+                if project
+                    project.close()
+            }
+        })
+    }
+    
+    //
+    // selectExistingProject
+    //
+    home.selectExistingProject = function selectExistingProject(event) {
+        home.getpro.ExistingProjectDialog(niui, function(where, local error, projID) {
+            if where {
+                where = {
+                    name: where.name
+                    locationID: where.resID
+                    path: where.path
+                }
+                `(error, projID) = niui.projects.ensureExistsByLocation(where)
+                if projID
+                    niui.openProject(projID)
+                else
+                    niui.alert("<b>Cannot open project at that location</b><br>".concat(ErrorString(error)), { class: "alert-danger" })
+            }
+        })
+    }
+
+    // projectBecameActive
+    //
+    // We are informed that the active project has changed.
+    //
+    home.projectBecameActive = function projectBecameActive(project) {
+        closeProject()
+        home.activeProject = project
+        home.projbox.setActiveProject(project)
+    }
+
+    // closeProject
+    //
+    // Close any open project.
+    //
+    home.closeProject = function closeProject() {
+        if home.activeProject {
+            home.activeProject = false
+            home.projbox.setActiveProject()
+        }
+    }
+    
+    //
+    // notifications
+    //
+    
+    niui.watchable.watch(function(who, changes) {
+        if changes.opened
+            projectBecameActive(changes.opened)
+        if changes.closed
+            closeProject()
+    })
+
+    home.projbox.openProjectList()
+    home.locabox.openLocationList()
+    home
+};
+
+
+/*
+ * homeInit
+ *
+ *     Initialize the home tab component.
+ *
+ */
+
+function homeInit(local manifest) {
+
+    manifest = `(homeTabs, homeMarkdown, homeSettings, projBox, makeHome, homeInit)
+
+    Naan.module.build(module.id, "home", function(modobj, compobj) {
+        require("nide/nideUI/nideUI.nlg")
+        require("nide/nideUI/locations.nlg")
+        compobj.manifest = manifest
+        modobj.exports.MakeHome = makeHome
+    })
+
+} ();

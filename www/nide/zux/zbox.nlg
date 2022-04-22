@@ -1,0 +1,656 @@
+/*
+ * zbox.nlg
+ * Zux module
+ *
+ *     The zbox component contains a simplified listbox widget.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2020-2021 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * zboxDefOptions
+ *
+ * Create a new options dictionary based on the specified default options.
+ *
+ */
+
+function zboxDefOptions(options, defOptions, local keys, key) {
+    if dictionary(options) {
+        options = new(options)
+        keys = options.*
+        for key in defOptions
+            if !member(key, keys)
+                options[key] = defOptions[key]
+        options
+    }
+    else
+        options = defOptions
+};
+
+
+/*
+ * zboxAbstract
+ *
+ * Create an abstract listbox. Most add-on functionality for the listbox is in this object, which is
+ * modified by the concrete child objecct.
+ *
+ * The options dictionary can include:
+ *
+ * Parameters:
+ *      noRowsText      - text to display when listbox is empty
+ *
+ * Notifications:
+ *      cellChanged     - called when the contents of a cell change
+ *      cellFocused     - called when a cell is selected
+ *      rowClick        - called when a row is clicked
+ *      doubleClick     - called when a row is double-clicked
+ *      editStart       - called when cell editing starts
+ *      editStop        - called when cell editing stops
+ *      expandRow       - called when row is expanded
+ *      collapseRow     - called when row is collapsed
+ *      update          - called after selection is finished updating
+ *      rowClassRules   - dictionary of rules and tests
+ *
+ * Functionality:
+ *      selectDown      - select the next row down until the bottom
+ *      selectOnly      - select only the specified row
+ *      addRow          - add a row of data
+ *      delRow          - delete specified or selected row
+ *      refreshRow      - refresh the specified row with change detection
+ *      redrawRow       - redraw the specified row
+ *      editFocusedCell - start editing the focused cell
+ *      sizeToFit       - recompute colums to fit current size
+ *      setRowData      - set the content of the listbox
+ *      setEmpty        - clear the content of the listbox
+ *
+ * Queries:
+ *      selRow          - return the currently selected row or false
+ *      selCol          - return the currently selected column or false
+ *      focusedCellData - return data for selected cell
+ *      findField       - find row for specified field and value
+ *      forEachNode     - callback for each node in the listbox
+ *      forEachLeafNode - callback for each leaf node in the listbox
+ *
+ */
+
+closure zboxAbstract(div, options, local zabox) {
+    zabox = new(object, this)
+    if string(div)
+        zabox.gridiv = document.getElementById(div)
+    else
+        zabox.gridiv = div
+    zabox.selrow = false
+    zabox.selcol = false
+    zabox.needColResize = false
+    zabox.updatePending = false
+    options = zboxDefOptions(options, {
+        colSize: "fit"
+        cellSelect: false
+    })
+    zabox.options = options
+
+    // columnIDs
+    //
+    // List our columnIDs
+
+    zabox.columnIDs = function columnIDs(local columnIds) {
+        columnIds = []
+        zabox.columnApi.getAllColumns().forEach(function(column) {
+            columnIds.push(column.colId)
+        })
+        columnIds
+    }
+
+    // cellChanged
+    //
+    // Called by grid control after a cell contents changes.
+
+    zabox.cellChanged = function cellChanged(params) {
+        scheduleUpdate()
+        options.cellChanged(params)
+    }
+
+    // cellFocused
+    //
+    // Called by grid control after cell focus changes.
+    
+    zabox.cellFocused = function cellFocused(event) {
+        if not event {
+            zabox.selcol = false
+            if zabox.selrow {
+                zabox.selrow.setSelected(false, true)
+                zabox.selrow = false }
+        } else {
+            if options.cellSelect
+                zabox.selcol = event.column
+            zabox.selectOnly(zabox.api.getModel().getRow(event.rowIndex))
+        }
+        scheduleUpdate()
+        if options.cellSelect
+            options.cellFocused(event)
+    }
+        
+    // gridReady
+    //
+    // Called by grid control when grid is initialized.
+    
+    zabox.gridReady = function gridReady() {
+        zabox.ready = true
+        zabox.resizeColumns()
+    }
+    
+    // gridSizeChanged
+    //
+    // Called by grid control when its size changes.
+    
+    zabox.gridSizeChanged = function gridSizeChanged() {
+        zabox.resizeColumns()
+    }
+
+    // firstDataRendered
+    //
+    // Called by grid control when first rendering data.
+    
+    zabox.firstDataRendered = function firstDataRendered() {
+    }
+
+    // viewportChanged
+    //
+    // Called by grid control when rendered rows in the DOM has changed.
+    
+    zabox.viewportChanged = function viewportChanged() {
+        zabox.resizeColumns()
+    }
+
+    // rowClick
+    //
+    // Called by grid control after user clicks on a row.
+    
+    zabox.rowClick = function rowClick(event) {
+        if options.rowClick(event)
+            zabox.selectOnly(event.node)
+    }
+
+    // rowGroupOpened
+    //
+    // Callded by grid control when the user opens or closes a group.
+    
+    zabox.rowGroupOpened = function rowGroupOpened(params) {
+        if params.node.expanded
+            options.expandRow(params)
+        else
+            options.collapseRow(params)
+    }
+    
+    // doubleClick
+    //
+    // Called by grid control after user double-clicks a row or cell.
+    
+    zabox.doubleClick = function doubleClick(event) {
+        options.doubleClick(event)
+    }
+
+    // cellEditingStarted
+    //
+    // Called by grid control after user double-clicks a row or cell.
+    
+    zabox.cellEditingStarted = function cellEditingStarted(param) {
+        options.editStart(param)
+    }
+
+    // cellEditingStopped
+    //
+    // Called by grid control when editing is complete.
+    
+    zabox.cellEditingStopped = function cellEditingStopped(param) {
+        if options.editStop(param)
+            zabox.refreshRow(param.node)
+    }
+    
+    // keyDownListener
+    //
+    // Called for the DIV to process a key before the grid control gets it.
+    
+    zabox.gridiv.addEventListener("keydown", function keyDownListener(event) {
+        if options.keyDown(event)
+            return
+        if !options.cellSelect
+            call({
+                "ArrowUp":      let () { event.preventDefault(), return (zabox.selectNext(-1)) }
+                "ArrowDown":    let () { event.preventDefault(), return (zabox.selectNext(1)) }
+            }[event.key])
+    }, true)                                                                // intercept before grid
+
+    // resizeColumns
+    //
+    // Compute the column sizes, immediately if visible or later if not.
+    
+    zabox.resizeColumns = function resizeColumns() {
+        zabox.needColResize = true
+        if zabox.ready && elemVisible(zabox.gridiv) {
+            zabox.needColResize = false
+            if options.colSize == "auto"
+                zabox.columnApi.autoSizeColumns(zabox.columnIDs())
+            else if options.colSize == "fit"
+                zabox.api.sizeColumnsToFit()
+        }
+    }
+
+    // selectNext
+    //
+    // Select the next row up or down from the currently-selected row. A movement of zero simply ensures
+    // that the current row is visible.
+
+    zabox.selectNext = function selectNext(movement, local renderedRowCount, nextRowIndex) {
+        renderedRowCount = zabox.api.getModel().getRowCount()
+        if !zabox.selrow {
+            if movement < 0
+                nextRowIndex = renderedRowCount-1                           // first row selected on up is last one
+            else if movement > 0
+                nextRowIndex = 0                                            // first row selected on down is first one
+            else
+                return                                                      // can't show unselected row
+        }
+        else
+            nextRowIndex = zabox.selrow.rowIndex + movement
+        if (nextRowIndex >= 0 && nextRowIndex < renderedRowCount) {
+            zabox.api.ensureIndexVisible(nextRowIndex)
+            zabox.selectOnly(zabox.api.getModel().getRow(nextRowIndex))
+        }
+    }
+
+    // selectOnly
+    //
+    // Select only the specified rowNode.
+
+    zabox.selectOnly = function selectOnly(selRowNode) {
+        if selRowNode
+            selRowNode.setSelected(true, true)
+        zabox.selrow = selRowNode
+    }
+
+    // scheduleUpdate
+    //
+    // Schedule an update for our owner, to take place later.
+
+    zabox.scheduleUpdate = function scheduleUpdate() {
+        if zabox.updatePending
+            return                                                          // only one update pending at a time
+        zabox.updatePending = true
+        future(function scheduleUpdateF(){ zabox.updatePending = false, options.update() }, 10)
+    }
+
+    // addRow
+    //
+    // Add a row, which will be positioned according to its sort order.
+
+    zabox.addRow = function addRow(rowDatum, local newrow) {
+        zabox.fieldIndex = false
+        result = zabox.api.updateRowData({
+            add: [rowDatum]
+        })
+        newrow = result.add[0]
+        zabox.selectOnly(newrow)
+        if newrow
+            zabox.api.ensureNodeVisible(newrow)
+    }
+
+    // delRow
+    //
+    // Delete the specified row or the selected row if false. 
+
+    zabox.delRow = function delRow(rowNode, local delindex, renderedRowCount) {
+        if !rowNode
+            rowNode = zabox.selrow
+        if !rowNode
+            return
+        zabox.fieldIndex = false
+        delindex = rowNode.rowIndex
+        zabox.api.updateRowData({
+            remove: [rowNode.data]
+        })
+        renderedRowCount = zabox.api.getModel().getRowCount()
+        if delindex >= renderedRowCount
+            delindex = renderedRowCount-1
+        zabox.selrow = zabox.api.getDisplayedRowAtIndex(delindex)             // select the next (or previous) remaining row
+        if !zabox.selrow
+            zabox.selcol = false
+        else
+            zabox.api.setFocusedCell(delindex, zabox.selcol.colId, null)
+        scheduleUpdate()
+    }
+    
+    // refreshRow
+    //
+    // Refresh the specified rowNode if changed.
+
+    zabox.refreshRow = function refreshRow(rowNode) {
+        if rowNode
+            zabox.api.refreshCells({
+                rowNodes: [rowNode],
+                force: true
+            })
+    }
+        
+    // redrawRow
+    //
+    // Redraw the specified rowNode.
+
+    zabox.redrawRow = function redrawRow(rowNode) {
+        if rowNode
+            zabox.api.redrawRows({
+                rowNodes: [rowNode]
+            })
+    }
+
+    // editFocusedCell
+    //
+    // Start editing the focused cell.
+
+    zabox.editFocusedCell = closure editFocusedCell(cbdone, local cell, row) {
+        cell = zabox.api.getFocusedCell()
+        row = zabox.api.getDisplayedRowAtIndex(cell.rowIndex)
+        zabox.api.startEditingCell({
+            rowIndex: cell.rowIndex
+            colKey: cell.column.colId
+        })
+    }
+    
+    //
+    // sizeToFit
+    //
+    zabox.sizeToFit = function sizeToFit() {
+        zabox.api.sizeColumnsToFit()
+    }
+
+    // setRowData
+    //
+    // Set the listbox contents to be the specified array of data.
+    
+    zabox.setRowData = function setRowData(rowData) {
+        if !rowData
+            rowData = []
+        zabox.fieldIndex = false
+        zabox.api.setRowData(rowData)
+        zabox.api.clearFocusedCell()
+        zabox.selcol = false
+        zabox.selrow = false
+        zabox.fieldIndex = false
+        resizeColumns()                                                     // update our columns
+        scheduleUpdate()                                                    // update our owner
+    }
+
+    // setEmpty
+    //
+    // Set the listbox to be empty.
+
+    zabox.setEmpty = function setEmpty() {
+        setRowData()
+    }
+    
+    // selRow
+    //
+    // Return the currently selected row or false
+    
+    zabox.selRow = function selRow() {
+        zabox.selrow
+    }
+    
+    // selCol
+    //
+    // Return the currently selected column or false
+    
+    zabox.selCol = function selCol() {
+        zabox.selcol
+    }
+
+    // focusedCellData
+    //
+    // Return the data for the selected cell.
+
+    zabox.focusedCellData = function focusedCellData(local cell) {
+        cell = zabox.api.getFocusedCell()
+        row = zabox.api.getDisplayedRowAtIndex(cell.rowIndex)
+        row.data
+    }
+    
+    // findDatum
+    //
+    // Find the rowNode with the specified rowDatum.
+    
+    zabox.findDatum = function findDatum(rowDatum, local foundNode) {
+        zabox.api.forEachNode(function(rowNode, index) {
+            if rowNode == rowDatum
+                foundNode = rowNode
+        })
+        foundNode
+    }
+
+    // findField
+    //
+    // Find the rowNode with the specified fieldID, using indexing.
+    
+    zabox.findField = function findField(fieldID, value) {
+        if !zabox.fieldIndex[fieldID] {
+            if !zabox.fieldIndex
+                zabox.fieldIndex = { }
+            zabox.fieldIndex[fieldID] = { }
+            zabox.api.forEachNode(function(rowNode, index) {
+                zabox.fieldIndex[fieldID][rowNode.data[fieldID]] = rowNode }) }
+        zabox.fieldIndex[fieldID][value]
+    }
+
+    // findFields
+    //
+    // Find the rowNodes with the specified fieldID values, without indexing.
+    
+    zabox.findFields = function findFields(fieldIDs, local output) {
+        output = []
+        zabox.api.forEachNode(function(rowNode, index, local fieldID) {
+            for fieldID in fieldIDs
+                if rowNode.data[fieldID] != fieldIDs[fieldID]
+                    return
+            output.push(rowNode)                                            // this one match all values
+        })
+        output
+    }
+
+    // forEachNode
+    //
+    //     Return an array of nodes.
+    
+    zabox.forEachNode = function forEachNode(callback) {
+        zabox.api.forEachNode(function(rowNode, index) {
+            callback(rowNode, index)
+        })
+    }
+
+    // forEachLeafNode
+    //
+    //     Return an array of leaf nodes.
+    
+    zabox.forEachLeafNode = function forEachLeafNode(callback) {
+        zabox.api.forEachLeafNode(function(rowNode, index) {
+            callback(rowNode, index)
+        })
+    }
+    
+    // makeGrid
+    //
+    // Create an agGrid with the specified grid options.
+    
+    zabox.makeGrid = function makeGrid(gridops, local gridOptions) {
+        //
+        // default options
+        //
+        gridOptions = zboxDefOptions(gridops, {
+            rowData: []
+            onGridReady: zabox.gridReady
+            onGridSizeChanged: zabox.gridSizeChanged
+            onViewportChanged: zabox.viewportChanged
+            onFirstDataRendered: zabox.firstDataRendered
+            localeText: { }
+            onRowClicked: zabox.rowClick
+            onRowGroupOpened: zabox.rowGroupOpened
+            onCellValueChanged: zabox.cellChanged
+            onCellFocused: zabox.cellFocused
+            onCellDoubleClicked: zabox.doubleClick
+            onCellEditingStarted: zabox.cellEditingStarted
+            onCellEditingStopped: zabox.cellEditingStopped
+        })
+        //
+        // import options
+        //
+        if options.noRowsText
+            gridOptions.localeText.noRowsToShow = options.noRowsText
+        if !options.cellSelect
+            gridOptions.suppressCellSelection = true
+        if options.headerHeight
+            gridOptions.headerHeight = options.headerHeight
+        if options.domLayout
+            gridOptions.domLayout = options.domLayout
+        if options.rowClassRules
+            gridOptions.rowClassRules = options.rowClassRules
+        //
+        // build the grid
+        //
+        gridOptions = xnew(gridOptions)
+        zabox.agrid = xnew(window.agGrid.Grid, zabox.gridiv, gridOptions)
+        zabox.api = gridOptions.api                                         // passed back from xnew Grid()
+        zabox.columnApi = gridOptions.columnApi                             // passed back from xnew Grid()
+    }
+
+    // finis
+
+    zabox
+};
+
+
+/*
+ * zboxBasic
+ *
+ *     Create a basic, non-hierarchical listbox with the specified array of columns. Each column
+ * element has the regular agGrid fields, of which the following are required:
+ *     headerName       - displayed name of the column
+ *     field            - datat key displayed in this column
+ * The options dictionary can include:
+ *     noRowsText       - text to display when listbox is empty
+ *     update           - function that is called after selection is finished updating
+ *     doubleClick      - function called when a row is double-clicked
+ *
+ */
+
+closure zboxBasic(div, columns, options, local zbox) {
+    zbox = zboxAbstract(div, options)
+    options = zboxDefOptions(options, {
+        rowHeight: 24
+    })
+    zbox.options = options
+    columns = new(columns)
+    columns.forEach(function(item, itemdex) {                               // add default column values here
+        item.resizable = true
+        if !item.cellStyle
+            item.cellStyle = { "text-align": "left" }
+        if !options.cellSelect {
+            item.suppressNavigable = true
+            item.cellClass = "nide-no-border"
+        }
+    })
+
+    //
+    // set up the Grid control (list box)
+    //
+
+    zbox.makeGrid({
+        rowSelection: single
+        rowHeight: options.rowHeight
+        colResizeDefault: "shift"
+        columnDefs: columns
+        suppressColumnVirtualisation: true
+    })
+
+    // finis
+    zbox
+};
+
+
+/*
+ * zboxHierarchy
+ *
+ *     Create an hierarchical listbox with the specified array of columns. Each column element has
+ * the regular agGrid fields, of which the following are required:
+ *     headerName       - displayed name of the column
+ *     field            - datat key displayed in this column
+ * The options dictionary can include:
+ *
+ */
+
+closure zboxHierarchy(div, columns, options, local zbox, defOptions) {
+    zbox = zboxAbstract(div, options)
+    options = zboxDefOptions(options, {
+        rowSelection: "multiple"
+        rowHeight: 24
+        enableGroupEdit: true
+    })
+    zbox.options = options
+    columns = new(columns)
+    columns.forEach(function(item, itemdex) {                               // add default column values here
+        if options.renderer && !item.cellRenderer {
+            item.cellRenderer = "agGroupCellRenderer"
+            item.cellRendererParams = {
+                innerRenderer: function(params) {
+                    options.renderer(params)                                // callback to generate html for each row
+                }
+                suppressCount: true
+            }
+        }
+    })
+
+    //
+    // set up the Grid control (list box)
+    //
+
+    zbox.makeGrid({
+        columnDefs: columns
+        rowSelection: options.rowSelection
+        rowHeight: options.rowHeight
+        enableGroupEdit: options.enableGroupEdit
+        animateRows: true
+        groupSelectsChildren: false
+        rowClass: "ag-row-even"                                             // remove zebra striping
+        getNodeChildDetails: function(node, local result) {
+            result = options.childDetails(node)
+            if result
+                result
+            else
+                null
+        }
+    })
+
+    // finis
+
+    zbox
+};
+
+
+/*
+ * zboxInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function zboxInit(local manifest) {
+    manifest = `(zboxDefOptions, zboxAbstract, zboxBasic, zboxHierarchy, zboxInit)
+
+    require("./zux.nlg")
+    build(module.id, "zbox", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.BoxBasic = zboxBasic
+        modobj.exports.BoxHierarchy = zboxHierarchy
+    })
+} ();

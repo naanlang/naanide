@@ -1,0 +1,444 @@
+/*
+ * locations.nlg
+ * NaanIDE
+ *
+ *     Locations UI managing locations.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2020-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * locaBox
+ *
+ *     Storage location listbox.
+ *
+ */
+
+closure locaBox(niui, local locx, columnDefs, rowData, gridOptions) {
+    locx = new(object, this)
+    locx.butadd = document.getElementById("NideHomeLocAddButton")
+    locx.butdelete = document.getElementById("NideHomeLocDeleteButton")
+    locx.butedit = document.getElementById("NideHomeLocEditButton")
+    locx.butdelete.disabled = true
+
+    // updateButtons
+    //
+    // Update our buttons according to current selections.
+
+    function updateButtons(local data, info) {
+        data = locx.box.selRow().data
+        info = niui.locate.info(data.resID)
+        locx.butdelete.disabled = !info || info.locked
+    }
+
+    function keyDown(event) {
+        false
+    }
+
+    function doubleClick(event) {
+        editLocation()
+    }
+
+    columnDefs = [
+        {
+            headerName: "Name",
+            field: "name",
+            cellStyle: { "text-align": "left"},
+            minWidth: 210
+        },
+        {
+            headerName: "Type",
+            field: "type",
+            cellStyle: { "text-align": "left"},
+            minWidth: 210,
+            valueFormatter: function(params) {
+                return (params.value)
+            }
+        },
+        {
+            headerName: "Where",
+            field: "where",
+            cellStyle: { "text-align": "left"},
+            minWidth: 300
+        }
+    ]
+
+    locx.box = zux.BoxBasic("NideHomeLocationsBox", columnDefs, {
+        update: updateButtons
+        keyDown: keyDown
+        doubleClick: doubleClick
+    })
+    
+    // add location
+    
+    locx.addLocation = function addLocation() {
+        locaModal(niui.locate, "Add New Storage Location:")
+    }
+        
+    // edit location
+    
+    locx.editLocation = function editLocation(local rowNode, error, resource) {
+        rowNode = locx.box.selRow()
+        `(error, resource) = niui.locate.getResource(rowNode.data.resID)
+        if resource
+            locaModal(niui.locate, "Update Storage Location:", rowNode.data.resID, resource)
+    }
+
+    // respond to add button
+
+    locx.butadd.onclick = function (event) {
+        addLocation()
+    }
+
+    // respond to delete button
+
+    locx.butdelete.onclick = function (local rowNode) {
+        rowNode = locx.box.selRow()
+        niui.locate.deleteResource(rowNode.data.resID)
+    }
+    
+    // respond to edit button
+
+    locx.butedit.onclick = function (local rowNode) {
+        editLocation()
+    }
+
+    // locResIdToData
+    // Convert a location resID to data for a row.
+    function locResIdToData(resID, local data) {
+        data = niui.locate.info(resID)
+        data.resID = resID
+        data
+    }
+
+    // openLocationList
+    //
+    // Open the location list.
+
+    locx.openLocationList = closure openLocationList(local rows, resID) {
+        rows = []
+        for resID in niui.locate.resources()
+            rows.push(locResIdToData(resID))
+        locx.box.setRowData(rows)
+        niui.locate.watch(updateOnChange)
+    }
+
+    // closeLocationList
+    //
+    // Close the location list.
+
+     locx.closeLocationList = closure closeLocationList() {
+        niui.locate.unWatch(updateOnChange)
+        locx.box.setEmpty()
+    }
+    
+    // updateOnChange
+    // Process changes from the PSM manager
+    function updateOnChange(classID, changelist, local resID, rowNode) {
+        for resID in changelist.added
+            locx.box.addRow(locResIdToData(resID))
+        for resID in changelist.changed {
+            rowNode = locx.box.findFields({ resID: resID }).0
+            if rowNode
+                rowNode.setData(locResIdToData(resID))
+        }
+        for resID in changelist.deleted {
+            rowNode = locx.box.findFields({ resID: resID }).0
+            if rowNode
+                locx.box.delRow(rowNode)
+        }
+    }
+
+    // finis
+    locx
+};
+
+
+/*
+ * locaModal
+ *
+ *     Ask the user to specify a location with login credentials.
+ *
+ */
+
+closure locaModal(locate, title, resID, resource) {
+
+    closure lomoController(divid, local lomo) {
+        if !nonce(lomoDivs)
+            lomoDivs = new(nonce)
+        else if lomoDivs[divid] {
+            debuglog("reusing modal")
+            lomo = lomoDivs[divid]
+            lomo.setFormErrors()
+            lomo.updateControls(title, resource)
+            return (lomo)                                                   // this div already has one
+        }
+        lomo = new(object, this)
+        lomoDivs[divid] = lomo
+        lomo.divid = divid
+        lomo.div = jquery("#".concat(divid))
+        lomo.butsel = document.getElementById("NideLocationSave")
+        lomo.butclose = document.getElementById("NideLocationClose")
+        lomo.butcan = document.getElementById("NideLocationCancel")
+        lomo.prompt = document.getElementById("NideLocationTitle")
+        lomo.typeMenuButton = document.getElementById("NideTypeMenuButton")
+        lomo.typeMenuButton.innerHTML = "Type"
+        lomo.psmTypeLabel = "Select Type"
+        lomo.nametext = document.getElementById("NideLocName")
+        lomo.nametext.addEventListener("input", function() {
+            document.getElementById("NideLocNameError").innerHTML = "&nbsp;"
+            lomo.updateControls() })
+        addFieldListeners()
+        updateControls(title, resource)
+        setFormErrors()                                                     // clear any errors
+        
+        // initialize menu
+
+        lomo.types = locate.classIDs()
+        lomo.typeMenu = zux.MenuDropdown(locate.labels(), {
+                menudiv: "NideTypeMenu"
+                refel: lomo.typeMenuButton
+            }, function(event, itemdex, itemdiv) {
+                lomo.psmType = lomo.types[itemdex]
+                lomo.psmTypeLabel = locate.className(lomo.psmType)
+                lomo.typeMenuButton.innerHTML = lomo.psmTypeLabel
+                setFormType(lomo.psmType)
+                setFormErrors()                                         // clear any errors
+                updateControls()
+                if lomo.nametext.value == ""
+                    lomo.nametext.focus()
+        })
+
+        // addFieldListeners
+        //
+        // Add listeners for each input field.
+        
+        function addFieldListeners() {
+            closure addFieldListener(id, local textel, errorel) {
+                textel = document.getElementById(id.concat("text"))
+                errorel = document.getElementById(id.concat("error"))
+                textel.addEventListener("input", function() {
+                    errorel.innerHTML = "&nbsp;"
+                    lomo.updateControls()
+                })
+            }
+            addFieldListener("NideLoc1")
+            addFieldListener("NideLoc2")
+            addFieldListener("NideLoc3")
+            addFieldListener("NideLoc4")
+        }
+        
+        // setFormType
+        //
+        // Set up the text entry forms for the specified fields.
+        
+        function setFormType(psmType, local fields) {
+            fields = locate.uifields(psmType)
+            function setfield(id, field, local fieldiv, label, textel) {
+                fieldiv = document.getElementById(id)
+                label = document.getElementById(id.concat("Label"))
+                textel = document.getElementById(id.concat("text"))
+                if string(field.label) {
+                    label.innerHTML = field.label
+                    if field.placeholder
+                        textel.placeholder = field.placeholder
+                    textel.value = ""
+                    fieldiv.style.display = "" }
+                else
+                    fieldiv.style.display = "none"
+            }
+            setfield("NideLoc1", fields.0)
+            setfield("NideLoc2", fields.1)
+            setfield("NideLoc3", fields.2)
+            setfield("NideLoc4", fields.3)
+        }
+        
+        // getFormData
+        //
+        // Get a dictionary of form values from our input elements.
+        
+        function getFormData(psmType, local fields, dict) {
+            fields = locate.uifields(psmType)
+            dict = { }
+            function recordfield(id, field, local textel) {
+                textel = document.getElementById(id.concat("text"))
+                if string(field.label)
+                    dict[field.key] = textel.value
+            }
+            recordfield("NideLoc1", fields.0)
+            recordfield("NideLoc2", fields.1)
+            recordfield("NideLoc3", fields.2)
+            recordfield("NideLoc4", fields.3)
+            dict
+        }
+                
+        // setFormData
+        //
+        // Set our input elements from a dictionary of form values.
+        
+        function setFormData(dict, local fields) {
+            debuglog("setFormData")
+            lomo.psmType = dict.classID
+            lomo.psmTypeLabel = locate.className(lomo.psmType)
+            setFormType(lomo.psmType)
+            if string(dict.label)
+                lomo.nametext.value = dict.label
+            fields = locate.uifields(dict.classID)
+            function setfield(id, field, local textel) {
+                textel = document.getElementById(id.concat("text"))
+                if string(field.label) && string(dict[field.key])
+                    textel.value = dict[field.key]
+            }
+            setfield("NideLoc1", fields.0)
+            setfield("NideLoc2", fields.1)
+            setfield("NideLoc3", fields.2)
+            setfield("NideLoc4", fields.3)
+        }
+
+        // setFormErrors
+        //
+        // Given a dictionary of field keys and error strings, set these in the UI.
+        
+        lomo.setFormErrors = function setFormErrors(psmType, errors, local fields) {
+            debuglog("setFormErrors", psmType)
+            fields = locate.uifields(psmType)
+            function seterror(id, field, local errorel) {
+                errorel = document.getElementById(id.concat("error"))
+                if string(errors[field.key]) {
+                    errorel.innerHTML = errors[field.key] }
+                else
+                    errorel.innerHTML = "&nbsp;"
+            }
+            seterror("NideLoc1", fields.0)
+            seterror("NideLoc2", fields.1)
+            seterror("NideLoc3", fields.2)
+            seterror("NideLoc4", fields.3)
+            if errors.label
+                document.getElementById("NideLocNameError").innerHTML = errors.label
+        }
+
+        // update controls for current selection, etc.
+
+        lomo.updateControls = function updateControls(title, resource) {
+            if title
+                lomo.prompt.innerHTML = title
+            if resource
+                setFormData(resource)
+            if lomo.nametext.value == ""
+                lomo.butsel.disabled = true
+            else
+                lomo.butsel.disabled = !lomo.psmType
+            lomo.typeMenuButton.innerHTML = lomo.psmTypeLabel
+        }
+        
+        // response to OK button
+
+        lomo.butsel.onclick = function (local dict, errors) {
+            dict = getFormData(lomo.psmType)
+            dict.label = lomo.nametext.value
+            if resID
+                errors = locate.updateResource(resID, dict)
+            else
+                errors = locate.addResource(lomo.psmType, dict)
+            debuglog("onclick errors", errors)
+            if errors.0
+                setFormErrors(lomo.psmType, errors.0)
+            else
+                lomo.complete(true)
+        }
+
+        // response to Cancel button
+        lomo.butcan.onclick = function () {
+            lomo.complete(false)
+        }
+        
+        // response to Close button
+        lomo.butclose.onclick = function () {
+            lomo.complete(false)
+        }
+
+        // modal was shown
+        lomo.div.on("shown.bs.modal", function () {
+            debuglog("shown.bs.modal")
+            if !lomo.psmType
+                lomo.typeMenu.show()
+        })
+    
+        // modal will be hidden - must return true to actually hide
+        lomo.div.on("hide.bs.modal", function (event) {
+            debuglog("hide.bs.modal")
+            lomo.complete(false)
+            true
+        })
+    
+        // setOptions
+        //
+        //     Set the options for a specific use of the dialog.
+    
+        lomo.setOptions = function setOptions(options) {
+            lomo.notified = false
+            lomo.options = options
+            if options.prompt
+                lomo.prompt.innerHTML = options.prompt
+        }
+        
+        // show
+        //
+        //     Show the modal window.
+        
+        lomo.show = function show() {
+            if !lomo.active {
+                lomo.div.modal("show")
+                lomo.active = true }
+        }
+        
+        // complete
+        //
+        //     Complete the location operation and close the window.
+        
+        lomo.complete = function complete(save) {
+            if lomo.active {
+                lomo.active = false
+                lomo.div.modal("hide") }
+            if save || resource {                                           // reset form data on save or canceled edit
+                lomo.psmType = false                                        // (preserve on cancel)
+                lomo.nametext.value = ""
+                setFormType(false)
+                setFormErrors()
+                updateControls()
+            }
+        }
+            
+        // finis
+        lomo
+    }
+
+    lomo = lomoController("NideLocationModal")
+    lomo.show()
+
+    // finis
+    lomo
+};
+
+
+/*
+ * locaInit
+ *
+ *     Initialize the loca tab component.
+ *
+ */
+
+function locaInit(local manifest) {
+
+    manifest = `(locaBox, locaModal, locaInit)
+
+    Naan.module.build(module.id, "locations", function(modobj, compobj) {
+        require("nide/nideUI/nideUI.nlg")
+        compobj.manifest = manifest
+    })
+
+} ();

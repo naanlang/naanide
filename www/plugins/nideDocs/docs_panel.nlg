@@ -1,0 +1,109 @@
+/*
+ * docs_panel.nlg
+ * NaanIDE
+ *
+ *     Documentation UI panel, with navigation and viewing.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * DocsPanel
+ *
+ *     A documentation panel object.
+ *
+ */
+
+closure DocsPanel(nidoc, language, local panel, txeditdiv, pecondiv) {
+    panel = new(object, this)
+    panel.nav = DocsNavOutline("NideDocsNav")
+    panel.nav.setTree(nidoc.docman.getTree(language), panel)
+    panel.viewer = DocsViewer(panel)
+
+    // window resize event
+    
+    window.addEventListener("resize", function() {
+        future(function winResizeF(){sizeToFit()}, 0)
+    })
+
+    // sizeToFit
+    //
+    // Tell the tree controls to resize
+    
+    function sizeToFit() {
+        panel.nav.sizeToFit()
+    }
+
+    // outlineNodeSelect
+    //
+    // User made a selection in the nav outline. This returns true to accept the selection.
+
+    panel.outlineNodeSelect = function outlineNodeSelect(treeNode local doc) {
+        doc = nidoc.docman.getDocument(treeNode.fullpath, language)
+        if doc.html
+            panel.viewer.setViewHtml(doc.html)
+    }
+
+    // search
+    //
+    // Global search for text in all documentation.
+    
+    panel.searchText.addEventListener("keyup", function(event) {
+        if (event.key == "Enter") {
+            panel.searchText.select()
+            panel.searchFiles(panel.searchText.value)
+        }
+    })
+
+    panel.searchText.addEventListener("input", function(event) {
+        if event.target.value == ""
+            panel.searchedSel.setResults()
+    })
+    
+    // panel.searchFiles
+    //
+    // Search documents having text matching the specified pattern.
+    //
+    panel.searchFiles = closure searchFiles(pattern, local config, results, matchRE) {
+        panel.searchedSel.setResults()
+        panel.searchedSel.setHeaderText("Searching...")
+        config = panel.current.fm.findConfig()
+        config.pattern = pattern
+        matchRE = panel.current.fm.findRegex(config, true)
+        results = panel.current.fm.findLines(config)
+        panel.searchedSel.setHeaderText("Loading...")
+        future(function() {
+            panel.searchedSel.setResults(results, matchRE, function searchClick(resultnode) {
+                if resultnode.file {
+                    setCurrentSession(resultnode.file.node)
+                    setEditor(resultnode.file.node, resultnode.item)
+                    panel.activeEditor.scrollTo(resultnode.item) }
+                else {
+                    setCurrentSession(resultnode.item)
+                    setEditor(resultnode.item) }
+            }) }, 100)
+    }
+
+    panel
+};
+
+
+/*
+ * docpanInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function docpanInit(local manifest) {
+
+    manifest = `(DocsPanel, docpanInit)
+
+    Naan.module.build(module.id, "docs_panel", function(modobj, compobj) {
+        compobj.manifest = manifest
+    })
+} ();

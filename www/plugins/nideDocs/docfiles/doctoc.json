@@ -1,0 +1,75 @@
+{
+    "ident": "Documentation TOC",
+    "version": "1.0",
+    "languages": ["en"],
+    "en": {
+        "title": "Naan and NaanIDE",
+        "name": "",
+        "children": [
+            {
+                "title": "Overview",
+                "name": "overview.md"
+            },
+            {
+                "title": "Tutorials",
+                "name": "tutorials/",
+                "children": [
+                    {
+                        "title": "Getting Started",
+                        "name": "getting-started.md"
+                    },
+                    {
+                        "title": "A Tour of Naan",
+                        "name": "tour-naan.md"
+                    }
+                ]
+            },
+            {
+                "title": "Examples",
+                "name": "examples/",
+                "children": [
+                    {
+                        "title": "Example 1: factorials",
+                        "name": "factorials.md"
+                    },
+                    {
+                        "title": "Example 2: api access",
+                        "name": "api-access.md"
+                    },
+                    {
+                        "title": "Example 3: static webpage",
+                        "name": "static-webpage.md"
+                    }
+                ]
+            },
+            {
+                "title": "Understanding Naan",
+                "name": "understanding/",
+                "children": [
+                    {
+                        "title": "Naan for Beginners",
+                        "name": "naan-for-developers.md"
+                    },
+                    {
+                        "title": "Naan for Developers",
+                        "name": "naan-for-developers.md"
+                    }
+                ]
+            },
+            {
+                "title": "Reference Manuals",
+                "name": "reference/",
+                "children": [
+                    {
+                        "title": "The Lingo Language",
+                        "name": "lingo-language.md"
+                    },
+                    {
+                        "title": "Naan for Developers",
+                        "name": "naan-core.md"
+                    }
+                ]
+            }
+        ]
+    }
+}

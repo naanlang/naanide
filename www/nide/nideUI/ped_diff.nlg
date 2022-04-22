@@ -1,0 +1,1214 @@
+/*
+ * ped_diff.nlg
+ * NaanIDE
+ *
+ *     Project EDitor for text DIFFerences.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2020-2022 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * pdifTextEditor
+ *
+ *     Make a differencing text editor in the specified div, that supports multiple sessions based
+ * on an opaque sessionKey defined by the owner of this text editor. The owner is notified when a 
+ * session is changed by user activity, and is responsible for loading and saving the data in the 
+ * session.
+ *     Gather 'round children and listen to a tale of some complexity. There are two hashes managed
+ * here: contentHashes, which are an MD5 hash of the text in the editor, and storageHashes, which are
+ * computed and checked by the storage layer. We compute contentHash after the ACE editor loads the
+ * text because it might mutilate it a bit. After subsequent text changes, if the hash matches then
+ * the text is saved. Otherwise it's unsaved. The storageHash is used by the storage layer to detect
+ * if a file has changed since we read it, to ensure that we don't overwrite changes made from some
+ * other location.
+ *
+ * Owner callbacks:
+ *      docStatusChange(sessionKey, unsavedChanges)                         // "unsaved" status has changed
+ *      docLoad(sessionKey, options, callback)                              // load content for sessionKey
+ *          callback(error, { text: <content>, hash: <storage hash>})
+ *      docSave(sessionKey, text, callback)                                 // save content for sessionKey
+ *          callback(error, <storage hash>)
+ *
+ */
+
+closure pdifTextEditor(div, owner, local edtext, observer, delayer) {
+    edtext = new(object, this)
+    edtext.owner = owner                                                    // who to notify of events
+    edtext.mdContainer = div.cloneNode(true)
+    edtext.centerWidth = 44
+    edtext.recomputeDelay = 200                                             // initial recomputation delay after typing
+    edtext.divLeft = div.cloneNode(true)
+    edtext.divCenter = div.cloneNode(true)
+    edtext.divRight = div.cloneNode(true)
+    edtext.divLeft.id = "pdifLeft"
+    edtext.divCenter.id = "pdifCenter"
+    edtext.divRight.id = "pdifRight"
+    div.appendChild(edtext.divLeft)
+    div.appendChild(edtext.divCenter)
+    div.appendChild(edtext.divRight)
+    edtext.aceLeft = window.ace.edit(edtext.divLeft)
+    edtext.aceRight = window.ace.edit(edtext.divRight)
+    edtext.aceLeft.setTheme("ace/theme/tomorrow_night")
+    edtext.aceRight.setTheme("ace/theme/tomorrow_night")
+    edtext.aceTextmode = window.ace.require("ace/ext/modelist")
+    edtext.aceRange = window.ace.require("ace/range").Range
+    edtext.aceLeft.setOptions({
+        vScrollBarAlwaysVisible: true})
+
+    // makePreviewDiv
+    function makePreviewDiv(local dcontent, dcontainer) {
+        dcontent = document.createElement("div")
+        dcontainer = edtext.mdContainer.cloneNode(true)
+        dcontainer.append(dcontent)
+        owner.editPreviewDiv.append(dcontainer)
+        dcontainer
+    }
+    edtext.mdDivLeft = makePreviewDiv()
+    edtext.mdDivCenter = makePreviewDiv()
+    edtext.mdDivRight = makePreviewDiv()
+    edtext.mdDivLeft.firstChild.classList.add("nide-padding")
+    edtext.mdDivRight.firstChild.classList.add("nide-padding")
+
+    observer = xnew(window.MutationObserver, function(mutations) {
+        if div.style.display != "none" {
+            winResize()
+            recorrelate() }
+        else
+            undecorate()
+    })
+    observer.observe(div, {attributes:true})
+    
+    // window resize event
+    
+    window.addEventListener("resize", function() {
+        future(function (){
+            winResize()
+            if edtext.display
+                delayedRecompute()
+        }, 0)
+    })
+    
+    // navtab
+    //
+    // We are informed that our editor is becoming visible or not.
+    
+    edtext.navtab = function navtab(visible) {
+        edtext.aceLeft.setShowPrintMargin(visible)
+        edtext.aceRight.setShowPrintMargin(visible)
+        if visible
+            recorrelate()
+        else
+            undecorate()
+    }
+    
+    // enableDiffView
+    //
+    // Enable or disable the two-panel difference view.
+    
+    edtext.enableDiffView = function enableDiffView(diff, local vscroll) {
+        if edtext.diffMode == diff
+            return (edtext.diffMode)
+        edtext.diffMode = diff
+        vscroll = edtext.divLeft.querySelector("div.ace_scrollbar-v")
+        if diff {
+            edtext.divCenter.style.display = null
+            edtext.divRight.style.display = null
+            vscroll.style.visibility = "hidden"
+            edtext.editWidth = false                                        // force redraw
+            winResize()
+            edtext.aceLeft.resize()
+            recorrelate()
+        } else {
+            undecorate()
+            edtext.divCenter.style.display = "none"
+            edtext.divRight.style.display = "none"
+            edtext.divLeft.style.width = "100%"
+            vscroll.style.visibility = null
+            edtext.aceLeft.resize()
+        }
+        mdResizePreviewer()
+        edtext.diffMode
+    }
+
+    // makeRawDiffs
+    //
+    // Return an array of raw differences between the sessions.
+    //
+    // The output from diff_match_patch is an array of changes that are applied to the right side in
+    // order to make it become the left:
+    //
+    //      [   [action, <text>]
+    //          [action, <text>]
+    //          [action, <text>]    ]
+    //
+    // The action is one of (-1, 0, 1) for delete, unchanged, or insert respectively. This function
+    // operates by performing a series of steps on the changes array. The first round converts the
+    // changes above into an array of differences. Each diff has the form:
+    //      {
+    //          left: {
+    //              startLine:  <line-index>
+    //              startChar:  <char-index>
+    //              endLine:    <line-index>
+    //              endChar:    <char-index> 
+    //              text:       <text-inserted> }       // text defined for insert into right
+    //          right: {
+    //              startLine:  <line-index>
+    //              startChar:  <char-index>
+    //              endLine:    <line-index>
+    //              endChar:    <char-index>
+    //              text:       <text-deleted> }        // text defined for delete from right
+    //
+    // These values are computed by walking the array of changes, advancing the character offsets
+    // and line index from text start, and character offset on each line, separately for left and
+    // right sessions. If the left-startLine of an insert matches the left-startLine of a delete 
+    // in adjacent diffs then the two diffs can be considered a single "change" and are coalesced.
+    
+    function makeRawDiffs(leftSession, rightSession, local differ, diffs, diffList,
+        offLeft, offRight, lineLeft, lineRight, lineBaseLeft, lineBaseRight,
+        charLeft, charRight, leftLines, rightLines) {
+        
+        /*******************
+         *  for debugging  *
+         *******************
+    
+        // textExcerpt
+        //
+        // Excerpt some text for debugging.
+        
+        function textExcerpt(text, size) {
+            if !size
+                size = 10
+            if text.length > 2*size
+                text = strcat(text.substring(0, size), "...", text.slice(-size))
+            text.replace(RegExp("[\n\r]", "g"), "␍")
+        }
+
+        // dumpDiffs
+        //
+        // For debugging, dump the output of diff-match-path
+        
+        function dumpDiffs(local diff) {
+            debuglog("===== diffs:", diffs.length)
+            for diff in diffs {
+                if diff.0 == 0 {                                            // change
+                    debuglog("equal:")
+                } else if diff.0 < 0 {                                      // delete
+                    debuglog("delete:")
+                } else {                                                    // insert
+                    debuglog("insert:")
+                }
+                debuglog("    ", diff.1.length, textExcerpt(diff.1))
+            }
+        }
+        
+        // dumpDiffList
+        //
+        // For debugging, dump the diffList
+        
+        function dumpDiffList(local diff) {
+            debuglog("===== diffList:", diffList.length)
+            for diff in diffList {
+                if diff.left.text && diff.right.text {                      // change
+                    debuglog("change:")
+                } else if diff.right.text {                                 // delete
+                    debuglog("delete:")
+                } else {                                                    // insert
+                    debuglog("insert:")
+                }
+                debuglog("    startLine:  ", diff.left.startLine, "\t", diff.right.startLine)
+                debuglog("    startChar:  ", diff.left.startChar, "\t", diff.right.startChar)
+                debuglog("    startLength:", diff.left.startLength, "\t", diff.right.startLength)
+                debuglog("    endLine:    ", diff.left.endLine, "\t", diff.right.endLine)
+                debuglog("    endChar:    ", diff.left.endChar, "\t", diff.right.endChar)
+                debuglog("    endLength:  ", diff.left.endLength, "\t", diff.right.endLength)
+            }
+        }
+
+        ********************
+        * end of debugging *
+        ********************/
+
+        diffList = []
+        differ = xnew(window.diff_match_patch)
+        if !differ {
+            debuglog("cannot find diff_match_patch library")
+            return (false)
+        }
+        diffs = differ.diff_main(rightSession.getValue(), leftSession.getValue())
+        dumpDiffs()
+        differ.diff_cleanupSemantic(diffs)
+        offLeft = offRight = 0
+        lineLeft = lineRight = 0
+        lineBaseLeft = lineBaseRight = 0
+        charLeft = charRight = 0
+        leftLines = leftSession.doc.getAllLines()
+        rightLines = rightSession.doc.getAllLines()
+
+        // buildDiffs
+        //
+        // Build the diffList
+
+        function buildDiffs(local chunk, action, text, diff, prev) {
+            function wholeLine(side, other) {
+                if side.endChar == side.endLength
+                    ++side.endLine
+                if other.endChar == other.endLength
+                    ++other.endLine
+                if side.startChar > 0 || side.startChar < side.endChar {    // our side is only part of line
+                    if side.startLine == side.endLine
+                        ++side.endLine
+                    if other.startLine == other.endLine
+                        ++other.endLine }
+                if other.startChar > 0 || other.startChar < other.endChar { // other side is only part of line
+                    if other.startLine == other.endLine
+                        ++other.endLine
+                    if side.startLine == side.endLine
+                        ++side.endLine }
+                if side.startChar != side.endChar && side.startLength != side.endLength && side.endLine == side.startLine+1
+                    ++side.endLine                                          // split line, but not just a new line
+                if other.startChar != other.endChar && other.startLength != other.endLength && other.endLine == other.startLine+1
+                    ++other.endLine                                         // split line, but not just a new line
+            }
+
+            for chunk in diffs {
+                action = chunk.0
+                text = chunk.1
+                diff = {
+                    left: {
+                        startLine: lineLeft
+                        startChar: charLeft
+                        startLength: leftLines[lineLeft].length
+                        endLine: lineLeft
+                        endChar: charLeft
+                        endLength: leftLines[lineLeft].length }
+                    right: {
+                        startLine: lineRight
+                        startChar: charRight
+                        startLength: rightLines[lineRight].length
+                        endLine: lineRight
+                        endChar: charRight
+                        endLength: rightLines[lineRight].length } }
+                if action >= 0 {
+                    offLeft += text.length
+                    while lineBaseLeft < offLeft && lineBaseLeft + leftLines[lineLeft].length < offLeft
+                        lineBaseLeft += leftLines[lineLeft++].length + 1
+                    charLeft = offLeft - lineBaseLeft
+                    diff.left.endLine = lineLeft
+                    diff.left.endChar = charLeft
+                    diff.left.endLength = leftLines[lineLeft].length
+                    diff.left.text = text
+                    wholeLine(diff.left, diff.right)
+                    if action > 0 && text.length > 0 {
+                        if prev && prev.left.startLine == diff.left.startLine
+                            prev.left = diff.left
+                        else {
+                            prev = diff
+                            diffList.push(diff) } } }
+                if action <= 0 {
+                    offRight += text.length
+                    while lineBaseRight < offRight && lineBaseRight + rightLines[lineRight].length < offRight
+                        lineBaseRight += rightLines[lineRight++].length + 1
+                    charRight = offRight - lineBaseRight
+                    diff.right.endLine = lineRight
+                    diff.right.endChar = charRight
+                    diff.right.endLength = rightLines[lineRight].length
+                    diff.right.text = text
+                    wholeLine(diff.right, diff.left)
+                    if action < 0 && text.length > 0 {
+                        if prev && prev.right.startLine == diff.right.startLine
+                            prev.right = diff.right
+                        else {
+                            prev = diff
+                            diffList.push(diff) } } }
+                if action == 0
+                    prev = false
+            }
+        } ()
+        dumpDiffList()
+        diffList
+    }
+    
+    // groupDiffs
+    //
+    // Return an array of grouped differences from raw differences
+    
+    function groupDiffs(diffs, local output, current) {
+        function min(x,y) { if x < y x else y }
+        function max(x,y) { if x > y x else y }
+        output = []
+        diffs.forEach(function(item) {
+            if !current
+                current = item
+            else if item.left.startLine <= current.left.endLine || item.right.startLine <= current.right.endLine {
+                ++grouped
+                current = new(current)
+                current.left.startLine = min(item.left.startLine, current.left.startLine)
+                current.right.startLine = min(item.right.startLine, current.right.startLine)
+                current.left.endLine = max(item.left.endLine, current.left.endLine)
+                current.right.endLine = max(item.right.endLine, current.right.endLine) }
+            else {
+                output.push(current)
+                current = item }
+        })
+        if current
+            output.push(current)
+        output
+    }
+    
+    // scrollDiffsLock
+    //
+    // Synchronize scrolling across the two editors to maximize relevance. Call scrollDiffsLock on
+    // each new session so that it can respond to the scroll events. All geometry is computed
+    // on-the-fly.
+    //     The desired user behavior is that you can scroll at a normal rate in either editor and
+    // the other one will stay "relevant" by scrolling either quickly or slowly to keep both aligned.
+    //     This is a surprisingly tricky piece of code. It works by dividing each editor's content
+    // into regions comprising either a diff or an equality. Then a "centerLine" scans through the
+    // regions. When a scroll position changes, the position of the centerLine within a region is 
+    // computed as a percentage 0..1 and the same percentage is driven into the other editor for
+    // that region. The centerLine begins at the top of the view in the home position and decends
+    // linearly down towards the bottom of the view when scrolled to the end. This allows it to
+    // intercept every line of content.
+    //     The behavior is not perfect. For example, scrolling past an insertion point causes the
+    // other side to "flip" from one position to the other without any finesse. Perhaps this can be 
+    // fixed by enforcing a minimum region size while ensuring that adjacent regions do not overlap.
+    
+    function scrollDiffsLock(session) {
+        
+        // syncTopsProportionally
+        // Sync the editors proportionally so that they stay a constant percentage of their 
+        // respective totals. This is an alternative to diff locking that  is not currently used.
+        function syncTopsProportionally(scrollTop, aceditor, othered, side, local fraction) {
+            // Compute the maximum scrollTop value for the specified editor.
+            function scrollTopMax(aceditor, local sess, area, rect, height, slength) {
+                sess = aceditor.getSession()
+                area = aceditor.renderer.getTextAreaContainer()
+                rect = area.getBoundingClientRect()
+                height = rect.bottom - rect.top
+                slength = (sess.getScreenLength() + 1) * aceditor.renderer.lineHeight
+                tofloat(slength - height)
+            }
+    
+            fraction = scrollTop / scrollTopMax(aceditor)
+            setScrollTop(othered.getSession(), fraction * scrollTopMax(othered))
+            recorrelate()                                                   // recompute correlations
+        }
+        
+        // findRegion
+        // Return the region containing the centerline (which is in fractional lines, not pixels)
+        // Regions are either diffs are the equal areas between them. This returns false if there
+        // are no diffs.
+        function findRegion(centerLine, side, local prev, diff, result) {
+            if edtext.diffList.length == 0
+                return (false)
+            prev = {
+                left: { endLine: 0 }
+                right: { endLine: 0 } }
+            for diff in edtext.diffList {
+                if centerLine < diff[side].startLine
+                    break
+                if centerLine <= diff[side].endLine {
+                    result = diff
+                    break }
+                prev = diff }
+            if !result {
+                if diff eq prev
+                    diff = {                                                // fake after last real diff
+                        left: { startLine: edtext.aceLeft.getSession().doc.getLength() }
+                        right: { startLine: edtext.aceRight.getSession().doc.getLength() }
+                    }
+                result = {                                                  // used at beginning and end
+                    left: {
+                        startLine: prev.left.endLine
+                        endLine: diff.left.startLine }
+                    right: {
+                        startLine: prev.right.endLine
+                        endLine: diff.right.startLine } }
+            }
+            result
+        }
+        
+        // posInRegionSide
+        // Return the postion (0.0 to 1.0) of a line within a region side (i.e. region.left or region.right)
+        function posInRegionSide(line, region1, local start, end) {
+            start = region1.startLine
+            end = region1.endLine
+            if line < start
+                0.0
+            else if line > end
+                1.0
+            else
+                (line - start) / (end - start)
+        }
+        
+        // lineFromRegionSidePos
+        // Return the line for a postion (0.0 to 1.0) within a region side (i.e. region.left or region.right)
+        function lineFromRegionSidePos(pos, region1, local start, end) {
+            start = region1.startLine
+            end = region1.endLine
+            start + pos * (end - start)
+        }
+
+        // scrollGeometry
+        // Compute the scrolling geometry for specified editor.
+        function scrollGeometry(aceditor, local sess, area, rect, height) {
+            sess = aceditor.getSession()
+            area = aceditor.renderer.getTextAreaContainer()
+            rect = area.getBoundingClientRect()
+            height = tofloat(rect.bottom - rect.top)
+            slength = (sess.getScreenLength() + 1) * aceditor.renderer.lineHeight
+            {
+                lineHeight: aceditor.renderer.lineHeight                    // height of each line
+                scrollTopMax: slength - height                              // maximum scrollTop
+                viewHeight: height                                          // height of the view (text rendering) area
+            }
+        }
+
+        // syncTopsByDiff
+        // Sync the editors so that the diffs are seen together.
+        //      scrollTop   - top of text area in content pixel coordinates
+        //      aceditor    - the editor that is scrolling
+        //      othered     - the other editor
+        //      side        - side being scrolled, either "left" or "right"
+        //      others      - the other side, i.e. "right" or "left"
+        function syncTopsByDiff(scrollTop, aceditor, othered, side, others, local geomHere, geomOther, centerLine, region, pos, otherCenterLine, otherScrollTop) {
+            geomHere = scrollGeometry(aceditor)
+            geomOther = scrollGeometry(othered)
+            centerLine = (scrollTop + (scrollTop / geomHere.scrollTopMax) * geomHere.viewHeight) / geomHere.lineHeight
+            region = findRegion(centerLine, side)
+            if region {
+                pos = posInRegionSide(centerLine, region[side])
+                otherCenterLine = lineFromRegionSidePos(pos, region[others])
+                otherScrollTop = (otherCenterLine * geomOther.lineHeight) * geomOther.scrollTopMax / (geomOther.scrollTopMax + geomOther.viewHeight - geomHere.lineHeight)
+            } else
+                otherScrollTop = scrollTop                                  // no differences
+            setScrollTop(othered.getSession(), otherScrollTop)
+            recorrelate()                                                   // recompute correlations
+        }
+
+        // setScrollTop
+        // Set the scrolltop for a session while ensuring that we don't respond to it
+        function setScrollTop(sess, scrollTop) {
+            if sess eq edtext.activeSession.aceLeftSession
+                edtext.setTopLeft = milliseconds()
+            else if sess eq edtext.activeSession.aceRightSession
+                edtext.setTopRight = milliseconds()
+            if scrollTop < 0
+                scrollTop = 0
+            sess.setScrollTop(scrollTop)
+        }
+
+        if !session.cstEvents {
+            session.aceLeftSession.on("changeScrollTop", function(scrollTop) {
+                if !edtext.setTopLeft || milliseconds() - edtext.setTopLeft > 20
+                    syncTopsByDiff(scrollTop, edtext.aceLeft, edtext.aceRight, "left", "right")
+            })
+            session.aceRightSession.on("changeScrollTop", function(scrollTop) {
+                if !edtext.setTopRight || milliseconds() - edtext.setTopRight > 20
+                    syncTopsByDiff(scrollTop, edtext.aceRight, edtext.aceLeft, "right", "left")
+            })
+            session.cstEvents = true
+        }
+    }
+
+    // decorate
+    //
+    // Decorate the editors with diff information. Note lines begin at zero, and endLine is one past
+    // the last line. An empty line range has startLine == endLine, e.g. for an insertion point.
+
+    function decorate(local diff) {
+        // Create an SVG line
+        function line(start, end) {
+            "L ".concat(start.x, space, start.y, comma, end.x, space, end.y)
+        }
+
+        // Create an SVG bezier curve with inflection in middle
+        function bezier(start, end, local midx) {
+            midx = start.x + (end.x - start.x) / 2                          // inflection in the middle
+            "M ".concat(start.x, space, start.y, space                      // move to start
+            "C ", midx, space, start.y, comma,                              // bezier control point 1
+                midx, space, end.y, comma,                                  // bezier control point 2
+                end.x, space, end.y)                                        // bezier end
+        }
+       
+        // Add a diff correlator to the center
+        function addDiffCorrelator(left, right,
+            local leftScrollTop, rightScrollTop, ulpt, urpt, llpt, lrpt, path) {
+            leftScrollTop = edtext.aceLeft.getSession().getScrollTop()
+            rightScrollTop = edtext.aceRight.getSession().getScrollTop()
+            ulpt = {
+                x: -1
+                y: left.startLine * edtext.aceLeft.renderer.lineHeight - leftScrollTop + 0.5
+            }
+            urpt = {
+                x: edtext.displayWidth + 1
+                y: right.startLine * edtext.aceRight.renderer.lineHeight - rightScrollTop + 0.5
+            }
+            llpt = {
+                x: -1
+                y: left.endLine * edtext.aceLeft.renderer.lineHeight - leftScrollTop - 0.5
+            }
+            lrpt = {
+                x: edtext.displayWidth + 1
+                y: right.endLine * edtext.aceRight.renderer.lineHeight - rightScrollTop - 0.5
+            }
+            path = document.createElementNS("http://www.w3.org/2000/svg", "path")
+            path.setAttribute("d", "".concat(
+                bezier(ulpt, urpt), space,                                  // upper curve
+                line(urpt, lrpt), space,                                    // right line
+                bezier(lrpt, llpt), space,                                  // lower curve
+                line(llpt, ulpt)))                                          // left line
+            path.setAttribute("class", "nideDiff_Correlator")
+            edtext.display.appendChild(path)
+            path
+        }
+
+        for diff in edtext.diffList {
+            if !diff.markLeft
+                diff.markLeft = addMarker(edtext.aceLeft, diff.left)
+            if !diff.markRight
+                diff.markRight = addMarker(edtext.aceRight, diff.right)
+            if !diff.path {
+                diff.path = addDiffCorrelator(diff.left, diff.right)
+                closure clickCorrelator(diff) {
+                    diff.path.onclick = function (event) {
+                        event.preventDefault()
+                        debuglog("click correlator", edtext.diffList.indexOf(diff))
+                        setDiffSelectState(diff, !diff.selected)
+                    }
+                } (diff) }
+        }
+    }
+    
+    // addMarker
+    //
+    // Add an editor marker, returning its numeric ID.
+    
+    function addMarker(editor, range, selected, local startLine, endLine, className, classNameSelected) {
+        startLine = range.startLine
+        endLine = range.endLine
+        if endLine > startLine {
+            className = "nideDiff_Editor"                               // multiple lines
+            classNameSelected = "nideDiff_Editor_Select" }
+        else {
+            className = "nideDiff_Editor nideDiffEditor_Insertion"      // insertion line
+            classNameSelected = "nideDiff_Editor nideDiffEditor_Insertion_Select" }
+        if selected
+            className = className.concat(space, classNameSelected)
+        --endLine                                                       // ACE wants end to be last line, not after
+        if endLine < startLine
+            endLine = startLine
+        editor.session.addMarker(xnew(edtext.aceRange, startLine, 0, endLine, 1), className, "fullLine")
+    }
+
+    // setDiffSelectState
+    //
+    // Set the difference as selected or not
+    
+    function setDiffSelectState(diff, selected) {
+        edtext.aceLeft.getSession().removeMarker(diff.markLeft)
+        edtext.aceRight.getSession().removeMarker(diff.markRight)
+        diff.markLeft = addMarker(edtext.aceLeft, diff.left, selected)
+        diff.markRight = addMarker(edtext.aceRight, diff.right, selected)
+        if diff.path
+            if selected
+                diff.path.setAttribute("class", "nideDiff_Correlator nideDiff_Correlator_Select")
+            else
+                diff.path.setAttribute("class", "nideDiff_Correlator")
+        diff.selected = selected
+    }
+    
+    // undecorate
+    //
+    // Remove the diff decorations.
+    
+    function undecorate(local diff) {
+        for diff in edtext.diffList {
+            edtext.aceLeft.getSession().removeMarker(diff.markLeft)
+            edtext.aceRight.getSession().removeMarker(diff.markRight)
+            diff.markLeft = undefined
+            diff.markRight = undefined
+            diff.path = undefined
+        }
+        removeCenter()
+    }
+    
+    // removeCenter
+    //
+    // Remove the center graphics area.
+    
+    function removeCenter() {
+        if edtext.display
+            edtext.display.remove()
+        edtext.display = false
+        if edtext.overlay
+            edtext.overlay.remove()
+        edtext.overlay = false
+    }
+    
+    // createCenter
+    //
+    // Create or recreate the center graphics area for displaying correlations.
+    
+    function createCenter(local cRect) {
+        removeCenter()
+        cRect = edtext.divCenter.getBoundingClientRect()
+
+        function makeOverlayDiv(local leftvs, sRect) {
+            leftvs = edtext.divLeft.getElementsByClassName("ace_scrollbar-v")
+            leftvs = leftvs[0]
+            if leftvs {
+                sRect = leftvs.getBoundingClientRect()
+                edtext.lvsWidth = sRect.right - sRect.left                  // Left Vertical Scrollbar Width
+            }
+            edtext.overlay = edtext.divCenter.cloneNode(true)
+            edtext.overlay.id = "CorrelationOverlay"
+            edtext.overlay.style.cssText = window.getComputedStyle(edtext.divCenter).cssText
+            edtext.overlay.style.position = "absolute"
+            edtext.overlay.style.top = tostring(cRect.top).concat("px")
+            edtext.overlay.style.width = tostring(cRect.right - cRect.left + edtext.lvsWidth).concat("px")
+            edtext.overlay.style.left = tostring(cRect.left - edtext.lvsWidth).concat("px")
+            edtext.overlay.style.zIndex = 20
+            edtext.overlay.style.backgroundColor = "#000000"
+            document.body.append(edtext.overlay)
+        }()
+
+        function makeSVGcenter(local leftPixelHeight, rightPixelHeight, displayHeight) {
+            leftPixelHeight = edtext.aceLeft.renderer.lineHeight * edtext.aceLeft.getSession().getLength()
+            rightPixelHeight = edtext.aceRight.renderer.lineHeight * edtext.aceRight.getSession().getLength()
+            displayHeight = cRect.bottom - cRect.top
+            if displayHeight < leftPixelHeight
+                displayHeight = leftPixelHeight
+            if displayHeight < rightPixelHeight
+                displayHeight = rightPixelHeight
+            edtext.display = document.createElementNS("http://www.w3.org/2000/svg", "svg")
+            edtext.displayWidth = cRect.right - cRect.left + edtext.lvsWidth
+            edtext.display.setAttribute("width", edtext.displayWidth)
+            edtext.display.setAttribute("height", displayHeight)
+            edtext.overlay.appendChild(edtext.display)
+        }()
+        
+    }
+        
+    // recorrelate
+    //
+    // Remove the correlations in the center and redraw for new scroll positions.
+    
+    function recorrelate(retry, local diff) {
+        if !edtext.diffMode
+            return
+        if edtext.aceLeft.renderer.lineHeight == 0 || edtext.aceRight.renderer.lineHeight == 0 {
+            if !retry
+                retry = 10
+            if retry > 0
+                future(function() { recorrelate(retry-1) }, 50)             // editors aren't quite ready
+            return                                                          // give up after 500 msec
+        }
+        for diff in edtext.diffList
+            diff.path = undefined
+        createCenter()
+        decorate()
+    }
+    
+    // recompute
+    //
+    // Immediately recompute the differences after changes. Also determine the computation time
+    // and ensure we delay the next text-change recompute until 5x that interval has passed, with
+    // boundaries.
+    
+    function recompute(local diffs, delayms) {
+        delayms = milliseconds()
+        undecorate()
+        if edtext.diffMode {
+            diffs = makeRawDiffs(edtext.aceLeft.getSession(), edtext.aceRight.getSession())
+            edtext.diffList = groupDiffs(diffs)
+            recorrelate() }
+        mdUpdatePreview()
+        delayms = milliseconds() - delayms
+        delayms *= 3                                                        // delay next recompute by 3x the computing time
+        if delayms > 3000
+            delayms = 3000                                                  // don't delay recompute by more than 3 seconds
+        else if delayms < 100
+            delayms = 100                                                   // delay at least 1/10 second
+        edtext.recomputeDelay = delayms
+    }
+    
+    // delayedRecompute
+    //
+    // Call this after text change to recompute in the future. Repeated calls defer recompute until
+    // a lull develops of sufficient duration, based on how long recomputes are taking.
+    
+    function delayedRecompute() {
+        if delayer
+            delayer.run(edtext.recomputeDelay)                              // longer
+        else
+            delayer = future(function() {
+                delayer = false
+                recompute()
+            }, edtext.recomputeDelay+5)                                     // run after delay
+    }
+    
+    // editWidth
+    //
+    // Return the editor width, which is different depending on whether we are in diff mode or not.
+    // This returns false if we don't have a width yet.
+        
+    function editWidth(local rect, widrect) {
+        rect = div.getBoundingClientRect()
+        widrect = rect.right - rect.left
+        if widrect == 0
+            widrect = false                                                 // not ready
+        else
+            widrect = tofloat(widrect - edtext.centerWidth) / widrect * 50
+        widrect
+    }
+    
+    // winResize
+    //
+    // Adjust our size if possible and necessary.
+    
+    function winResize(local edwid) {
+        if !edtext.diffMode
+            return                                                          // no need to adjust single-panel editor
+        edwid = editWidth()
+        if !edwid || edwid == edtext.editWidth
+            return                                                          // not ready or no change
+        edtext.divCenter.style.width = tostring(edtext.centerWidth).concat("px")
+        edtext.divLeft.style.width = edtext.divRight.style.width = tostring(edwid).concat("%")
+        mdResizePreviewer()
+        edtext.editWidth = edwid
+    }
+    
+    // mdResizePreviewer
+    //
+    // Resize our previewer to match the text editor(s).
+    
+    function mdResizePreviewer(local edwids) {
+        if !edtext.previewVisible || !edtext.previewDesired
+            return
+        if edtext.diffMode {
+            edwids = tostring(editWidth()).concat("%")
+            edtext.mdDivLeft.style.width = edwids
+            edtext.mdDivCenter.style.width = tostring(edtext.centerWidth).concat("px")
+            edtext.mdDivRight.style.width = edwids
+        } else {
+            edtext.mdDivLeft.style.width = "100%"
+            edtext.mdDivCenter.style.width = "0px"
+            edtext.mdDivRight.style.width = "0px"
+        }
+    }
+    
+    // mdMakePreviewer
+    //
+    // Create our previewer if visible.
+    
+    function mdMakePreviewer(local rect) {
+        owner.setPreviewVisibility(edtext.previewDesired)
+        if !edtext.previewDesired
+            return
+        edtext.previewVisible = false
+        rect = owner.editPreviewDiv.getBoundingClientRect()
+        if rect.top == rect.bottom
+            return
+        edtext.previewVisible = true
+        if !edtext.mdConverter {
+            edtext.mdConverter = xnew(js.w.showdown.Converter)
+            edtext.mdConverter.setFlavor("github") }
+        mdResizePreviewer()
+    }
+    
+    // mdUpdatePreview
+    //
+    // Update our previewer content, if it exists.
+    
+    function mdUpdatePreview(local html) {
+        mdMakePreviewer()
+        html = edtext.mdConverter.makeHtml(edtext.aceLeft.session.getValue())
+        edtext.mdDivLeft.firstChild.innerHTML = html
+        if edtext.diffMode {
+            html = edtext.mdConverter.makeHtml(edtext.aceRight.session.getValue())
+            edtext.mdDivRight.firstChild.innerHTML = html }
+    }
+
+    // updateAnnotations
+    //
+    // Update the specified annotations in a session.
+    
+    function updateAnnotations(session, local annotations) {
+        annotations = owner.docAnnotations(session.key)
+        if annotations
+            session.aceLeftSession.setAnnotations(annotations)
+        else
+            session.aceLeftSession.clearAnnotations()
+    }
+
+    // sessionTextChange
+    //
+    // Respond to the session contents changing. If the unsaved state of the text has changed then
+    // we tell the owner so he can update the UI.
+
+    function sessionTextChangeLeft(session, local text, md5text, changeStatus, newChangeStatus) {
+        if !session.contentHashLeft
+            return                                                          // just loading text now
+        text = session.aceLeftSession.getValue()
+        md5text = window.SparkMD5.hash(text)
+        changeStatus = session.unsavedChangesLeft || session.unsavedChangesRight
+        session.unsavedChangesLeft = (md5text != session.contentHashLeft)   // update text change flag
+        newChangeStatus = session.unsavedChangesLeft || session.unsavedChangesRight
+        if changeStatus != newChangeStatus
+            owner.docStatusChange(session.key, newChangeStatus)
+        delayedRecompute()
+    }
+
+    function sessionTextChangeRight(session, left, local text, md5text, changeStatus, newChangeStatus) {
+        if !session.contentHashRight
+            return                                                          // just loading text now
+        text = session.aceRightSession.getValue()
+        md5text = window.SparkMD5.hash(text)
+        changeStatus = session.unsavedChangesLeft || session.unsavedChangesRight
+        session.unsavedChangesRight = (md5text != session.contentHashRight) // update text change flag
+        newChangeStatus = session.unsavedChangesLeft || session.unsavedChangesRight
+        if changeStatus != newChangeStatus
+            owner.docStatusChange(session.key, newChangeStatus)
+        delayedRecompute()
+    }
+
+    // setSessionText
+    //
+    // Low-level set a session's left or right text.
+    
+    function setSessionTextLeft(session, text, storageHash, local asloaded) {
+        if session.storageHashLeft == storageHash
+            return                                                          // nothing to update
+        session.storageHashLeft = storageHash                               // storageHash is cookie for storage layer
+        session.contentHashLeft = false                                     // disable change checking during setValue
+        session.aceLeftSession.setValue(text)
+        asloaded = session.aceLeftSession.getValue()                        // ACE may have changed text implicitly
+        if asloaded
+            session.contentHashLeft = window.SparkMD5.hash(asloaded)        // hash of content to detect changes in editor 
+    }
+    
+    function setSessionTextRight(session, text, storageHash, local asloaded) {
+        if session.storageHashRight == storageHash
+            return                                                          // nothing to update
+        session.storageHashRight = storageHash                              // storageHash is cookie for storage layer
+        session.contentHashRight = false                                    // disable change checking during setValue
+        session.aceRightSession.setValue(text)
+        asloaded = session.aceRightSession.getValue()                       // ACE may have changed text implicitly
+        if asloaded
+            session.contentHashRight = window.SparkMD5.hash(asloaded)       // hash of content to detect changes in editor 
+    }
+
+    // setSessionSaved
+    //
+    // Low-level set a session as saved with specified hash. Save operations are asynchronous and
+    // may require considerable time to complete. If the session is modified after the save begins
+    // and before the save completes then the hashes track the saved state of the text. If the user
+    // then does an undo back to the saved state then the hashes will match and the file will show
+    // as saved.
+
+    function setSessionSavedLeft(session, contentHash, storageHash) {
+        session.contentHashLeft = contentHash
+        session.storageHashLeft = storageHash
+        sessionTextChangeLeft(session)
+    }
+
+    function setSessionSavedRight(session, contentHash, storageHash) {
+        session.contentHashRight = contentHash
+        session.storageHashRight = storageHash
+        sessionTextChangeRight(session)
+    }
+
+    // reset
+    //
+    // Reset the edtext tracker to have no sessions or content. If a sessionKey is specified then
+    // only that session is removed.
+
+    edtext.reset = function reset(sessionKey, local session) {
+        if sessionKey {
+            session = edtext.index[sessionKey]
+            if !session
+                return                                                      // specified session doesn't exist
+            edtext.index[sessionKey] = undefined
+            if !(edtext.aceLeft.session eq session.aceLeftSession)
+                || !(edtext.aceRight.session eq session.aceRightSession)
+                return }                                                    // don't touch editor if specified session not active
+        else
+            edtext.index = { }
+        edtext.defaultSession = {
+            key: ""
+            name: "",
+            mode: "ace/mode/text",
+            aceLeftSession: window.ace.createEditSession("", "ace/mode/text")
+            aceRightSession: window.ace.createEditSession("", "ace/mode/text")
+        }
+        edtext.aceLeft.setSession(edtext.defaultSession.aceLeftSession)
+        edtext.aceRight.setSession(edtext.defaultSession.aceRightSession)
+        edtext.previewDesired = false
+    }
+    
+    // sessionLookup
+    //
+    // Return true iff the session exists.
+    
+    edtext.sessionLookup = function sessionLookup(sessionKey) {
+        !!edtext.index[sessionKey]
+    }
+
+    // makeSession
+    //
+    // Make a new empty editing session. There is initially no content and it's not yet activated.
+    // The session key is a unique identifier generated by the owner. The name is the text name of
+    // the session, e.g. the filename.
+    
+    edtext.makeSession = closure makeSession(sessionKey, name, local session) {
+        session = edtext.index[sessionKey]
+        if session
+            return (session)                                                // no change
+        session = {
+            key:    sessionKey
+            name:   name
+        }
+        edtext.index[sessionKey] = session
+        if name.endsWith(".nlg") || name.endsWith(".nan")
+            session.mode = "ace/mode/naan_lingo"
+        else
+            session.mode = edtext.aceTextmode.getModeForPath(session.name).mode
+        session.aceLeftSession = window.ace.createEditSession("", session.mode)
+        // session.aceLeftSession.setUseWrapMode(true)
+        session.aceRightSession = window.ace.createEditSession("", session.mode)
+        // session.aceRightSession.setUseWrapMode(true)
+        scrollDiffsLock(session)
+
+        // on textChange
+        session.aceLeftSession.on("change", function(event) {
+            sessionTextChangeLeft(session)
+        })
+        session.aceRightSession.on("change", function(event) {
+            sessionTextChangeRight(session)
+        })
+
+        session
+    }
+        
+    // activateSession
+    //
+    // The specified session is made active in both left and right editors.
+    
+    edtext.activateSession = function activateSession(sessionKey) {
+        undecorate()
+        edtext.activeSession = edtext.index[sessionKey]
+        edtext.previewDesired = edtext.activeSession.name.endsWith(".md")
+        if edtext.activeSession.aceLeftSession {
+            updateAnnotations(edtext.activeSession)
+            edtext.aceLeft.setSession(edtext.activeSession.aceLeftSession)
+            edtext.aceRight.setSession(edtext.activeSession.aceRightSession)
+            recompute() }
+        else
+            edtext.reset()
+    }
+
+    // updateSession
+    //
+    // Update the specified session from storage, if there are no unsaved changes.
+    
+    edtext.updateSession = closure updateSession(sessionKey, lineno, local session, doneCount, errorRight) {
+        
+        // recompute after operations are complete
+        function doneRecomp() {
+            if --doneCount == 0 {
+                if errorRight {                                             // fill right with left, if no right text
+                    if session.aceRightSession.getValue() == ""
+                        setSessionTextRight(session, session.aceLeftSession.getValue(), session.storageHashLeft)
+                }
+                recompute()
+                if lineno
+                    scrollToLeft(lineno) } }
+
+        session = edtext.index[sessionKey]
+        doneCount = 0
+        if session && !session.unsavedChangesLeft {
+            ++doneCount
+            owner.docLoad(sessionKey, { }, function(error, content) {
+                if !error
+                    setSessionTextLeft(session, content.text, content.hash)
+                updateAnnotations(session)
+                doneRecomp()
+            })
+        }
+        if session && !session.unsavedChangesRight {
+            ++doneCount
+            owner.docLoadRight(sessionKey, { }, function(error, content) {
+                if error || !content.text
+                    errorRight = true                                       // just put same text on both sides
+                else
+                    setSessionTextRight(session, content.text, content.hash)
+                updateAnnotations(session)
+                doneRecomp()
+            })
+        }
+    }
+
+    // sessionSave
+    //
+    // Save the specified session to storage.
+    
+    edtext.sessionSave = closure sessionSave(sessionKey, local session, text, saving) {
+        session = edtext.index[sessionKey]
+        if !session
+            return (false)
+        if session.unsavedChangesLeft {
+            saving = true
+            text = session.aceLeftSession.getValue()
+            owner.docSave(sessionKey, text, function(error, storageHash) {
+                if !error
+                    setSessionSavedLeft(session, window.SparkMD5.hash(text), storageHash)
+            }) }
+        if session.unsavedChangesRight {
+            saving = true
+            text = session.aceRightSession.getValue()
+            owner.docSave(sessionKey, text, function(error, storageHash) {
+                if !error
+                    setSessionSavedRight(session, window.SparkMD5.hash(text), storageHash)
+            }) }
+        saving
+    }
+
+    // sessionUpdateAnnotations
+    //
+    // Update the specified session annotations.
+    
+    edtext.sessionUpdateAnnotations = function sessionUpdateAnnotations(sessionKey, local session) {
+        session = edtext.index[sessionKey]
+        if session
+            updateAnnotations(session)
+    }
+
+    // cleanup
+    //
+    // Clean up the sessions by ensuring they are each still in the tree.
+    
+    edtext.cleanup = function(local sessionKey) {
+        for sessionKey in edtext.index {
+            if !owner.docTest(sessionKey) {
+                edtext.reset(sessionKey) }
+            else {
+                session = edtext.index[sessionKey]
+                session.unsavedChangesLeft = -1                             // ensure it doesn't match to force update
+                sessionTextChangeLeft(session)
+                session.unsavedChangesRight = -1                            // ensure it doesn't match to force update
+                sessionTextChangeRight(session)
+            }
+        }
+    }
+        
+    // scrollToLeft
+    //
+    // Scroll to the specified lineno.
+    
+    edtext.scrollToLeft = closure scrollToLeft(lineno) {
+        if lineno {
+            edtext.aceLeft.scrollToLine(lineno, true, false, function () { })
+            edtext.aceLeft.gotoLine(lineno, 0, false) }
+    }
+
+    // find
+    //
+    // Bring up Find panel.
+
+    edtext.find = function find() {
+        edtext.aceLeft.execCommand("find")
+    }
+    
+    // findNext
+    //
+    // Find the next instance of the current pattern in the editor.
+
+    edtext.findNext  = function findNext() {
+        edtext.aceLeft.execCommand("findnext")
+    }
+
+    // unsavedCount
+    //
+    // Return a count of the total unsaved sessions.
+    
+    edtext.unsavedCount = function unsavedCount(local count, sessionKey) {
+        count = 0
+        for sessionKey in edtext.index {
+            session = edtext.index[sessionKey]
+            if session.unsavedChangesLeft || session.unsavedChangesRight
+                ++count
+        }
+        count
+    }
+    
+    // resize
+    //
+    // Update after editor div size changes.
+    
+    edtext.resize = function resize() {
+        winResize()
+        createCenter()
+        edtext.aceLeft.resize()
+        edtext.aceRight.resize()
+    }
+    
+    // saveAll
+    //
+    // Save all unsaved sessions, blocking return until saving is completed.
+
+    edtext.saveAll = closure saveAll(local pending, sessionKey, session) {
+        pending = new(nonce)
+        pending.active = 0
+        pending.completed = 0
+        for sessionKey in edtext.index {
+            session = edtext.index[sessionKey]
+            if session.unsavedChangesLeft || session.unsavedChangesRight {
+                closure (session, local text) {
+                    ++pending.active
+                    text = session.aceLeftSession.getValue()
+                    owner.docSave(session.key, text, function(error, storageHash) {
+                        if !error
+                            setSessionSavedLeft(session, window.SparkMD5.hash(text), storageHash)
+                        ++pending.completed
+                        if --pending.active == 0
+                            pending.signal(pending.completed)
+                    })
+                    // ### save right too?
+                } (session)
+            }
+        }
+        if pending.active > 0
+            pending.wait()
+        pending.completed
+    }
+    
+    // finis
+
+    edtext.reset()
+    edtext.diffMode = true
+    edtext
+};
+
+
+/*
+ * pdifInit
+ *
+ *     Initialize the project tab component.
+ *
+ */
+
+function pdifInit(local manifest) {
+
+    manifest = `(pdifTextEditor, pdifInit)
+
+    Naan.module.build(module.id, "ped_text", function(modobj, compobj) {
+        require("nide/nideUI/nideUI.nlg")
+        compobj.manifest = manifest
+        modobj.exports.MakeDiffEditor = pdifTextEditor
+    })
+} ();

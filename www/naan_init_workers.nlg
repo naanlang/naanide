@@ -1,0 +1,16 @@
+/*
+ * naan_init_workers.nlg
+ * Naanide
+ *
+ * Loaded automatically to initialize Naan browser-based worker threads.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2020-2021 by Richard C. Zulch
+ *
+ */
+
+loglevel(3);
+chns("Play");
+
+require("naan_init_common.nlg");                                            // initialization for all Naan instances

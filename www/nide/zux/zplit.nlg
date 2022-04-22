@@ -1,0 +1,247 @@
+/*
+ * zplit.nlg
+ * Zux module
+ *
+ *     The zplit component contains implementations for all splitter-related user interface elements.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2018-2021 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * zplitAdjuster
+ *
+ *     A zplitAdjuster allows the user to adjust the dividing line between two UI elements, such as 
+ * two listboxes. The caller specifies a div for an invisible adjuster div that is positioned in the
+ * html between elements. Upon mouse down the adjustment line is made visible, allowing the user to 
+ * drag the line within constraints. Upon mouse up the callback is invoked with both the  original
+ * and new values provided.
+ *     Splits are managed in terms of percent-of-split, not pixels, so the caller must specify the
+ * elements that are to be adjusted. Percentages are good because they work at any size, allowing
+ * stored values to be applied in new screen size environments for example. This requires that the
+ * elements on either side of the split be specified so that zplitAdjuster can calculate the total
+ * percentage between the extreme sides.
+ *     The adjustment div itself is normally made part of the HTML between the elements so that the
+ * mouse  cursor can be changed appropriately and to make tracking resize changes easy. For example,
+ * here is a typical vertical adjuster div in html:
+ *
+ * <div class="col-auto" style="position:relative;width:0px;height:100%;margin:0;padding:0;cursor:col-resize">
+ *      <div id='myAdjusterID' style="position:absolute;width:6px;height:100%;z-index:10;margin-left:-3px"></div>
+ * </div>
+ *
+ * Options:
+ *      minpct          - minimum percent of space for div1, or false for default 10%
+ *      maxpct          - minimum percent of space for div1, or false for default 90%
+ *      ro1             - true to leave height/width of div1 unchanged (e.g. if it fills automatically)
+ *      ro2             - true to leave height/width of div2 unchanged
+ *
+ *
+ */
+
+closure zplitAdjuster(divControl, divFirst, divSecond, options, callback,
+    local adjuster, rectAdj, rect1, rect2, minpct, maxpct) {
+ 
+    // div2div
+    // Convert a divID to actual div object if needed.
+    function div2div(div) {
+        if string(div)
+            document.getElementById(div)
+        else
+            div
+    }
+
+    // calcAxis
+    // Update our bounding rectangles and geometry based on the bounding boxes of the divs. This sets
+    // the adjuster.axis value to 1 for horizontal, -1 for vertical, and zero for degenerate.
+    function recalc(local deltaHL, deltaHR, deltaVT, deltaVB, deltaH, deltaV) {
+        rectAdj = adjuster.divAdj.getBoundingClientRect()
+        rect1 = adjuster.div1.getBoundingClientRect()
+        rect2 = adjuster.div2.getBoundingClientRect()
+        deltaHL = rect1.left - rectAdj.left
+        deltaHR = rect2.right - rectAdj.right
+        deltaH = deltaHL * deltaHL + deltaHR * deltaHR
+        deltaVT = rect1.top - rectAdj.top
+        deltaVB = rect2.bottom - rectAdj.bottom
+        deltaV = deltaVT * deltaVT + deltaVB * deltaVB
+        if deltaH > deltaV * 5 {                                            // big horizontal difference
+            adjuster.axis = -1                                              // must be vertical
+            adjuster.start = rect1.left
+            adjuster.end = rect2.right }
+        else if deltaV > deltaH * 5 {                                       // big vertical difference
+            adjuster.axis = 1                                               // must be horizontal
+            adjuster.start = rect1.top
+            adjuster.end = rect2.bottom }
+        else {                                                              // degenerate case; probably all zero
+            adjuster.start = adjuster.end = false
+            adjuster.axis = 0 }
+        adjuster.percent = pctFromPos(adjusterPos(adjuster.divAdj))         // our current percentage position
+    }
+    
+    // pctFromPos
+    // Convert page coordinate position to percentage.
+    function pctFromPos(pos, local pct) {
+        if not uibreak eq `uibreak
+            debugger()
+        if pos < adjuster.start
+            pos = adjuster.start
+        if pos > adjuster.end
+            pos = adjuster.end
+        pct = tofloat(pos - adjuster.start) / tofloat(adjuster.end - adjuster.start) * 100.0
+        if pct < minpct
+            pct = minpct
+        if pct > maxpct
+            pct = maxpct
+        pct
+    }
+    
+    // adjusterPos
+    // Return the adjuster position in client coordinates.
+    function adjusterPos(div) {
+        if adjuster.axis < 0
+            rectAdj.left + Number.parseInt(div.style.marginLeft)
+        else if adjuster.axis > 0
+            rectAdj.top + Number.parseInt(div.style.marginTop)
+    }
+
+    //
+    // Create the adjuster object.
+    //
+    //
+
+    adjuster = new(object, this)
+    adjuster.divAdj = div2div(divControl)
+    adjuster.div1 = div2div(divFirst)
+    adjuster.div2 = div2div(divSecond)
+    if !options.minpct
+        minpct = 10.0
+    if !options.maxpct
+        maxpct = 90.0
+
+    adjuster.divAdj.ondragstart = function() { false }                      // don't allow default drag functionality
+    
+    //
+    // mouse down
+    //
+    // This is the meat of the adjuster. We create a copy of the adjuster div, give it a blank
+    // filter as a background to keep the cursor from changing as the drag proceeds, and track the
+    // mouse movements with the new split position.
+    // 
+
+    adjuster.divAdj.addEventListener("mousedown", closure(event,
+        local copyAdj, shift, last, onmove, onup, dragFiller, active) {
+    
+        // pctToPos
+        // Convert percentage to page coordinate position.
+        function pctToPos(pct) {
+            tofloat(pct) / 100.0 * tofloat(adjuster.end - adjuster.start) + adjuster.start
+        }
+
+        // moveAt
+        // Move copyAdj according to the position in the event, returning the percent position.
+        function moveAt(event, local pct) {
+            if adjuster.axis < 0 {                                          // vertical
+                pct = pctFromPos(event.pageX - shift)
+                copyAdj.style.left = tostring(pctToPos(pct) - pct/100).concat("px") }
+            else if adjuster.axis > 0 {
+                pct = pctFromPos(event.pageY - shift)
+                copyAdj.style.top = tostring(pctToPos(pct) - pct/100).concat("px") }
+            pct
+        }
+
+        active = document.activeElement
+        recalc()
+        dragFiller = document.createElement("div")
+        dragFiller.className = "dragRowResizeFiller"
+        document.body.append(dragFiller)                                    // dragFiller keeps mouse pointer consistent
+        copyAdj = adjuster.divAdj.cloneNode(true)
+        rectAdj = adjuster.divAdj.getBoundingClientRect()
+        if adjuster.axis < 0
+            shift = event.clientX - adjusterPos(copyAdj)
+        else if adjuster.axis > 0
+            shift = event.clientY - adjusterPos(copyAdj)
+        copyAdj.style.position = "absolute"
+        copyAdj.style.top = tostring(rectAdj.top).concat("px")
+        copyAdj.style.left = tostring(rectAdj.left).concat("px")
+        copyAdj.style.zIndex = 1000
+        copyAdj.style.backgroundColor = "#aa5533"
+        document.body.append(copyAdj)
+        moveAt(event)
+
+        // onmove
+        // Receive an event when the mouse moves.
+        onmove = xnew(function (event) {                                    // save JavaScript object for remove
+            last = moveAt(event)
+            event.preventDefault()
+        })
+        document.addEventListener("mousemove", onmove)
+
+        // onup
+        // Receive an event when the mouse button is released.
+        onup = xnew(function(event) {                                       // save JavaScript object for remove
+            event.preventDefault()
+            document.removeEventListener("mousemove", onmove)
+            document.removeEventListener("mouseup", onup)
+            copyAdj.remove()
+            dragFiller.remove()
+            if last
+                callback(adjuster, last)
+            active.focus()
+            future(function divAdjustF(){project.hisel.sizeToFit()}, 400)
+        })
+        document.addEventListener("mouseup", onup)
+    })
+
+    // setProportion
+    // Set split proportion in percent from zero to 100.
+
+    adjuster.setProportion = function setProportion(pct, local pct1, pct2) {
+        recalc()
+        pct1 = tostring(pct).concat("%")
+        pct2 = tostring(100-pct).concat("%")
+        if adjuster.axis < 0 {
+            if !options.ro1
+                adjuster.div1.style.width = pct1
+            if !options.ro2
+                adjuster.div2.style.width = pct2 }
+        else if adjuster.axis > 0 {
+            if !options.ro1
+                adjuster.div1.style.height = pct1
+            if !options.ro2
+                adjuster.div2.style.height = pct2 }
+        recalc()
+        adjuster.percent = pct
+    }
+    
+    // getProportion
+    // Return the current split proportion.
+    
+    adjuster.getProportion = function getProportion() {
+        recalc()
+        adjuster.percent
+    }
+    
+    // finis
+
+    adjuster
+};
+
+
+/*
+ * zplitInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function zplitInit(local manifest) {
+    manifest = `(zplitAdjuster, zplitInit)
+
+    Naan.module.require("nide/zux/zux.nlg")
+    Naan.module.build(module.id, "zplit", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.SplitAdjuster = zplitAdjuster
+    })
+} ();

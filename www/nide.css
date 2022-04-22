@@ -1,0 +1,441 @@
+/*
+ * Browser UI Styles
+ * NaanIDE
+ *
+ */
+
+html {
+    position: relative;
+    min-height: 100%;
+    height: 100%;
+}
+
+body {
+    height: 100%;
+    overflow: hidden;
+}
+
+body > .container-fluid {
+    padding: 45px 12px 0 12px;
+    height: 100%;
+}
+
+pre {
+    word-wrap: break-word;
+    background-color: #36383C;
+    color: #c5c8c6;
+    border: 1px solid #26282C;
+    margin: 1.5em;
+    padding: 0.125rem 0.3125rem 0.0625rem;
+}
+
+header > .navbar {
+    height: 45px;
+}
+
+.ace_gutter-cell.ace_breakpoint{ 
+    border-radius: 20px 0 0 20px;
+    box-shadow: 0 0 1px 1px #248c46 inset; 
+}
+
+.ag-center-cols-viewport{
+    overflow-x: hidden !important;
+}
+
+.table td {
+    border:none;
+    color: white;
+}
+
+.nideubx {
+    width:34px;
+    height:34px;
+}
+
+.NideIcon {
+    height: 18px;
+    width: 12px;
+}
+
+.NideArrow {
+    font-size: 150%;
+    font-weight: bold;
+    color: #000000;
+}
+
+.NidePath {
+    font-size: 120%;
+    color: #000000;
+}
+
+.NideFound {
+    background-color: #007733;
+}
+
+.NideHeader {
+    margin-top: -1px;
+    margin-bottom: 0;
+    display: flex;
+    flex-wrap: wrap;
+    list-style:none;
+    height:34px;
+}
+
+.NideProjectBoxHeader {
+    background-color: #302e2e;
+    border-width: 0 1px 1px 0;
+    border-color: #4a4a4a;
+    border-style: solid;
+}
+
+.NideSearchArea {
+    background-color: #302e2e;
+    border-width: 0 1px 0 1px;
+    border-color: #4a4a4a;
+    border-style: solid;
+}
+
+.NideProjectEditHeader {
+    background-color: #302e2e;
+    border-width: 0 0 1px 0;
+    border-color: #4a4a4a;
+    border-style: solid;
+}
+
+.NideTargetHeader {
+    background-color: #302e2e;
+    border-width: 0 0 1px 0;
+    border-color: #4a4a4a;
+    border-style: solid;
+}
+
+.NideAlertArea {
+     margin-top:90px;
+     padding-right:30px;
+     position: fixed;
+     top: 0;
+     left: 0;
+     z-index: 1000;
+     width:100%;
+}
+
+.filltop {
+    height: calc(100% - 45px);
+    width: 100%;
+    padding-bottom: 0;
+    position:absolute;
+}
+
+.NideModalHidden {
+    visibility:hidden;
+    position:absolute;
+}
+
+
+.NideDebugBoxHeader {
+    height: 35px;
+    padding-left: 12px;
+    padding-right: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    background-color: #302e2e;
+    border-style: solid;
+    border-width: 0 0 1px 0;
+    border-color: #4a4a4a;
+}
+
+/* Element styles
+ -------------------------------------------------- */
+
+#NideStatus {
+    color:white;
+    margin-right:10px;
+    line-height:1.25;
+}
+
+#NidePH_Welcome {
+    width: 830px;
+    margin: 2em 2em;
+    border-width: 1px;
+    border-color: #4a4a4a;
+    border-style: solid;
+    border-radius: 6px;
+}
+
+#NidePH_About {
+    width: 830px;
+    margin: 2em 2em;
+    border-width: 1px;
+    border-color: #4a4a4a;
+    border-style: solid;
+    border-radius: 6px;
+}
+
+#NidePlayTermContainer {
+    height: 100%;
+    width: 100%;
+    position: relative;
+}
+
+#NidePlayTerm {
+    height: 100%;
+    width: 100%;
+    position: relative;
+}
+
+#NideDebugContainer {
+    height: 50%;
+    width: 100%;
+    position: relative;
+    padding-right:0;
+}
+
+#NideDebugBoxNav {
+    border-right-style: solid;
+    border-right-width: 1px;
+    border-color: #4a4a4a;
+}
+
+#NideReplContainer {
+    height: 50%;
+    position: relative;
+}
+
+#NideTargetRepl {
+    height: 100%;
+    width: 100%;
+    position: relative;
+    padding-left: 2px;
+    background-color: black;
+}
+
+#NideStatus {
+    color: black;
+}
+
+#NideMessage {
+    color: black;
+}
+
+.nide-header {
+    font-weight: 400;
+    color:#eee;
+    font-size:14px;
+    text-align:center;
+    vertical-align:middle;
+    line-height:1.5;
+    display:inline-block;
+    background-color:transparent;
+    padding:.375rem 0 .75rem 0;
+    user-select: none;
+}
+
+.nide-navlink {
+    font-weight: 400;
+    color:white;
+    font-size:14px;
+    text-align:center;
+    vertical-align:middle;
+    line-height:1.5;
+    display:inline-block;
+    background-color:transparent;
+    padding:.375rem 0 .75rem 0;
+    user-select: none;
+}
+
+.nide-navimage {
+    padding-bottom:3px;
+    height:17px;
+}
+
+.nide-navlink:hover {
+    cursor: default;
+    filter:brightness(0.5);
+}
+
+.nide-page-item {
+    filter:brightness(0.7);
+    padding-left: 15px;
+}
+
+.nide-navlink-active {
+    pointer-events:none;
+    filter:brightness(1.0);
+}
+
+.nide-session {
+    filter:brightness(0.7);
+    margin-left: 15px;
+}
+
+.nide-session:hover {
+    cursor: default;
+    filter:brightness(1.0);
+}
+
+.nide-session-end {
+    pointer-events:none;
+    filter:brightness(0.5);
+}
+
+.nide-diff-button {
+    font-size: 1em;
+    height:1.5em;
+    margin-top:4px;
+    padding-top:0;
+    padding-bottom:1px;
+    line-height:normal;
+}
+
+.nide-filerror {
+    color: crimson;
+}
+
+.nide-gitfile {
+    color: black;
+    background-color: white;
+}
+
+.nide-gitparent {
+    border-style: solid;
+    border-width: 1px;
+}
+
+.nide-git {
+    margin-left: 15px;
+    border-radius: 4px;
+    text-align: center;
+    padding: 1px 3px 1px 3px;
+    font-size: smaller;
+    filter:brightness(0.7);
+}
+
+.modal-title {
+    color: black;
+}
+
+.modal-body {
+    color: black;
+}
+
+.nide-form-tight {
+    margin-bottom: 0;
+}
+
+.dragRowResizeFiller {
+   position:absolute;
+   z-index:900;
+   left:0;
+   top:0;
+   width:100%;
+   height:100%;
+   background-color:transparent;
+   cursor:row-resize;
+}
+
+.ace_gutter-cell.ace_breakpoint{
+    border-radius: 20px 0px 0px 20px; 
+    box-shadow: 0px 0px 1px 1px red inset; 
+}
+
+.nideImage_editor_img {
+    margin:auto;
+}
+
+.nideProject_Preview {
+    overflow-y: auto;
+    background-color:#1d1f21;
+    color: #c5c8c6;
+}
+
+.nideDiff_Editor {
+    background-color:#004d7a;
+    border-top:1px solid #003554;
+    border-bottom:1px solid #003554;
+    position:absolute;
+    z-index:5
+}
+
+.nideDiff_Editor_Select {
+    background-color:#2d75b5;
+    border-top:1px solid #004d7a;
+    border-bottom:1px solid #004d7a;
+    position:absolute;
+    z-index:5
+}
+
+.nideDiff_Editor.nideDiffEditor_Insertion {
+    height:0px!important;
+    border-top:1px solid #004d7a;
+    border-bottom:0;
+    position:absolute
+}
+
+.nideDiff_Editor.nideDiffEditor_Insertion_Select {
+    height:0px!important;
+    border-top:1px solid #2d75b5;
+    border-bottom:0;
+    position:absolute
+}
+
+.nideDiff_Correlator {
+    fill:#004d7a;
+    stroke:#003554
+}
+
+.nideDiff_Correlator_Select {
+    fill:#2d75b5;
+    stroke:#004d7a
+}
+
+.nideProjectEditorRowStyle {
+    margin-left:0;
+    margin-bottom:20px;
+    padding-top:5px;
+    padding-bottom:5px;
+    background-color:#222222;
+}
+
+.nide-padding {
+    padding: 1em;
+}
+
+.nide-no-border{
+  border:none !important;
+  outline: none !important;
+}
+
+.nide-close {
+    font-weight: 400;
+    color:white;
+    font-size:24px;
+    margin-top:-9px;
+    text-align:center;
+    vertical-align:middle;
+    line-height:1.5;
+    display:inline-block;
+    background-color:transparent;
+    padding:.375rem 0 .75rem 0;
+    user-select: none;
+    filter:brightness(0.5);
+}
+
+.nide-close:hover {
+    cursor: default;
+    filter:brightness(1.0);
+}
+
+.nide-project-active {
+    font-weight:bold;
+}
+
+.modal-spinner-icon {
+    width: 30px;
+    height: 30px;
+    margin: 5px 5px 5px 20px;
+    background-image: url('exlib/images/icons8-iphone-spinner2.gif');
+    background-repeat: no-repeat;
+    background-size: contain;
+    filter:invert(87%);
+}
