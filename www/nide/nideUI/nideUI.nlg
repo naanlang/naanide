@@ -191,7 +191,7 @@ closure makeNavBar(objs, local navbar, structure, item) {
  *
  */
 
-closure niuiBase(nicc, local niui, pollint, version) {
+closure niuiBase(nicc, local niui) {
     niui = new(object, this)
     niui.api = nicc.api
     niui.psm = nicc.psm
@@ -202,7 +202,7 @@ closure niuiBase(nicc, local niui, pollint, version) {
     niui.track = nicc.track
     niui.getPrefs = nicc.getPrefs
     niui.putPrefs = nicc.putPrefs
-    niui.progCount = 0
+    niui.progMap = new(weakmap)
     niui.watchable = Watchable()
 
     // niui.alert - early version before UI is active
@@ -309,22 +309,26 @@ closure niuiBase(nicc, local niui, pollint, version) {
     // niui.progress()
     //
     // Note that progress is occuring on an operation. The return object has the following methods:
-    //  .completed(amount)                      // amount from zero to maximum
     //  .done()                                 // operation is completed
-    // The caller must execute .done() or the progress UI will remain visible.
+    // The caller must execute .done() or the progress UI will remain visible. If no spinner is
+    // specified then the header graphic is used. Otherwise the specified spinner is animated.
     //
     
-    niui.progress = closure progress(max, local xxx) {
+    niui.progress = closure progress(spinner) {
+        if !spinner
+            spinner = niui.spinner
         function opdone() {
-            --niui.progCount
-            if niui.progCount == 0 {
-                if !niui.spinner.classList.contains("invisible")
-                    niui.spinner.classList.add("invisible")
+            if --niui.progMap[spinner] == 0 {
+                if !spinner.classList.contains("invisible")
+                    spinner.classList.add("invisible")
             }
         }
-        ++niui.progCount
-        if niui.spinner.classList.contains("invisible")
-            niui.spinner.classList.remove("invisible")
+        if niui.progMap[spinner]
+            ++niui.progMap[spinner]
+        else
+            niui.progMap[spinner] = 1
+        if spinner.classList.contains("invisible")
+            spinner.classList.remove("invisible")
         return ({
             done: opdone
         })

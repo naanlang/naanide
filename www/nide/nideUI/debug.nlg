@@ -234,7 +234,8 @@ closure MakeDebug(niui, local debug) {
         m2 = niui.track.spawn("Local", "Play", "NaanIDE-Play")
         m3 = niui.track.spawn("Host", "NaanIDE Server", "NideServer")
         m4 = niui.track.spawn("Host", "Play", "NaanIDE-Server-Play")
-        m5 = niui.track.spawn("Lambda", false, "my lambda")
+// ### AWS Lambda currently disabled
+//        m5 = niui.track.spawn("Lambda", false, "my lambda")
         debug.debex.resetContents()
         niui.track.watch(closure(changes) {
             if changes.added || changes.deleted

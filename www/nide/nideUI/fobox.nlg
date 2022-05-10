@@ -37,6 +37,7 @@ closure foboxUI(niui, divid, local fobox, columnDefs, rowData, gridOptions) {
     fobox.pathtext = document.getElementById("NideBrowseFoboxPath")
     fobox.locbut = document.getElementById("NideFoboxLocationButton")
     fobox.locmenu = document.getElementById("NideFoboxLocationMenu")
+    fobox.spinner = document.getElementById("NideBrowseSpinner")
     fobox.butsel.disabled = true
     fobox.butup.disabled = true
     fobox.pathsep = "/"                                                     // default, overridden later
@@ -122,42 +123,57 @@ closure foboxUI(niui, divid, local fobox, columnDefs, rowData, gridOptions) {
     fobox.columnApi = gridOptions.columnApi
 
     // setRoot
-    fobox.setRoot = closure setRoot(dirpath, local error, fs) {
+    fobox.setRoot = closure setRoot(dirpath, local error, fs, progress) {
         function failed(err) {
             ErrorDebuglog("fobox.setRoot/readDir failed: ", err)
             fobox.api.setRowData([])
+            err
         }
 
         if !dirpath
             dirpath = ""
-        else if RegExp("[A-Za-z]:$").test(dirpath)
-            dirpath = dirpath.concat("\\")                              // ### do these corrections down in the filesystem
         `(error, fs) = niui.locate.connect(fobox.where.resID, "NideFS", "")
         if error
             return (failed(error))
+        progress = niui.progress(fobox.spinner)
         fs.readir(dirpath, function (error, files, local child, node, rows, defSel) {
+            progress.done()
             if error
                 return (failed(error))
             fobox.where.path = dirpath
-            fobox.curpath = files.path
-            fobox.pathsep = files.data.pathsep
-            fobox.pathtext.innerHTML = fobox.curpath
             rows = []
-            for child in files.children {
-                if child.info && not child.info.hidden {
+            if !files.path {
+                fobox.curpath = ""
+                fobox.pathsep = "\\"
+                fobox.pathtext.innerHTML = "drive letters"
+                for child in files {
                     node = {
-                        name: child.name,
-                        modified: child.info.mtime
+                        name: child
+                        directory: true
                     }
-                    if child.info.type == "directory"
-                        node.directory = true
-                    else if child.info.type != "file"
-                        continue
-                    else if not fobox.options.filterproc(child.name)
-                        continue
-                    else
-                        defSel = node
+                    defSel = node
                     rows.push(node)
+                }
+            } else {
+                fobox.curpath = files.path
+                fobox.pathsep = files.data.pathsep
+                fobox.pathtext.innerHTML = fobox.curpath
+                for child in files.children {
+                    if child.info && not child.info.hidden {
+                        node = {
+                            name: child.name,
+                            modified: child.info.mtime
+                        }
+                        if child.info.type == "directory"
+                            node.directory = true
+                        else if child.info.type != "file"
+                            continue
+                        else if not fobox.options.filterproc(child.name)
+                            continue
+                        else
+                            defSel = node
+                        rows.push(node)
+                    }
                 }
             }
             rows.sort(function(valueA, valueB) {
@@ -293,7 +309,7 @@ closure foboxUI(niui, divid, local fobox, columnDefs, rowData, gridOptions) {
     //      path        - the current path at that location
     //
     fobox.wheres = []                                                       // create list of locations with paths
-    let (local defloc, resID, where) {
+    let (local defloc, resID, where, error) {
         defloc = niui.getDefLocation()
         for resID in niui.locate.resources() {
             where = {
@@ -302,7 +318,11 @@ closure foboxUI(niui, divid, local fobox, columnDefs, rowData, gridOptions) {
             }
             if resID == defloc.resID {
                 where.path = defloc.path
-                fobox.setWhere(where)
+                error = fobox.setWhere(where)
+                if error && where != "" {                                   // try again without path
+                    where.path = ""
+                    fobox.setWhere(where)
+                }
             }
             fobox.wheres.push(where)
         }

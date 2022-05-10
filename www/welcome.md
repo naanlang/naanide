@@ -1,15 +1,15 @@
 ## Welcome
 
-**NaanIDE**™ is an integrated development environment for **Naan**™, which is a LISP-derived software platform
-for full stack execution using JavaScript.
+**NaanIDE**™ is an integrated development environment for Naan.
+**Naan**™ is an async-first software platform for rapid development.
 
 ##### Features
 - Concurrent asynchronous execution without promises or async/await
 - Transparent interoperability with JavaScript libraries
-- Easily delegate execution to worker threads
+- Simple integration with worker threads
 - Persistent execution can save and restore running state of the software
 - Multiple paradigm with objects and both static and dynamic binding
-- Combines LISP elegence with Algol-style language syntax
+- Combines LISP elegance with Algol-style language syntax
 
 ##### Next Steps
      Please see the Docs tab for more information.

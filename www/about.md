@@ -1,19 +1,17 @@
-![Naan logo](exlib/images/Naan.ico =67x67) About NaanIDE
+About NaanIDE
 -----
-**NaanIDE**™ is an integrated development environment for Naan.
-**Naan**™ is an async-first software platform for rapid development.
 
 
 ##### Release:
      **Naan** and **NaanIDE** by Richard C. Zulch
      Copyright (c) 2022 Zulch Laboratories, Inc.
-     Version 0.9.1-1 — published under the [MIT License](https://mit-license.org/)
+     Version 0.9.2-1 — published under the [MIT License](https://mit-license.org/)
 
 ##### Contact:
      For questions and comments about Naan and NaanIDE, please email [Richard Zulch](mailto:naanlang@zulchlabs.com).
 
 ##### Dependencies:
-     We greatfully acknowlege these software packages used with NaanIDE:
+     We gratefully acknowledge these software packages used with NaanIDE:
 - [Ace](https://ace.c9.io/) - code and text editor
 - [AG Grid Community Edition](https://www.ag-grid.com/) - grid controls
 - [Bootstrap 5](https://getbootstrap.com/) - frontend toolkit

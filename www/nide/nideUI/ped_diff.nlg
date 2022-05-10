@@ -1034,19 +1034,26 @@ closure pdifTextEditor(div, owner, local edtext, observer, delayer) {
         if session && !session.unsavedChangesLeft {
             ++doneCount
             owner.docLoad(sessionKey, { }, function(error, content) {
-                if !error
+                edtext.crlfLeft = false
+                if !error {
+                    edtext.crlfLeft = content.text.indexOf("\r\n") >= 0     // assume CRLF format if 1 found
                     setSessionTextLeft(session, content.text, content.hash)
+                }
                 updateAnnotations(session)
                 doneRecomp()
             })
         }
         if session && !session.unsavedChangesRight {
             ++doneCount
-            owner.docLoadRight(sessionKey, { }, function(error, content) {
+            owner.docLoadRight(sessionKey, { }, function(error, content, local text) {
                 if error || !content.text
                     errorRight = true                                       // just put same text on both sides
-                else
-                    setSessionTextRight(session, content.text, content.hash)
+                else {
+                    text = content.text
+                    if edtext.crlfLeft && text.indexOf("\r\n") < 0
+                        text = text.replace(RegExp("\n", "g"), "\r\n")      // convert to CRLF format
+                    setSessionTextRight(session, text, content.hash)
+                }
                 updateAnnotations(session)
                 doneRecomp()
             })
@@ -1206,7 +1213,7 @@ function pdifInit(local manifest) {
 
     manifest = `(pdifTextEditor, pdifInit)
 
-    Naan.module.build(module.id, "ped_text", function(modobj, compobj) {
+    Naan.module.build(module.id, "ped_diff", function(modobj, compobj) {
         require("nide/nideUI/nideUI.nlg")
         compobj.manifest = manifest
         modobj.exports.MakeDiffEditor = pdifTextEditor

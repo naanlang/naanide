@@ -17,6 +17,33 @@ require("naan_init_common.nlg");                                            // i
 
 
 /*
+ * loadSecret
+ * storeSecret
+ *
+ *     We have to track the secret API-access guid separately because the main persistence is
+ * version-dependent, and if we reload we might be changing versions.
+ *
+ */
+
+function loadSecret() {
+    try {
+        js.w.localStorage.getItem("Nide_Guid")
+    } catch {
+        if true { false }
+    }
+};
+
+function storeSecret(guid) {
+    try {
+        js.w.localStorage.removeItem("Nide_Guid")
+        js.w.localStorage.setItem("Nide_Guid", guid)
+    } catch {
+        if true { false }
+    }
+};
+
+
+/*
  * loadNide
  *
  *     Load Naanide into the browser, whether for the first time or after reload.
@@ -24,18 +51,19 @@ require("naan_init_common.nlg");                                            // i
  */
 
 serverurl = js.w.location.protocol.concat("//", js.w.location.host);
-authGuid = false;
 authState = { };
 
 function loadNide(local guid, baseurl, bapi, bide, bui) {
     guid = xnew(js.w.URL, js.w.location.href).searchParams.get("guid")
     if guid {                                                               // remove the GUID from the visible URL
-        authGuid = guid
+        storeSecret(guid)
         authState.guid = guid
         baseurl = js.w.location.href.replace(RegExp("[?].*$"), "")
         js.w.history.replaceState(authState, "", baseurl)
     }
-    bapi = require("frameworks/client/apiclient.nlg").MakeNideAPIclient(serverurl, authGuid)
+    else
+        guid = loadSecret()                                                 // see if we have stored the GUID
+    bapi = require("frameworks/client/apiclient.nlg").MakeNideAPIclient(serverurl, guid)
     bide = require("nide/nideClient/nideClient.nlg").MakeNideController(bapi)
     bui = require("nide/nideUI/nideUI.nlg").MakeNideUI(bide)
     bide.setUI(bui)

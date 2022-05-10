@@ -61,9 +61,11 @@ closure browserLaunch(url, local open, result) {
  *
  */
 
+if !integer(NaanServerPort)
+    NaanServerPort = 8008
 apis = require("frameworks/node/apiserver.nlg", { in: "naanlib" });
-api = apis.MakeAPI(8008, {
-        relpath: "www"
+api = apis.MakeAPI(NaanServerPort, {
+        relpath: "../www"
         guid: require("frameworks/common").UUID()
         statics: [
             list("", NaanPath)

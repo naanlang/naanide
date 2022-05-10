@@ -430,12 +430,15 @@ header > .navbar {
     font-weight:bold;
 }
 
-.modal-spinner-icon {
+.spinner-icon {
     width: 30px;
     height: 30px;
     margin: 5px 5px 5px 20px;
     background-image: url('exlib/images/icons8-iphone-spinner2.gif');
     background-repeat: no-repeat;
     background-size: contain;
+}
+
+.spinner-black {
     filter:invert(87%);
 }

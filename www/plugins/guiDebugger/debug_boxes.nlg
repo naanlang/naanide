@@ -142,9 +142,9 @@ closure panelModComp(divid, delegate, local mocobox, columnDefs) {
     //
     function innerCellRenderer(params, local image, imageFullUrl, imageStyle) {
         if params.node.data.children
-            image = "FolderIcon.ico"
+            image = "Module.ico"
         else
-            image = "Naan.ico"
+            image = "Component.ico"
         imageFullUrl = "exlib/images/".concat(image)
         imageStyle = "style=\"padding-bottom:3px;".concat("height: ", params.node.rowHeight * 0.7, "px\"")
         return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", params.data.name))

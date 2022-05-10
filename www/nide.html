@@ -23,7 +23,7 @@
     <header>
         <!-- Fixed navbar -->
         <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
-            <img  id='NaanLogo' class="navbar-brand" href="#" src="exlib/images/Naan.ico" width="70" height="70" style="margin: -50px 10px -50px 10px">
+            <img  id='NaanLogo' class="navbar-brand" href="#" src="exlib/images/NaanLogo.ico" width="80" height="80" style="margin: -50px 10px -50px 10px">
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -42,7 +42,7 @@
                         data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-html="true" title="Build and Run<br>⇧ Build only">▶︎</button>
                     <button type="button" class="btn btn-outline-secondary btn-sm" style="margin: 5px 5px 5px 20px" id="NidePublishButton"
                         data-bs-toggle="tooltip" data-bs-placement="bottom" title="Publish">⧋︎</button>
-                    <div id="NideSpinner" class="modal-spinner-icon me-auto invisible"></div>
+                    <div id="NideSpinner" class="spinner-icon spinner-black me-auto invisible"></div>
                 </ul>
                 <div class="body mt-2 mt-md-0 ms-auto" style="white-space:nowrap;text-align:right;font-size:14px">
                     <div id="NideMessage" style="color:#c0c0c0;margin-right:10px"></div>
@@ -268,6 +268,7 @@
                                     <span class="NideArrow">&uarr;</span>
                                 </button>
                                 <div id="NideBrowseFoboxPath" class="flex-grow-1 btn-sm NidePath" style="word-wrap: break-word;"></div>
+                                <div id="NideBrowseSpinner" class="spinner-icon me-auto invisible"></div>
                             </div>
                             <div class="ag-theme-fresh" id="NideBrowseFobox" style="width:100%; height:100%;"></div>
                         </div>
