@@ -23,13 +23,7 @@ var fs = require("fs");
 var naanpath = jspath.resolve(require.resolve('@naanlang/naan'), '../../../');
 var envpath = jspath.resolve(naanpath, 'lib/env_node.js');
 var NaanNodeREPL = require(envpath);
-var naanrepl = new NaanNodeREPL({
-    replDisable: false
-});
-naanrepl.setDirectory(jspath.join(__dirname, "../lib/"));
-naanrepl.setRequire(require);
 
-var naanOptions;
 var server_port;
 
 /*
@@ -64,11 +58,11 @@ process.argv.every((val, index) => {
         process.exit(0);
     }
     if (val == "--version") {
-        console.log("0.9.2");
+        console.log("0.9.3");
         process.exit(0);
     }
     if (val == "--buildno") {
-        console.log("0.9.2-1");
+        console.log("0.9.3-1");
         process.exit(0);
     }
     if (val.substring(0,1) == "-") {
@@ -99,5 +93,11 @@ if (server_port > 0)
  * Execute Naan
  *
  */
+
+var naanrepl = new NaanNodeREPL({
+    replDisable: false
+});
+naanrepl.setDirectory(jspath.join(__dirname, "../lib/"));
+naanrepl.setRequire(require);
 
 naanrepl.textCommand(cmd_text);
