@@ -1,3 +1,18 @@
 .nide-test-blue {
     color: blue
 }
+
+#NideDocsViewArea {
+    width:80%;
+    height:100%;
+    overflow-y:auto;
+}
+
+#NideDocsViewer {
+    padding: 1em;
+    margin: 2em 2em;
+    border-width: 1px;
+    border-color: #4a4a4a;
+    border-style: solid;
+    border-radius: 6px;
+}

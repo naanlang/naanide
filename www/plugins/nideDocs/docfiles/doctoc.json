@@ -8,43 +8,51 @@
         "children": [
             {
                 "title": "Overview",
-                "name": "overview.md"
+                "name": "00-overview.md"
             },
             {
-                "title": "Tutorials",
-                "name": "tutorials/",
+                "title": "The Naan Command Line",
+                "name": "01-command-line/",
                 "children": [
                     {
-                        "title": "Getting Started",
-                        "name": "getting-started.md"
+                        "title": "Installing Naan",
+                        "name": "01-installing-naan.md"
                     },
                     {
-                        "title": "A Tour of Naan",
-                        "name": "tour-naan.md"
+                        "title": "Using the REPL",
+                        "name": "02-using-the-repl.md"
+                    },
+                    {
+                        "title": "Using the NDB Debugger",
+                        "name": "03-using-the-ndb-debugger.md"
                     }
                 ]
             },
             {
-                "title": "Examples",
-                "name": "examples/",
+                "title": "Introduction to Naan Programming",
+                "name": "02-introduction-to-naan-programming/",
                 "children": [
                     {
-                        "title": "Example 1: factorials",
-                        "name": "factorials.md"
+                        "title": "Data Types",
+                        "name": "01-data-types.md"
                     },
                     {
-                        "title": "Example 2: api access",
-                        "name": "api-access.md"
+                        "title": "Dereference Operators",
+                        "name": "02-dereference-operators.md"
                     },
                     {
-                        "title": "Example 3: static webpage",
-                        "name": "static-webpage.md"
+                        "title": "Procedure Forms",
+                        "name": "03-procedure-forms.md"
+                    },
+                    {
+                        "title": "Async & Concurrency",
+                        "name": "04-async-and-concurrency.md"
                     }
                 ]
             },
             {
-                "title": "Understanding Naan",
-                "name": "understanding/",
+                "title": "NaanIDE",
+                "name": "03-naanide/",
                 "children": [
                     {
                         "title": "Naan for Beginners",
@@ -57,16 +65,17 @@
                 ]
             },
             {
-                "title": "Reference Manuals",
-                "name": "reference/",
+                "title": "Technical Topics in Depth",
+                "name": "04-technical-topics-in-depth/",
+                "collapsed": true,
                 "children": [
                     {
-                        "title": "The Lingo Language",
-                        "name": "lingo-language.md"
+                        "title": "The Naan Package and Tests",
+                        "name": "01-the-naan-package-and-tests.md"
                     },
                     {
-                        "title": "Naan for Developers",
-                        "name": "naan-core.md"
+                        "title": "Namespaces",
+                        "name": "02-namespaces.md"
                     }
                 ]
             }

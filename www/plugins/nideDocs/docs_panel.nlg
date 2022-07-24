@@ -18,7 +18,7 @@
  *
  */
 
-closure DocsPanel(nidoc, language, local panel, txeditdiv, pecondiv) {
+closure DocsPanel(nidoc, language, local panel, defDocNode) {
     panel = new(object, this)
     panel.nav = DocsNavOutline("NideDocsNav")
     panel.nav.setTree(nidoc.docman.getTree(language), panel)
@@ -87,6 +87,14 @@ closure DocsPanel(nidoc, language, local panel, txeditdiv, pecondiv) {
                     setEditor(resultnode.item) }
             }) }, 100)
     }
+
+    // select default document
+
+    defDocNode = panel.nav.getDocList().0
+    panel.nav.selectOnly(defDocNode)
+    outlineNodeSelect(defDocNode.data)
+    
+    // finis
 
     panel
 };

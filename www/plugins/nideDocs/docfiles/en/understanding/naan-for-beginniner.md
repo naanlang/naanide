@@ -1,1 +1,0 @@
-Understanding / Naan for beginners

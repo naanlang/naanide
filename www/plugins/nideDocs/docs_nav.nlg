@@ -21,6 +21,7 @@
 closure DocsNavOutline(divid, local dono, columnDefs, rowData) {
     dono = new(object, this)
     dono.divid = divid
+    dono.defopen = true                                                     // default open folders
 
     rowData = []
 
@@ -65,13 +66,15 @@ closure DocsNavOutline(divid, local dono, columnDefs, rowData) {
         groupSelectsChildren: false,
         rowClass: "ag-row-even",                                            // remove zebra striping
         suppressHorizontalScroll: true,
-        getNodeChildDetails: function(node) {
-            if node.children
+        getNodeChildDetails: function(node, local opened) {
+            if node.children {
+                opened = dono.defopen && !node.collapsed || dono.openIndex[node.path]
                 return ({
                     group: true,
                     children: node.children
-                    expanded: node.path == "" || dono.openIndex[node.path]
+                    expanded: opened
                 })
+            }
             else
                 return (null)
         },
@@ -201,6 +204,7 @@ closure DocsNavOutline(divid, local dono, columnDefs, rowData) {
     dono.setTree = function setTree(tree, delegate, openpaths) {
         dono.delegate = delegate
         updateTree(tree, openpaths)
+        dono.defopen = false
     }
 
     // openPaths
@@ -221,17 +225,16 @@ closure DocsNavOutline(divid, local dono, columnDefs, rowData) {
     }
 
     //
-    // getFileList
+    // getDocList
     //
-    //     Return an array of files in the current tree. Each element contains the full pathname
-    // of the file.
+    //     Return an array of document rowNodes in the current tree.
     
-    dono.getFileList = function getFileList(local files) {
-        files = []
+    dono.getDocList = function getDocList(local docNodes) {
+        docNodes = []
         dono.api.forEachLeafNode(function(rowNode, index) {
-            files.push(rowNode.data.path.concat(rowNode.data.title))
+            docNodes.push(rowNode)
         })
-        files
+        docNodes
     }
     
     //

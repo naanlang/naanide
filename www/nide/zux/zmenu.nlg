@@ -34,6 +34,7 @@ zmenuActiveDropdown;
  * The callback is:
  *      callback(event, itemindex, itemdiv)
  * The returned object provides some methods:
+ *      dropdown.setItems(items)                - reset the menu items
  *      dropdown.show()                         - show the dropped menu
  *      dropdown.hide()                         - hide the dropped menu
  * Note that the show() operation doesn't work until the menu is visible.
@@ -62,7 +63,6 @@ closure zmenuDropdown(items, options, callback,
             button = options.refel
         if !menudiv || !button
             return (false)
-        menudiv.innerHTML = ""                                              // remove existing menu items
     } else {                                                                // build the complete menu
         wrapperdiv = document.createElement("div")
         wrapperdiv.classList.add("dropdown")
@@ -80,32 +80,6 @@ closure zmenuDropdown(items, options, callback,
         document.body.append(wrapperdiv)
     }
     button.setAttribute("data-bs-toggle", "dropdown")
-
-    let (local itemdex, item, classes) {                                    // build the menu items
-        itemdex = 0
-        for item in items
-            closure(itemdex, item, local itemdiv) {
-                itemdiv = document.createElement("div")
-                if item == "-"
-                    itemdiv.innerHTML = "<div class='dropdown-divider'></div>"
-                else if item.charAt(0) != "<" {
-                    classes = ["dropdown-item"]
-                    if item.charAt(0) == "~" {
-                        classes.push("disabled")
-                        item = item.substring(1)                            // disabled item
-                    } else if item.charAt(0) == "/"
-                        item = item.substring(1)                            // allows starting item with < or ~
-                    itemdiv.innerHTML = "<button class='".concat(classes.join(" "), "' type='button'>", item, "</button>")
-                } else
-                    itemdiv.innerHTML = item
-                itemdiv = itemdiv.firstChild
-                menudiv.append(itemdiv)
-                itemdiv.onclick = function (event) {
-                    event.preventDefault()
-                    callback(event, itemdex, itemdiv)
-                }
-            } (itemdex++, item)
-    } ()
 
     if wrapperdiv {                                                         // prepare and display the dropdown menu
         wrapperdiv.style.position = "fixed"
@@ -129,22 +103,61 @@ closure zmenuDropdown(items, options, callback,
         config
     }
     dropdown.bsdd = xnew(window.bootstrap.Dropdown, button, xoptions)
-    zmenuActiveDropdown = dropdown.bsdd
+
+    // setItems
+    //
+    dropdown.setItems = function setItems(items, local itemdex, item, classes) {    // build the menu items
+        menudiv.innerHTML = ""                                              // remove existing menu items
+        itemdex = 0
+        for item in items
+            closure(itemdex, item, local itemdiv) {
+                itemdiv = document.createElement("div")
+                if item == "-"
+                    itemdiv.innerHTML = "<div class='dropdown-divider'></div>"
+                else if item.charAt(0) != "<" {
+                    classes = ["dropdown-item"]
+                    if item.charAt(0) == "~" {
+                        classes.push("disabled")
+                        item = item.substring(1)                            // disabled item
+                    } else if item.charAt(0) == "/"
+                        item = item.substring(1)                            // allows starting item with < or ~
+                    itemdiv.innerHTML = "<button class='".concat(classes.join(" "), "' type='button'>", item, "</button>")
+                } else
+                    itemdiv.innerHTML = item
+                itemdiv = itemdiv.firstChild
+                menudiv.append(itemdiv)
+                itemdiv.onclick = function (event) {
+                    event.preventDefault()
+                    callback(event, itemdex, itemdiv)
+                }
+            } (itemdex++, item)
+    }
 
     // show (drop)
     //
     dropdown.show = function show() {
         dropdown.bsdd.show()
+        zmenuActiveDropdown = dropdown.bsdd
     }
 
     // hide
     //
     dropdown.hide = function hide() {
         dropdown.bsdd.hide()
+        if zmenuActiveDropdown === dropdown.bsdd
+            zmenuActiveDropdown = false
+    }
+    
+    // dispose
+    //
+    dropdown.dispose = function dispose() {
+        dropdown.bsdd.dispose()
+        dropdown.bsdd = false
     }
 
     // finis
 
+    setItems(items)
     dropdown
 };
 

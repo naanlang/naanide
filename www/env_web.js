@@ -74,10 +74,12 @@ exports.NaanControllerWeb = function() {
     //
  
     var naanlib = new exports.Naanlib();
+    var dontSaveUntilWorking;                                               // true when state loaded, must be reset to save state again
     var contSelf = this;                                                    // this is us, for access within nested functions
     exports.naancon = this;                                                 // access to this instance
     contSelf.anaan = naanlib.js.n;
     naanlib.js.t = contSelf;
+    naanlib.js.q = querystrings;
     var replstate;                                                          // latest known state of the REPL
     var naanstate;                                                          // desired state for the interpreter
     var replqueue;                                                          // text destined for terminal when opened
@@ -298,6 +300,17 @@ exports.NaanControllerWeb = function() {
     this.Dimensions = function Dimensions(rows, cols) {
         console.log("Naan terminal dimensions now (" + rows + ", " + cols + ")");
     };
+    
+    //
+    // VsiteRefresh
+    //
+    // Check if our underlying data has changed, and reload if needed.
+    //
+    
+    this.VsiteRefresh = function VsiteRefresh(url_origin) {
+        if (window.location.href.startsWith(url_origin))
+            window.location.reload();                                       // we have changed underneath
+    };
 
 
     //==========================================================================
@@ -400,6 +413,16 @@ exports.NaanControllerWeb = function() {
     this.LoadPref = function LoadPref(key) {
         return (prefs[key]);
     };
+    
+    //
+    // Working
+    //
+    // The application is working, so it is safe to save state.
+    //
+    
+    this.Working = function Working() {
+        dontSaveUntilWorking = false;
+    };
  
     var saveEvent = new Event("NaanSave");
  
@@ -430,7 +453,7 @@ exports.NaanControllerWeb = function() {
         statedoc.curversion = kStateCurrentVersion;
         statedoc.firstver = kStateFirstVersion;
         statedoc.licensee = "MIT-License";
-        statedoc.verstring = "0.9.3-1";
+        statedoc.verstring = "0.9.4-1";
         statedoc.date = new Date().toISOString();
         statedoc.prefs = prefs;
         statedoc.naan = naanlib.saveState(false);                            // true to optimize, which is a bit slower
@@ -448,7 +471,7 @@ exports.NaanControllerWeb = function() {
             || statedoc.firstver > kStateCurrentVersion
             || statedoc.curversion < kStateFirstVersion
             || statedoc.licensee != "MIT-License"
-            || statedoc.verstring != "0.9.3-1")
+            || statedoc.verstring != "0.9.4-1")
         {
             localStorage.removeItem("NaanState_Nide");
             return (false);
@@ -463,6 +486,10 @@ exports.NaanControllerWeb = function() {
  
     function saveLocal() {
         /*jshint sub:true */
+        if (dontSaveUntilWorking) {                                         // saved state is problematic
+            localStorage.removeItem("NaanState_Nide");
+            return (false);
+        }
         if (querystrings["nosave"])
             return (false);
         var statedoc = makeState();
@@ -489,6 +516,7 @@ exports.NaanControllerWeb = function() {
             if ("localStorage" in window && window["localStorage"] !== null)
             {
                 var statestr = localStorage.getItem("NaanState_Nide");
+                dontSaveUntilWorking = true;
                 if (statestr)
                     return (loadState(JSON.parse(statestr)));
             }
@@ -511,9 +539,10 @@ exports.NaanControllerWeb = function() {
             naanlib.banner();
             naanlib.textLine("print();;\n");
         }
-        naanlib.start({
-            state: naanstate
-        });
+        if (!naanlib.start({ state: naanstate })) {                         // state loading failed
+            localStorage.removeItem("NaanState_Nide");
+            window.location.reload();
+        }
     }
 
     if (window.opener) {

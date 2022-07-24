@@ -66,6 +66,7 @@ closure debugExecs(niui, divid, delegate, local dexbox, columnDefs) {
             data = {
                 type: exec.type
                 name: exec.name
+                title: exec.title
                 id: ex2box(exec)
             }
             if types[exec.type]
@@ -126,14 +127,17 @@ closure debugExecs(niui, divid, delegate, local dexbox, columnDefs) {
 
     // innerCellRenderer
     //
-    function innerCellRenderer(params, local image, imageFullUrl, imageStyle) {
+    function innerCellRenderer(params, local image, imageFullUrl, imageStyle, name) {
         if params.node.data.children
             image = "FolderIcon.ico"
         else
             image = "Naan.ico"
         imageFullUrl = "exlib/images/".concat(image)
         imageStyle = "style=\"padding-bottom:3px;".concat("height: ", params.node.rowHeight * 0.7, "px\"")
-        return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", params.data.name))
+        name = params.node.data.title
+        if !name
+            name = params.node.data.name
+        return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", name))
     }
 
     // childDetails
@@ -237,8 +241,8 @@ closure MakeDebug(niui, local debug) {
 // ### AWS Lambda currently disabled
 //        m5 = niui.track.spawn("Lambda", false, "my lambda")
         debug.debex.resetContents()
-        niui.track.watch(closure(changes) {
-            if changes.added || changes.deleted
+        niui.track.watch(closure watch(changes) {
+            if changes.added || changes.deleted || changes.updated
                 future(debug.debex.resetContents, 0)
             else if changes.attention
                 future(function(){ debug.debex.selectExec(changes.attention.0) }, 10)
@@ -276,7 +280,7 @@ closure MakeDebug(niui, local debug) {
         debug.exec = instance
         debug.targetName.textContent = instance.type.concat(" : ", instance.name)
         debug.targetPerf.textContent = ""
-        debug.connection = instance.termAttach(debug.repl, debug.guidb, function(instance, status) {
+        debug.connection = instance.termAttach(debug.repl, debug.guidb, function attach(instance, status) {
             if status.sample {
                 debug.targetPerf.textContent = "cpu: ".concat(status.sample.cpu, " peak: ", status.sample.peak, " avg: ", status.sample.average)
             } else

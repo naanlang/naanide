@@ -73,7 +73,7 @@ closure makeNavBar(objs, local navbar, structure, item) {
         navbar.tabs[item] = objs[item]
     navbar.items = []
     navbar.menu = document.getElementById("NideNav")
-    navbar.menuBefore = document.getElementById("NideRunButton")
+    navbar.menuBefore = document.getElementById("NideConfig")
     navbar.main = document.getElementById("NideMain")
 
     //
@@ -224,6 +224,10 @@ closure niuiBase(nicc, local niui) {
         debug: niui.debug,
     })
     niui.navbar.setEnable("project", false)
+    niui.config = document.getElementById("NideConfig")
+    niui.configmenu = niui.config.getElementsByClassName("dropdown-menu").0
+    niui.configbut = niui.config.getElementsByClassName("btn").0
+    niui.configbut.disabled = true
     niui.butrun = document.getElementById("NideRunButton")
     niui.butrun.disabled = true
     niui.butpub = document.getElementById("NidePublishButton")
@@ -465,17 +469,49 @@ closure niuiBase(nicc, local niui) {
         list(error, project)
     }
     
+    // updateProjectUI
+    //
+    // Update the project UI for the current project state.
+    
+    function updateProjectUI(local stages) {
+        if niui.activeProject {
+            document.title = "Project: ".concat(niui.activeProject.name)
+            niui.butrun.disabled = false
+            niui.butpub.disabled = false
+            stages = niui.activeProject.config.stages()
+            niui.configbut.disabled = !stages
+            if !niui.configDropDown
+                niui.configDropDown = zux.MenuDropdown(false, {
+                    menudiv: niui.configmenu
+                    refel: niui.configbut
+                }, function(event, itemindex, itemdiv) {
+                    niui.configbut.textContent = itemdiv.textContent
+                    niui.buildStage = itemdiv.textContent
+                    niui.watchable.notify(niui, { staged: niui.buildStage })
+                    debuglog("configuration menu:", itemindex, itemdiv.textContent)
+                })
+            niui.configDropDown.setItems(stages)
+            niui.buildStage = niui.configbut.textContent = stages.0
+        } else {
+            document.title = "NaanIDE"
+            niui.butrun.disabled = true
+            niui.butpub.disabled = true
+            niui.configbut.disabled = true
+            niui.configbut.textContent = "Configuration"
+            niui.buildStage = ""
+        }
+    }
+    
     // niui.setProject
     //
     // Set the UI for the specified project.
     
     niui.setProject = function setProject(project) {
         closeProject()
-        document.title = "Project: ".concat(project.name)
         niui.activeProject = project
+        niui.buildStage = project.config.currentStage()
         niui.watchable.notify(niui, { opened: project })
-        niui.butrun.disabled = false
-        niui.butpub.disabled = false
+        updateProjectUI()
     }
 
     //
@@ -485,25 +521,23 @@ closure niuiBase(nicc, local niui) {
     niui.closeProject = function closeProject() {
         if !niui.activeProject
             return
-        niui.butrun.disabled = true
-        niui.butpub.disabled = true
         niui.watchable.notify(niui, { closed: niui.activeProject })
         niui.activeProject.close()
         niui.activeProject = false
-        document.title = "NaanIDE"
         niui.navbar.setEnable("project", false)
+        updateProjectUI()
     }
 
     // respond to run button
 
     niui.butrun.onclick = function (event) {
-        niui.project.runProject(event.shiftKey)
+        niui.project.runProject(niui.buildStage, event.shiftKey)
     }
 
     // respond to publish button
 
     niui.butpub.onclick = function (event) {
-        niui.project.publishProject(event.shiftKey)
+        niui.project.publishProject(niui.buildStage, event.shiftKey)
     }
 
 
@@ -513,6 +547,7 @@ closure niuiBase(nicc, local niui) {
         jquery("#NideMessage").html("<font color=#ee2200><strong>Confidential - not for distribution")
 
     niui.navbar.selectPage("home")
+    js.t.Working()                                                          // note that the app is alive
 
     niui
 };

@@ -721,6 +721,7 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
         project.fm = proj.fm
         project.storeIDs = {}
         project.sessionList = []
+        project.stage = niui.buildStage
         project.hisel.setHeaderText("Loading...")
         project.hisel.setTree(project.current.fm, project)
         editorCleanup()
@@ -749,6 +750,7 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
             project.hisel.setTree()
             project.current = false
             project.storeIDs = {}
+            project.stage = false
             project.sessionList = []
             project.fs = false
             project.fm = false }
@@ -763,6 +765,11 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
             projectBecameActive(changes.opened)
         if changes.closed
             closeProject()
+        if changes.staged {
+            project.stage = changes.staged
+            project.localDict.currentStage = changes.staged
+            project.activeEditor.stageSelected(changes.staged)
+        }
     })
 
     // runProject
@@ -772,12 +779,12 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
     project.build = function build(event, local buildOnly) {
         project.fm.clearAnnotations()
         buildOnly = event.shiftKey
-        project.runProject(buildOnly)
+        project.runProject(niui.buildStage, buildOnly)
     }
 
-    project.runProject = function(buildOnly, local progress, error, buildno) {
+    project.runProject = function(stage, buildOnly, local progress, error, buildno) {
         progress = niui.progress()
-        `(error, buildno) = project.current.run(buildOnly)
+        `(error, buildno) = project.current.run(stage, buildOnly)
         progress.done()
         if error.summary {
             niui.alert("<h5>project failed to build</h5><hr>".concat(ErrorString(error.errors.0)),
@@ -801,9 +808,9 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
     //
     // Run our project
     
-    project.publishProject = function(local progress, error, data) {
+    project.publishProject = function(stage, local progress, error, data) {
         progress = niui.progress()
-        `(error, data) = project.current.config.publish()
+        `(error, data) = project.current.publish(stage)
         progress.done()
         if error {
             niui.alert("<h5>failed to publish</h5><hr>".concat(ErrorString(error)),

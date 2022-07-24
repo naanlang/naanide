@@ -24,13 +24,10 @@ closure peprProjectEditor(div, project, local pepr) {
     pepr.projInfoDiv = document.getElementById("nideProjEdProjInfo")
     pepr.getpro = require("nide/nideUI/getpro.nlg")
 
-    /*
-     * selectFolderDialog
-     *
-     *     Ask the user to identify a folder in a dialog with Select and Cancel buttons.
-     *
-     */
-    
+    // selectFolderDialog
+    //
+    //     Ask the user to identify a folder in a dialog with Select and Cancel buttons.
+    //
     closure selectFolderDialog(doneCB, local fobox, modaldiv, pagediv) {
         modaldiv = jquery("#NideBrowseModal")
         pagediv = jquery("#NideBrowsePage")
@@ -47,26 +44,21 @@ closure peprProjectEditor(div, project, local pepr) {
         modaldiv.modal("show")
     }
     
-    
-    /*
-     * writeProject
-     *
-     *     Write the project configuration if changed, reporting errors to user.
-     *
-     */
-    
-    closure writeProject(local configDict, error, data) {
+    // writeProject
+    //
+    //     Write the project configuration if changed, reporting errors to user.
+    //
+    closure writeProject(local error, data) {
         `(error, data) = project.current.config.update()
         if error
             App.ui.alert("<b>Project Save Failed</b><br><br>".concat(ErrorString(error)), { class: "alert-danger" })
     }
 
-
     // updateInfo
     //
     // Update our view for any changes that have occurred.
     //
-    function updateInfo(local infoTable, config, info_loc, substr, info_loc_pub, tabstr) {
+    function updateInfo(local infoTable, config, info_loc, info_loc_pub, substr, publabel, tabstr) {
         info_loc = App.nide.locate.info(project.current.where.locationID)
         infoTable = [
             ["Name:", pepr.session.name],
@@ -77,21 +69,22 @@ closure peprProjectEditor(div, project, local pepr) {
             ["Path:", project.fs.rootpath]
         ]
         config = project.current.config
-        if config.configDict.publish
-            info_loc_pub = App.nide.locate.info(config.configDict.publish.where.locationID)
-        substr = UUID()
+        if config.localDict.publish[pepr.stage]
+            info_loc_pub = App.nide.locate.info(config.localDict.publish[pepr.stage].where.locationID)
+        substr = UUID()                                                     // for substitution
+        publabel = "Publish ".concat("(", pepr.stage, "):")
         if info_loc_pub
             infoTable.push(
-                ["Publish:", [
+                [publabel, [
                     info_loc_pub.name,
                     info_loc_pub.type,
                     info_loc_pub.where,
-                    config.configDict.publish.where.path
+                    config.localDict.publish[pepr.stage].where.path
                     substr ]]
             )
         else
             infoTable.push(
-                ["Publish:", substr]
+                [publabel, substr]
             )
         tabstr = zux.Tableize(infoTable)
         tabstr = tabstr.replace(substr, '<a id="nidePedPubEdit" href="javascript:void(0);">Update</a>')
@@ -106,14 +99,25 @@ closure peprProjectEditor(div, project, local pepr) {
                         path: where.path
                     }
                     config = project.current.config
-                    if !config.configDict.publish
-                        config.configDict.publish = { }
-                    config.configDict.publish.where = where
+                    if !config.localDict.publish
+                        config.localDict.publish = { }
+                    if !config.localDict.publish[pepr.stage]
+                        config.localDict.publish[pepr.stage] = { }
+                    config.localDict.publish[pepr.stage].where = where
                     updateInfo()
                     writeProject()
                 }
             })
         }
+    }
+    
+    // stageSelected
+    //
+    // A stage (build configuration) was selected.
+    //
+    pepr.stageSelected = function stageSelected(stage) {
+        pepr.stage = stage
+        updateInfo()
     }
 
 
@@ -133,7 +137,7 @@ closure peprProjectEditor(div, project, local pepr) {
     // Make a session for the specified storeID.
     //
     pepr.makeSession = function makeSession(storeID, name) {
-        debuglog("Project Editor makeSession", storeID, name)
+        pepr.stage = project.stage
         pepr.session = {
             storeID: storeID
             name: name
