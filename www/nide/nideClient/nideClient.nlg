@@ -1,6 +1,6 @@
 /*
  * nideClient.nlg
- * NaanIDE version 0.9.4-1
+ * NaanIDE version 0.9.5-1
  *
  *     Naan IDE controller for browsers.
  *
@@ -345,7 +345,7 @@ closure niccController(api, local nicc, homeDir, pollint, version) {
     nicc.projman = require("frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
     nicc.projects = nicc.projman.tracker()
     nicc.projects.open()
-    require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.4-1", function(version) {
+    require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.5-1", function(version) {
         nicc.alert("<b>NaanIDE Upgrade Available</b><br>please reload page for version ".concat(version),
             { class: "alert-primary" })
     })
@@ -458,8 +458,8 @@ closure niccController(api, local nicc, homeDir, pollint, version) {
     // disconnection.
     //
 
-    pollint = 10000                                                         // timeout in 10 seconds
-    version = "NaanIDE 0.9.4-1"
+    pollint = 60000                                                         // default timeout 1 minute
+    version = "NaanIDE 0.9.5-1"
     js.w."$"("#NideStatus").html(version.concat("&nbsp;&nbsp;<font color=#00aa33>loading"))
     function statusPoll(timeoutms) {
         api.status(function (status) {

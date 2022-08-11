@@ -817,7 +817,9 @@ closure pdifTextEditor(div, owner, local edtext, observer, delayer) {
         edtext.previewVisible = true
         if !edtext.mdConverter {
             edtext.mdConverter = xnew(js.w.showdown.Converter)
-            edtext.mdConverter.setFlavor("github") }
+            edtext.mdConverter.setFlavor("github")
+            edtext.mdConverter.setOption("openLinksInNewWindow", true)
+        }
         mdResizePreviewer()
     }
     

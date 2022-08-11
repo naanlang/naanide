@@ -473,7 +473,7 @@ closure niuiBase(nicc, local niui) {
     //
     // Update the project UI for the current project state.
     
-    function updateProjectUI(local stages) {
+    function updateProjectUI(local stages, stage) {
         if niui.activeProject {
             document.title = "Project: ".concat(niui.activeProject.name)
             niui.butrun.disabled = false
@@ -487,11 +487,11 @@ closure niuiBase(nicc, local niui) {
                 }, function(event, itemindex, itemdiv) {
                     niui.configbut.textContent = itemdiv.textContent
                     niui.buildStage = itemdiv.textContent
+                    niui.activeProject.config.setCurrentStage(itemdiv.textContent)
                     niui.watchable.notify(niui, { staged: niui.buildStage })
-                    debuglog("configuration menu:", itemindex, itemdiv.textContent)
                 })
             niui.configDropDown.setItems(stages)
-            niui.buildStage = niui.configbut.textContent = stages.0
+            niui.buildStage = niui.configbut.textContent = niui.activeProject.config.currentStage()
         } else {
             document.title = "NaanIDE"
             niui.butrun.disabled = true

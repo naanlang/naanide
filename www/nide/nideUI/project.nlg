@@ -694,6 +694,8 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
         project.searchedSel.setHeaderText("Searching...")
         config = project.current.fm.findConfig()
         config.pattern = pattern
+        if project.current.config.dirName                                   // if not plain folder
+            config.excludeDirs = [".git", project.current.config.dirName]   // don't search git or project folders
         matchRE = project.current.fm.findRegex(config, true)
         results = project.current.fm.findLines(config)
         project.searchedSel.setHeaderText("Loading...")
@@ -797,7 +799,7 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
                 {class:"alert-warning"})
         }
         else {
-            niui.alert("<strong>build ".concat(buildno, " completed successfully</strong>"),
+            niui.alert("<strong>build ".concat(stage, "-", buildno, " completed successfully</strong>"),
                 {class:"alert-success", timeout:1000})
             project.fm.clearAnnotations()
             if !buildOnly && project.current.runPageDebug

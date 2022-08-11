@@ -114,6 +114,7 @@ closure homeMarkdown(home, niui, options local markd) {
     markd.div = document.getElementById(options.divid)
     markd.mdConverter = xnew(js.w.showdown.Converter)
     markd.mdConverter.setFlavor("github")
+    markd.mdConverter.setOption("openLinksInNewWindow", true)
 
     // resize our view area
 

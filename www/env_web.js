@@ -308,8 +308,11 @@ exports.NaanControllerWeb = function() {
     //
     
     this.VsiteRefresh = function VsiteRefresh(url_origin) {
-        if (window.location.href.startsWith(url_origin))
+        if (window.location.href.startsWith(url_origin)) {
             window.location.reload();                                       // we have changed underneath
+            return (true);
+        }
+        return (false);
     };
 
 
@@ -453,7 +456,7 @@ exports.NaanControllerWeb = function() {
         statedoc.curversion = kStateCurrentVersion;
         statedoc.firstver = kStateFirstVersion;
         statedoc.licensee = "MIT-License";
-        statedoc.verstring = "0.9.4-1";
+        statedoc.verstring = "0.9.5-1";
         statedoc.date = new Date().toISOString();
         statedoc.prefs = prefs;
         statedoc.naan = naanlib.saveState(false);                            // true to optimize, which is a bit slower
@@ -471,7 +474,7 @@ exports.NaanControllerWeb = function() {
             || statedoc.firstver > kStateCurrentVersion
             || statedoc.curversion < kStateFirstVersion
             || statedoc.licensee != "MIT-License"
-            || statedoc.verstring != "0.9.4-1")
+            || statedoc.verstring != "0.9.5-1")
         {
             localStorage.removeItem("NaanState_Nide");
             return (false);

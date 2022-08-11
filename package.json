@@ -1,6 +1,6 @@
 {
     "name": "@naanlang/naanide",
-    "version": "0.9.4",
+    "version": "0.9.5",
     "author": "Richard C. Zulch",
     "description": "NaanIDE",
     "main": "./lib/node_server.js",
