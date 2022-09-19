@@ -8,9 +8,9 @@
     <title>NaanIDE</title>
     <meta name="description" content="NaanIDE">
 
-    <link rel="stylesheet" href="exlib/bootstrap/bootstrap.min.css">
-    <link rel="stylesheet" href="nide.css">
-    <link rel="icon" href="exlib/images/Naan.ico" sizes="256x256 128x128 32x32 16x16">
+    <link rel="stylesheet" href="exlib/bootstrap/bootstrap.min.css?naanver=$CacheBuster$">
+    <link rel="stylesheet" href="nide.css?naanver=$CacheBuster$">
+    <link rel="icon" href="exlib/images/Naan.ico?naanver=$CacheBuster$" sizes="256x256 128x128 32x32 16x16">
 
 <!--[if lt IE 9]>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.js"></script>
@@ -23,7 +23,7 @@
     <header>
         <!-- Fixed navbar -->
         <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
-            <img  id='NaanLogo' class="navbar-brand" href="#" src="exlib/images/NaanLogo.ico" width="80" height="80" style="margin: -50px 10px -50px 10px">
+            <img  id='NaanLogo' class="navbar-brand" href="#" src="exlib/images/NaanLogo.ico?naanver=$CacheBuster$" width="80" height="80" style="margin: -50px 10px -50px 10px">
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -376,6 +376,14 @@
                             </div>
                             <div class="col-md-2"></div>
                         </div>
+                        <div id="NideLoc5" class="form-group row mb-1" style="display:none">
+                            <label id="NideLoc5Label" for="NideLoc5text" class="col-sm-3 text-right col-form-label">loc5</label>
+                            <div class="col-md-7">
+                                <input type="text" id="NideLoc5text" class="form-control">
+                                <p id="NideLoc5error" class="text-warning mb-1">&nbsp;</p>
+                            </div>
+                            <div class="col-md-2"></div>
+                        </div>
                     </div>
                     <div class="modal-footer justify-content-between">
                         <button type="button" class="btn btn-secondary" id="NideLocationCancel">Cancel</button>
@@ -427,7 +435,7 @@
         <!--
          === alerts ===
          -->
-          
+    
         <div id="nideClosableAlertTemplate" class="alert alert-dismissible fade show" role="alert">
             <div>{alert-text}</div>
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -441,24 +449,24 @@
 
     <script src="https://sdk.amazonaws.com/js/aws-sdk-2.653.0.min.js"></script>
 
-    <script src="exlib/ace/ace.js"></script>
-    <script src="exlib/ace/ext-modelist.js"></script>
-    <script src="exlib/diff-patch-match/diff_match_patch.js"></script>
-    <script src="exlib/hterm/hterm_all.js"></script>
-    <script src="exlib/jquery/jquery-3.3.1.slim.min.js"></script>
-    <script src="exlib/popper/popper.min.js"></script>
-    <script src="exlib/bootstrap/bootstrap.min.js"></script>
-    <script src="exlib/ag-grid/ag-grid.js"></script>
-    <script src="exlib/spark-md5/spark-md5.min.js"></script>
-    <script src="exlib/pouchdb/pouchdb.min.js"></script>
-    <script src="exlib/showdown/showdown.min.js"></script>
+    <script src="exlib/ace/ace.js?naanver=$CacheBuster$"></script>
+    <script src="exlib/ace/ext-modelist.js?naanver=$CacheBuster$"></script>
+    <script src="exlib/diff-patch-match/diff_match_patch.js?naanver=$CacheBuster$"></script>
+    <script src="exlib/hterm/hterm_all.js?naanver=$CacheBuster$"></script>
+    <script src="exlib/jquery/jquery-3.3.1.slim.min.js?naanver=$CacheBuster$"></script>
+    <script src="exlib/popper/popper.min.js?naanver=$CacheBuster$"></script>
+    <script src="exlib/bootstrap/bootstrap.min.js?naanver=$CacheBuster$"></script>
+    <script src="exlib/ag-grid/ag-grid.js?naanver=$CacheBuster$"></script>
+    <script src="exlib/spark-md5/spark-md5.min.js?naanver=$CacheBuster$"></script>
+    <script src="exlib/pouchdb/pouchdb.min.js?naanver=$CacheBuster$"></script>
+    <script src="exlib/showdown/showdown.min.js?naanver=$CacheBuster$"></script>
 
     
-    <script src="lib/core/naanlib.js"></script>
+    <script src="lib/core/naanlib.js?naanver=$CacheBuster$"></script>
 
-    <script src="lib/browser/require.js"></script>
-    <script src="naan_repl.js"></script>
-    <script src="env_web.js"></script>
+    <script src="lib/browser/require.js?naanver=$CacheBuster$"></script>
+    <script src="naan_repl.js?naanver=$CacheBuster$"></script>
+    <script src="env_web.js?naanver=$CacheBuster$"></script>
 
     <!-- No Javascript fallback -->
     <noscript><div id='NideRequired'  style="position:absolute;text-align:center;width:99%;top:50%">NaanIDE Requires JavaScript</div></noscript>

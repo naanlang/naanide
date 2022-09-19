@@ -77,7 +77,7 @@ function Tableize(data, options, local nlregx, indent, output, row, rowout, col,
     //
     function escaper(txt) {
         txt = txt.replace(nlregx, "")
-        if options.options
+        if options.allow_html
             txt
         else
             escapeHTML(txt)

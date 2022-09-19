@@ -20,7 +20,7 @@
  *
  */
 
-closure homeTabs(objs, local navbar, structure, tab) {
+closure homeTabs(objs, local navbar, structure, item, tab) {
     navbar = new(object, this)
 
     //
@@ -140,7 +140,7 @@ closure homeMarkdown(home, niui, options local markd) {
         if !active || markd.html
             return
         future(function(){
-            fetchpath = js.w.location.origin.concat(options.filepath)
+            fetchpath = js.w.location.origin.concat(options.filepath, requireQuery())
             `(error, content) = await(js.w.fetch(fetchpath).then(function(response) {
                 if response.ok
                     response.text()

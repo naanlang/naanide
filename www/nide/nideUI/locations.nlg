@@ -230,6 +230,7 @@ closure locaModal(locate, title, resID, resource) {
             addFieldListener("NideLoc2")
             addFieldListener("NideLoc3")
             addFieldListener("NideLoc4")
+            addFieldListener("NideLoc5")
         }
         
         // setFormType
@@ -255,6 +256,7 @@ closure locaModal(locate, title, resID, resource) {
             setfield("NideLoc2", fields.1)
             setfield("NideLoc3", fields.2)
             setfield("NideLoc4", fields.3)
+            setfield("NideLoc5", fields.4)
         }
         
         // getFormData
@@ -273,6 +275,7 @@ closure locaModal(locate, title, resID, resource) {
             recordfield("NideLoc2", fields.1)
             recordfield("NideLoc3", fields.2)
             recordfield("NideLoc4", fields.3)
+            recordfield("NideLoc5", fields.4)
             dict
         }
                 
@@ -297,6 +300,7 @@ closure locaModal(locate, title, resID, resource) {
             setfield("NideLoc2", fields.1)
             setfield("NideLoc3", fields.2)
             setfield("NideLoc4", fields.3)
+            setfield("NideLoc5", fields.4)
         }
 
         // setFormErrors
@@ -317,6 +321,7 @@ closure locaModal(locate, title, resID, resource) {
             seterror("NideLoc2", fields.1)
             seterror("NideLoc3", fields.2)
             seterror("NideLoc4", fields.3)
+            seterror("NideLoc5", fields.4)
             if errors.label
                 document.getElementById("NideLocNameError").innerHTML = errors.label
         }

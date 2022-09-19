@@ -799,7 +799,7 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
                 {class:"alert-warning"})
         }
         else {
-            niui.alert("<strong>build ".concat(stage, "-", buildno, " completed successfully</strong>"),
+            niui.alert("<strong>build ".concat(stage, "+", buildno, " completed successfully</strong>"),
                 {class:"alert-success", timeout:1000})
             project.fm.clearAnnotations()
             if !buildOnly && project.current.runPageDebug
@@ -815,6 +815,12 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
         `(error, data) = project.current.publish(stage)
         progress.done()
         if error {
+            if array(error) {
+                debuglog("publish errors:")
+                for data in error
+                    debuglog("   ", ErrorString(data))
+                error = Error("errors in log")
+            }
             niui.alert("<h5>failed to publish</h5><hr>".concat(ErrorString(error)),
                 {class:"alert-warning"})
         }

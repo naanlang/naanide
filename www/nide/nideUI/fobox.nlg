@@ -138,8 +138,11 @@ closure foboxUI(niui, divid, local fobox, columnDefs, rowData, gridOptions) {
         progress = niui.progress(fobox.spinner)
         fs.readir(dirpath, function (error, files, local child, node, rows, defSel) {
             progress.done()
-            if error
+            if error {
+                fobox.where.path = ""
+                fobox.pathtext.innerHTML = ""
                 return (failed(error))
+            }
             fobox.where.path = dirpath
             rows = []
             if !files.path {
@@ -197,6 +200,8 @@ closure foboxUI(niui, divid, local fobox, columnDefs, rowData, gridOptions) {
             where.path = ""
         fobox.locbut.textContent = where.name
         setRoot(where.path)
+        if where.path != fobox.where.path
+            setRoot("")                                                     // try again on
     }
 
     // update controls for current selection, etc.
@@ -309,7 +314,7 @@ closure foboxUI(niui, divid, local fobox, columnDefs, rowData, gridOptions) {
     //      path        - the current path at that location
     //
     fobox.wheres = []                                                       // create list of locations with paths
-    let (local defloc, resID, where, error) {
+    let (local defloc, resID, where) {
         defloc = niui.getDefLocation()
         for resID in niui.locate.resources() {
             where = {
@@ -318,11 +323,7 @@ closure foboxUI(niui, divid, local fobox, columnDefs, rowData, gridOptions) {
             }
             if resID == defloc.resID {
                 where.path = defloc.path
-                error = fobox.setWhere(where)
-                if error && where != "" {                                   // try again without path
-                    where.path = ""
-                    fobox.setWhere(where)
-                }
+                fobox.setWhere(where)
             }
             fobox.wheres.push(where)
         }

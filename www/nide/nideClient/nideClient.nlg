@@ -1,6 +1,6 @@
 /*
  * nideClient.nlg
- * NaanIDE version 0.9.5-1
+ * NaanIDE version 0.9.6+1
  *
  *     Naan IDE controller for browsers.
  *
@@ -292,7 +292,7 @@ closure niccTermControl(local newin, termState, winOpen) {
     //
 
     App.openTerm = function() {
-        newin = js.w.open(js.w.location.origin.concat("/naan_term.html"), "naan_term", getTS())
+        newin = js.w.open(js.w.location.origin.concat("/naan_term.html", requireQuery()), "naan_term", getTS())
         winOpen = true
         newin.addEventListener("beforeunload", function(e) {                // save terminal window size/position on close
             winOpen = false                                                 // mark as closed for future save
@@ -345,7 +345,7 @@ closure niccController(api, local nicc, homeDir, pollint, version) {
     nicc.projman = require("frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
     nicc.projects = nicc.projman.tracker()
     nicc.projects.open()
-    require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.5-1", function(version) {
+    require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.6+1", function(version) {
         nicc.alert("<b>NaanIDE Upgrade Available</b><br>please reload page for version ".concat(version),
             { class: "alert-primary" })
     })
@@ -372,7 +372,10 @@ closure niccController(api, local nicc, homeDir, pollint, version) {
         if !options
             options = {
                 startup: {
-                    initcmds: "require('naan_init_workers.nlg');;\n"
+                    initcmds: 'App.version = "0.9.6+1";;\n'
+                        'App.cache = "$CacheBuster$";;\n'
+                        'Naan.module.requireQuery({ naanver: App.cache });;\n'
+                        'require("naan_init_workers.nlg");;\n'
                 }
             }
         require("frameworks/browser/terminals.nlg").TermLocal(track, name, workerID, options)
@@ -440,7 +443,7 @@ closure niccController(api, local nicc, homeDir, pollint, version) {
         wfeatures = strcat("height=", termState.height, ",width=", termState.width)
         if termState.screenX
             wfeatures = wfeatures.concat(",screenX=", termState.screenX, ",screenY=", termState.screenY)
-        newin = js.w.open(js.w.location.origin.concat("/naan_term.html"), "naan_term", wfeatures)
+        newin = js.w.open(js.w.location.origin.concat("/naan_term.html", requireQuery()), "naan_term", wfeatures)
         newin.addEventListener("beforeunload", saveTermWin.proc)            // save window size/position on close
         js.w.addEventListener("beforeunload", function (e) {                // close terminal window when IDE closes
             newin.close()
@@ -459,7 +462,7 @@ closure niccController(api, local nicc, homeDir, pollint, version) {
     //
 
     pollint = 60000                                                         // default timeout 1 minute
-    version = "NaanIDE 0.9.5-1"
+    version = "NaanIDE 0.9.6+1"
     js.w."$"("#NideStatus").html(version.concat("&nbsp;&nbsp;<font color=#00aa33>loading"))
     function statusPoll(timeoutms) {
         api.status(function (status) {

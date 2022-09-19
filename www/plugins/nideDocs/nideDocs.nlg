@@ -30,7 +30,7 @@ closure ndocIdePlugin(niui, local nidoc, html) {
     closure fetchFile(path, respType, local fetchpath) {
         if !respType
             respType = `text
-        fetchpath = js.w.location.origin.concat("/", path)
+        fetchpath = js.w.location.origin.concat("/", path, requireQuery())
         await(js.w.fetch(fetchpath).then(function(response) {
             if response.ok
                 response[respType]()

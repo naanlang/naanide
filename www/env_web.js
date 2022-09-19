@@ -86,6 +86,7 @@ exports.NaanControllerWeb = function() {
     var termlist = [];                                                      // list of terminals currently attached
     contSelf.termlist = termlist;
     var prefs = { };
+    var vsiteName;
 
     //
     // termTextOut
@@ -308,7 +309,7 @@ exports.NaanControllerWeb = function() {
     //
     
     this.VsiteRefresh = function VsiteRefresh(url_origin) {
-        if (window.location.href.startsWith(url_origin)) {
+        if (vsiteName && window.location.href.startsWith(url_origin)) {
             window.location.reload();                                       // we have changed underneath
             return (true);
         }
@@ -444,6 +445,7 @@ exports.NaanControllerWeb = function() {
     window.addEventListener("unload", function (e) {
         window.dispatchEvent(saveEvent);
         saveLocal();
+        virtualClose();
     });
  
     window.addEventListener("beforeunload", function (e) {
@@ -456,7 +458,7 @@ exports.NaanControllerWeb = function() {
         statedoc.curversion = kStateCurrentVersion;
         statedoc.firstver = kStateFirstVersion;
         statedoc.licensee = "MIT-License";
-        statedoc.verstring = "0.9.5-1";
+        statedoc.verstring = "0.9.6+1";
         statedoc.date = new Date().toISOString();
         statedoc.prefs = prefs;
         statedoc.naan = naanlib.saveState(false);                            // true to optimize, which is a bit slower
@@ -474,7 +476,7 @@ exports.NaanControllerWeb = function() {
             || statedoc.firstver > kStateCurrentVersion
             || statedoc.curversion < kStateFirstVersion
             || statedoc.licensee != "MIT-License"
-            || statedoc.verstring != "0.9.5-1")
+            || statedoc.verstring != "0.9.6+1")
         {
             localStorage.removeItem("NaanState_Nide");
             return (false);
@@ -528,14 +530,41 @@ exports.NaanControllerWeb = function() {
         }
         return (false);
     }
+            
+    function virtualOpen() {
+        vsiteName = window.document.title;                                  // consistent name at open and close
+        if (window.opener && window.opener.Naanlang)
+            window.opener.Naanlang.naancon.DispatchMessage({
+                op: "VsiteOpen",
+                name: vsiteName,
+                naancont: contSelf,
+                title: vsiteName + " 0.9.6+1"
+            });
+    }
     
+    function virtualClose() {
+        if (window.opener && window.opener.Naanlang) {
+            window.opener.Naanlang.naancon.DispatchMessage({
+                op: "VsiteClose",
+                name: vsiteName,
+                naancont: contSelf,
+                title: vsiteName + " 0.9.6+1"
+            });
+            vsiteName = false;                                              // window is going away
+            termTextOut("\x1b[90m\x1b[3m".concat("\nwindow closed", "\x1b[0m\n"));
+        }
+    }
+
     /*jshint sub:true */
     if (querystrings["restart"] || !loadLocal())
     {                                                                       // don't load state or can't load state
         naanlib.banner();
         var hostpath = naanlib.js.r("path").dirname(window.location.href);
         naanlib.start({
-            cmd: 'Naan.module.webparse("naan_init.nlg", "' + hostpath + '"' + ');;\r\n'
+            cmd: 'App.version = "0.9.6+1";;\r\n'
+                + 'App.cache = "$CacheBuster$";;\r\n'
+                + 'Naan.module.requireQuery({ naanver: App.cache });;\r\n'
+                + 'Naan.module.webparse("naan_init.nlg", "' + hostpath + '", { naanver: App.cache });;\r\n'
         });
     } else {
         if (!replstate) {                                                   // saved state but never opened a terminal
@@ -549,6 +578,7 @@ exports.NaanControllerWeb = function() {
     }
 
     if (window.opener) {
+        virtualOpen();
         var term = new CloneDebugTerminal();
         term.OnMessage({
             id: "loaded"
