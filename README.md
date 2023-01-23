@@ -4,15 +4,15 @@ Naanide
 Naanide is an IDE for the Naan software system.
 
 #### Release:
-     Naanide for NPM version 0.9.6+1
-     Copyright (c) 2022 Zulch Laboratories, Inc.
+     **Naanide for NPM** version **0.9.7+1**
+     Copyright (c) 2023 Zulch Laboratories, Inc.
 
 Features
 -------
 - `NaanIDE` runs in browsers and thus "anywhere"
 - Inbuilt web server running in NodeJS
 
-_Note: this is an early test release with insufficient documentation. Please stand by._
+_Note: this is an early evaluation release with insufficient documentation. Please stand by._
 
 Installation
 -------
@@ -20,11 +20,17 @@ Installation
 First make sure you have installed the latest version of [node.js](http://nodejs.org/)
 (You may need to restart your computer after this step).
 
-After you download the NaanIDE package, the following commands will load the dependencies for your OS, start the NaanIDE web server, and open a browser upon it:
+To install and run NaanIDE locally for evaluation, execute the following:
 
-    cd NaanIDE
-    npm install
-    npm start
+    mkdir naanlang
+    cd naanlang
+    npm install @naanlang/naanide
+    npx @naanlang/naanide
+
+You may prefer to install NaanIDE globally for use from the command lilne:
+
+    npm install @naanlang/naanide -g
+    naanide 
 
 Using NaanIDE
 -------

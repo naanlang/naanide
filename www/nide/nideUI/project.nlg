@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2018-2022 by Richard C. Zulch
+ * Copyright (c) 2018-2023 by Richard C. Zulch
  *
  */
 
@@ -271,10 +271,16 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
     //
     // Context menus for editor and for hisel control.
 
-    project.hiseldiv.addEventListener("contextmenu", function(event) {
+    project.hiseldiv.addEventListener("contextmenu", function(event, local reveal) {
+        reveal = {
+            macos: "Reveal in Finder"
+            windows: "Reveal in Explorer"
+        }[niui.platform]
+        if !reveal
+            reveal = "Reveal"
         zux.MenuContext(event,
             ["Rename",                                                      // 0
-            "Reveal in Finder",                                             // 1
+            reveal,                                                         // 1
             "Duplicate",                                                    // 2
             "-",        
             "Delete",                                                       // 4

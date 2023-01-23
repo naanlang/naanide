@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2022 by Richard C. Zulch
+ * Copyright (c) 2017-2023 by Richard C. Zulch
  *
  */
 
@@ -210,7 +210,7 @@ closure niuiBase(nicc, local niui) {
     niui.alert = function prealert(text) {
         debuglog("Nide message:", text)
     }
-
+    niui.platform = Platform()
     niui.globalAlertDiv = document.getElementById("NideGlobalAlertArea")
     niui.terminal = document.getElementById("NaanTerminal")
     niui.home = require("nide/nideUI/home.nlg").MakeHome(niui)
@@ -560,7 +560,7 @@ closure niuiBase(nicc, local niui) {
  *
  */
 
-function niuiInit(local manifest, nidecommon) {
+function niuiInit(local manifest, nidecommon, nidebrowser) {
 
     manifest = `(setElementClass, escapeHTML, initToolTips, makeNavBar, niuiBase, niuiInit)
 
@@ -584,6 +584,8 @@ function niuiInit(local manifest, nidecommon) {
     nidecommon = require("frameworks/common/watching.nlg")
     Naan.module.letimport(nidecommon.Watchable)
     Naan.module.letimport(nidecommon.UUID)
+    nidebrowser = require("frameworks/browser")
+    Naan.module.letimport(nidebrowser.Platform)
 
     zux = require("nide/zux/zux.nlg")
     require("nide/zux/zbox.nlg")
