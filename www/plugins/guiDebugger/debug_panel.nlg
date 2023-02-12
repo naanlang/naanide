@@ -268,7 +268,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     // debugData
     // Debug data has arrived from the instance.
     //
-    depan.debugData = function debugData(executor, data, local datastr) {
+    depan.debugData = function debugData(executor, data) {
         depan.commander.debugData(data)
     }
     

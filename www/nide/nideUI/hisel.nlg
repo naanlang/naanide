@@ -466,7 +466,7 @@ closure searchedSel(divid, local sesel, columnDefs, rowData) {
     //
     //     "Real artists ship" -- Steve Jobs
     //
-    sesel.hilightFound = function hilightFound(text, local result) {
+    sesel.hilightFound = function hilightFound(text) {
         text = escapeHTML(text)
         if sesel.matchRE
             text.replace(sesel.matchRE, function(match) {
@@ -494,7 +494,7 @@ closure searchedSel(divid, local sesel, columnDefs, rowData) {
     //     Set the specified results array as the new content.
     //
 
-    sesel.setResults = function setResults(results, matchRE, delegate, local tree, rect, width) {
+    sesel.setResults = function setResults(results, matchRE, delegate, local tree) {
         function fileToDicts(file, local dicts, line) {
             dicts = []
             for line in file.lines

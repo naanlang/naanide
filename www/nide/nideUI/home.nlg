@@ -181,7 +181,7 @@ closure homeSettings(home, niui, local hoset) {
  *
  */
 
-closure projBox(home, niui, local prox, columnDefs, rowData) {
+closure projBox(home, niui, local prox, columnDefs) {
     prox = new(object, this)
     prox.gridiv = document.getElementById("NideHomeProjectsBox")
     prox.butadd = document.getElementById("NideHomeAddButton")
@@ -376,7 +376,7 @@ closure projBox(home, niui, local prox, columnDefs, rowData) {
  *
  */
 
-closure makeHome(niui, local home, oldprojs) {
+closure makeHome(niui, local home) {
     home = new(object, this)
     home.browseModal = document.getElementById("NideBrowseModal")
     home.welcome = homeMarkdown(home, niui, {

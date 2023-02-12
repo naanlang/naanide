@@ -473,7 +473,7 @@ closure niuiBase(nicc, local niui) {
     //
     // Update the project UI for the current project state.
     
-    function updateProjectUI(local stages, stage) {
+    function updateProjectUI(local stages) {
         if niui.activeProject {
             document.title = "Project: ".concat(niui.activeProject.name)
             niui.butrun.disabled = false

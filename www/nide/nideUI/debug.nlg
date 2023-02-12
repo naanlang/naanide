@@ -233,7 +233,7 @@ closure MakeDebug(niui, local debug) {
     // terminalReady
     //
     //
-    debug.terminalReady = function terminalReady(local m1, m2, m3, m4, m5) {
+    debug.terminalReady = function terminalReady(local m1, m2, m3, m4) {
         m1 = niui.track.spawn("Local", "NaanIDE", "NaanIDE")
         m2 = niui.track.spawn("Local", "Play", "NaanIDE-Play")
         m3 = niui.track.spawn("Host", "NaanIDE Server", "NideServer")

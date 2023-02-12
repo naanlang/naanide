@@ -18,7 +18,7 @@
  *
  */
 
-closure ndocIdePlugin(niui, local nidoc, html) {
+closure ndocIdePlugin(niui, local nidoc) {
     nidoc = new(object, this)
     App.nidoc = nidoc
     nidoc.docman = DocManager(nidoc)

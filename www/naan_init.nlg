@@ -6,13 +6,14 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2022 by Richard C. Zulch
+ * Copyright (c) 2017-2023 by Richard C. Zulch
  *
  */
 
 loglevel(3);
 chns("Play");
 
+defineExt("nlg", true);                                                     // our code extension
 require("naan_init_common.nlg");                                            // initialization for all Naan instances
 
 

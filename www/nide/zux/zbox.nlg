@@ -589,7 +589,7 @@ closure zboxBasic(div, columns, options, local zbox) {
  *
  */
 
-closure zboxHierarchy(div, columns, options, local zbox, defOptions) {
+closure zboxHierarchy(div, columns, options, local zbox) {
     zbox = zboxAbstract(div, options)
     options = zboxDefOptions(options, {
         rowSelection: "multiple"

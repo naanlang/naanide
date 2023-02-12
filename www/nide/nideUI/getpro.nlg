@@ -233,6 +233,7 @@ closure newProjectDialog(niui, doneCB, local getpro, fobox, modaldiv, newdiv, sa
     fobox = foboxUI(niui, "NideBrowseFobox")
     newdiv = jquery("#NideNewPage")
     savediv = jquery("#NideBrowsePage")
+    state = false                                                           // start at default
 
     function showTypePage(result) {
         newdiv.removeClass("NideModalHidden")

@@ -67,12 +67,13 @@ closure peimImageEditor(div, owner, local edimage) {
     //
     // Set our current image to the specified base64 image, or false for none.
     //
-    function setImage(session, local imageURL, imageType) {
+    function setImage(session, local imageURL) {
         if !session {
             edimage.div.innerHTML = ""
             return
         }
-        imageURL = js.w.URL.createObjectURL(xnew(js.w.Blob, Array(xnew(js.w.Uint8Array, session.imageData)), { type: session.imageType }))
+        imageURL = js.w.URL.createObjectURL(xnew(js.w.Blob,
+            Array(xnew(js.w.Uint8Array, session.imageData)), { type: session.imageType }))
         edimage.div.innerHTML = "<img class='nideImage_editor_img'"
             "src='data:image/png;base64, iVBORw0KGgoAAAANSUhEUgAAAAUA"
             "AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO"
@@ -205,7 +206,7 @@ closure peimImageEditor(div, owner, local edimage) {
     // Reset the image editor to have no sessions or content. If a sessionKey is specified then
     // only that session is removed.
     //
-    edimage.reset = function reset(sessionKey, local session, blanksession) {
+    edimage.reset = function reset(sessionKey, local session) {
         if sessionKey {
             session = edimage.index[sessionKey]
             if !session

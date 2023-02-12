@@ -136,12 +136,12 @@ closure projectBreadcrumb(divid, local crumbs) {
     //
     // Set the breadcrumb trail to the specified array of strings.
     //
-    crumbs.setTrail = closure setTrail(trail, saved, callback, local itemdex, item, classes) {
+    crumbs.setTrail = closure setTrail(trail, saved, callback, local itemdex, item) {
         crumbs.fileImageElement = false
         crumbs.div.innerHTML = ""
         itemdex = 0
         for item in trail
-            closure(itemdex, item, local itemdiv, classes, type) {
+            closure(itemdex, item, local itemdiv, type) {
                 itemdiv = document.createElement("div")
                 if itemdex < trail.length-1
                     type = 0
@@ -376,7 +376,7 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
     // prevDoc
     // nextDoc
 
-    project.prevDoc.addEventListener("click", function(event, local storeID) {
+    project.prevDoc.addEventListener("click", function(event) {
         event.preventDefault()
         setAdjacentSession(-1)
     })
@@ -530,8 +530,10 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
         store = project.fm.store(treeNode)                                  // storage for this particular file
         storeID = store.uuid
         project.storeIDs[storeID] = store
-        if storeID == project.activeStoreID
-            return                                                          // no change
+        if storeID == project.activeStoreID {                               // just update line number
+            project.activeEditor.updateSession(storeID, lineno)
+            return
+        }
         if project.imageEditor.sessionLookup(storeID)
             editor = project.imageEditor
         else if project.textEditor.sessionLookup(storeID)
@@ -671,7 +673,7 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
     //
     // Save the specified document.
 
-    project.docSaveRight = closure docSaveRight(storeID, text, callback, local store) {
+    project.docSaveRight = closure docSaveRight(storeID, text, callback) {
         debuglog("docSaveRight not implemented")
     }
 
@@ -709,8 +711,7 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
             project.searchedSel.setResults(results, matchRE, function searchClick(resultnode) {
                 if resultnode.file {
                     setCurrentSession(resultnode.file.node)
-                    setEditor(resultnode.file.node, resultnode.item)
-                    project.activeEditor.scrollTo(resultnode.item) }
+                    setEditor(resultnode.file.node, resultnode.item) }
                 else {
                     setCurrentSession(resultnode.item)
                     setEditor(resultnode.item) }

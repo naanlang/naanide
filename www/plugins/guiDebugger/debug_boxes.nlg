@@ -663,7 +663,7 @@ closure panelScopeBox(divid, delegate, local scox, nextID, columnDefs) {
 
     // innerCellRenderer
     //
-    function innerCellRenderer(params, local scope, image, imageFullUrl, imageStyle) {
+    function innerCellRenderer(params, local scope) {
         scope = params.data.scope
         if scope.procscope
             return (scope.procscope)

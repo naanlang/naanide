@@ -401,7 +401,7 @@ closure DocsNavSearch(divid, local dons, columnDefs, rowData) {
     //
     //     "Real artists ship" -- Steve Jobs
     //
-    dons.hilightFound = function hilightFound(text, local result) {
+    dons.hilightFound = function hilightFound(text) {
         text = escapeHTML(text)
         if dons.matchRE
             text.replace(dons.matchRE, function(match) {
@@ -429,7 +429,7 @@ closure DocsNavSearch(divid, local dons, columnDefs, rowData) {
     //     Set the specified results array as the new content.
     //
 
-    dons.setResults = function setResults(results, matchRE, delegate, local tree, rect, width) {
+    dons.setResults = function setResults(results, matchRE, delegate, local tree) {
         function fileToDicts(file, local dicts, line) {
             dicts = []
             for line in file.lines
