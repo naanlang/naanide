@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2022 by Richard C. Zulch
+ * Copyright (c) 2020-2023 by Richard C. Zulch
  *
  */
 
@@ -63,8 +63,8 @@ closure browserLaunch(url, local open, result) {
 
 if !integer(NaanServerPort)
     NaanServerPort = 8008
-apis = require("frameworks/node/apiserver.nlg", { in: "naanlib" });
-api = apis.MakeAPI(NaanServerPort, {
+    apis = require("frameworks/node/apiserver.nlg", { in: "naanlib" });
+    api = apis.MakeAPI(NaanServerPort, {
         relpath: "../www"
         guid: require("frameworks/common").UUID()
         statics: [
