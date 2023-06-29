@@ -4,7 +4,7 @@ Naanide
 Naanide is an IDE for the Naan software system.
 
 #### Release:
-     **Naanide for NPM** version **0.9.10+1**
+     **Naanide for NPM** version **0.9.11+1**
      Copyright (c) 2023 Zulch Laboratories, Inc.
 
 Features

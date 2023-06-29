@@ -1,6 +1,6 @@
 {
     "name": "@naanlang/naanide",
-    "version": "0.9.10",
+    "version": "0.9.11",
     "author": "Richard C. Zulch",
     "description": "NaanIDE",
     "main": "./lib/node_server.js",
@@ -11,7 +11,7 @@
         "pouchdb": "^7.1.1",
         "ws": "^7.3.1",
         "open": "^8.2.0",
-        "@naanlang/naan": "^1.0.11"
+        "@naanlang/naan": "^1.0.12"
     },
     "devDependencies": {},
     "keywords": [],
