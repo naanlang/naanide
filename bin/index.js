@@ -7,7 +7,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2021-2022 by Richard C. Zulch
+ * Copyright (c) 2021-2023 by Richard C. Zulch
  *
  */
 
@@ -58,11 +58,11 @@ process.argv.every((val, index) => {
         process.exit(0);
     }
     if (val == "--version") {
-        console.log("0.9.11");
+        console.log("0.9.12");
         process.exit(0);
     }
     if (val == "--buildno") {
-        console.log("0.9.11+1");
+        console.log("0.9.12+1");
         process.exit(0);
     }
     if (val.substring(0,1) == "-") {
