@@ -11,5 +11,3 @@ loglevel(3);
 chns("Play");
 
 require("node_common_init.nlg");                                                // common for Naan node instances
-require("frameworks/running/debugnub.nlg", { in: "naanlib" }).DebugNub();       // debugger nub for workers
-require("frameworks/running/taskexec.nlg", { in: "naanlib" }).TaskExecutor();   // task executor for workers

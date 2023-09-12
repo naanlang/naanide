@@ -786,12 +786,12 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
     // Build and run our project
 
     project.build = function build(event, local buildOnly) {
-        project.fm.clearAnnotations()
         buildOnly = event.shiftKey
         project.runProject(niui.buildStage, buildOnly)
     }
 
     project.runProject = function(stage, buildOnly, local progress, error, buildno) {
+        project.fm.clearAnnotations()
         progress = niui.progress()
         `(error, buildno) = project.current.run(stage, buildOnly)
         progress.done()

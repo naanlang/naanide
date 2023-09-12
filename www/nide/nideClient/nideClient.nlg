@@ -1,6 +1,6 @@
 /*
  * nideClient.nlg
- * NaanIDE version 0.9.12+1
+ * NaanIDE version 0.9.15+1
  *
  *     Naan IDE controller for browsers.
  *
@@ -350,7 +350,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     nicc.projman = require("frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
     nicc.projects = nicc.projman.tracker()
     nicc.projects.open()
-    nicc.sworker = require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.12+1", function() {
+    nicc.sworker = require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.15+1", function() {
         nicc.upgrade_sw = true
         nicc.checker.run(1)                                                 // run the update checker very soon
     })
@@ -377,8 +377,8 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
         if !options
             options = {
                 startup: {
-                    initcmds: 'App.version = "0.9.12+1";;\n'
-                        'App.cache = "5a4e3592a0b230baa4c7be94b8d42c03";;\n'
+                    initcmds: 'App.version = "0.9.15+1";;\n'
+                        'App.cache = "a15c209e3a0664de7a69b9e1975c14e4";;\n'
                         'Naan.module.requireQuery({ naanver: App.cache });;\n'
                         'Naan.module.defineExt("nlg", true);;\n'
                         'require("naan_init_workers.nlg");;\n'
@@ -512,7 +512,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     // disconnection.
     //
     pollint = 60000                                                         // default timeout 1 minute
-    version = "NaanIDE 0.9.12+1"
+    version = "NaanIDE 0.9.15+1"
     window."$"("#NideStatus").html(version.concat("&nbsp;&nbsp;<font color=#00aa33>loading"))
     function statusPoll(timeoutms) {
         api.status(function (status) {

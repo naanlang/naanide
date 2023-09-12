@@ -531,7 +531,7 @@ closure niuiBase(nicc, local niui) {
     // respond to run button
 
     niui.butrun.onclick = function (event) {
-        niui.project.runProject(niui.buildStage, event.shiftKey)
+        niui.project.build(event)
     }
 
     // respond to publish button
