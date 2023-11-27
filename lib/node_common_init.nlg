@@ -6,8 +6,12 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2021 by Richard C. Zulch
+ * Copyright (c) 2020-2023 by Richard C. Zulch
  *
  */
 
-require("frameworks/common/repltools.nlg", { in: "naanlib" }).ImportReplTools();    // import our REPL tools
+if !module.owner.list.running.components.debugnub {
+    require("frameworks/common/repltools.nlg", { in: "naanlib" }).ImportReplTools()
+    require("frameworks/running/debugnub.nlg", { in: "naanlib" }).DebugNub()
+    require("frameworks/running/taskexec.nlg", { in: "naanlib" }).TaskExecutor()
+}

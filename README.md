@@ -4,7 +4,7 @@ Naanide
 Naanide is an IDE for the Naan software system.
 
 #### Release:
-     **Naanide for NPM** version **0.9.15+1**
+     **Naanide for NPM** version **0.9.16+1**
      Copyright (c) 2023 Zulch Laboratories, Inc.
 
 Features
@@ -29,7 +29,7 @@ To install and run NaanIDE locally for evaluation, execute the following:
 
 You may prefer to install NaanIDE globally for use from the command lilne:
 
-    npm install @naanlang/naanide -g
+    sudo npm install @naanlang/naanide -g
     naanide 
 
 Using NaanIDE
