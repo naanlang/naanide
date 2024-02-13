@@ -177,7 +177,7 @@ closure zmenuContext(event, items, options, callback, local dropdown) {
     options.x = event.pageX
     options.y = event.pageY
     dropdown = zmenuDropdown(items, options, callback)
-    dropdown.bsdd.show()
+    dropdown.show()
     dropdown
 };
 

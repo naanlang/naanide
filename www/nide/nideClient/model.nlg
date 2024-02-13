@@ -1,0 +1,71 @@
+/*
+ * model.nlg
+ * NaanIDE version 0.9.17+1
+ *
+ *     Naan functionalilty model for API and plugins.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2023 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * NideModel
+ *
+ *     Model object for NaanIDE services and functions. This should provide stability for external
+ * access via well-known identifiers.
+ *
+ */
+
+closure NideModel(local model) {
+    global()
+    model = new(object, this)
+    model@\.class = new(object)
+
+    // add
+    //
+    // Add a location to our model with the specified name.
+    //
+    model@\.class.add = function add(name, local node) {
+        if !string(name) || name.trim() == ""
+            throw("NideModel.add: invalid name")
+        node = new(object)
+        node.id = name
+        node.parent = self
+        node@\.parent = self
+        self[name] = node
+        node
+    }
+    
+    // children
+    //
+    // List the ids of the children of the specified location, which is false for the root.
+    //
+    model@\.class.children = function children(parent) {
+        self.*.toarray.filter(function(id) { !id.startsWith(".") })
+    }
+
+    // finis
+
+    model
+};
+
+
+/*
+ * modelInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function modelInit(local manifest) {
+    manifest = `(modelInit)
+
+    Naan.module.build(module.id, "model", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.NideModel = NideModel
+    })
+    require("nideClient.nlg")
+} ();

@@ -86,13 +86,10 @@ function ndocInit(local manifest) {
             jspath = js.r("path")
             window = js.w
             document = window.document
-            jquery = window.$
             App.nide.addUI(ndocIdePlugin)
         }
         module.postload = ndocPostload
         require("./docs_manager.nlg")
-        require("./docs_panel.nlg")
-        require("./docs_nav.nlg")
-        require("./docs_viewer.nlg")
+        ndocPostload()
     })
 } ();

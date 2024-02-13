@@ -32,11 +32,11 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2023 by Richard C. Zulch
+ * Copyright (c) 2020-2024 by Richard C. Zulch
  *
  */
 
-var CurrentCacheName = "Naanlang-0.9.16+1";
+var CurrentCacheName = "Naanlang-0.9.17+1";
 
 
 //
@@ -92,18 +92,18 @@ var terminated;                                 // flag that this service worker
         var pubVersion = event.data.hereIsMyVersion;
         var sourceId = event.source.id;                                     // client id of sender of message
         msgPorts[sourceId] = msgport;
-        console.log("[0.9.16+1] received new msgport for", sourceId, pubID, "-", pubVersion);
-        if (pubVersion != "0.9.16+1") {
+        console.log("[0.9.17+1] received new msgport for", sourceId, pubID, "-", pubVersion);
+        if (pubVersion != "0.9.17+1") {
             if (upgradeMsgPorts) {                                          // if not activated
-                console.log("[0.9.16+1] update pending for", sourceId);
+                console.log("[0.9.17+1] update pending for", sourceId);
                 upgradeMsgPorts[sourceId] = msgport;
             }
             else {
                 msgport.postMessage({                                       // notify new version available
                     id: "upgrade",
-                    version: "0.9.16+1"
+                    version: "0.9.17+1"
                 });
-                console.log("[0.9.16+1] update sent for:", sourceId);
+                console.log("[0.9.17+1] update sent for:", sourceId);
             }
         }
         Reaper();                                                           // clean up obsolete info
@@ -134,10 +134,10 @@ var terminated;                                 // flag that this service worker
         msgport.onmessage = function(msg) {
             msg = msg.data;
             if (msg.id == "skipWaiting") {                                  // try to activate this SW now
-                console.log("[0.9.16+1] attempting skipWaiting");
+                console.log("[0.9.17+1] attempting skipWaiting");
                 self.skipWaiting();
             } else if (msg.id == "terminate") {                             // termiante this SW now
-                console.log("[0.9.16+1] terminated");
+                console.log("[0.9.17+1] terminated");
                 terminate();
             } else if (msg.id == "abortURL") {                              // abort an I/O transaction
                 var href = new URL(msg.url).href;
@@ -150,7 +150,7 @@ var terminated;                                 // flag that this service worker
             } else if (msg.id == "response")                                // response from fetch request
                 processResponse(msg);
             else if (msg.id == "text")                                      // just log some text
-                console.log("[0.9.16+1] msg received:", msg.text);
+                console.log("[0.9.17+1] msg received:", msg.text);
         };
         
         // send text to IDE log
@@ -161,7 +161,7 @@ var terminated;                                 // flag that this service worker
             // don't clutter the log
             msgport.postMessage({
                 id: "text",
-                text: "port received by 0.9.16+1",
+                text: "port received by 0.9.17+1",
             });
             */
         if (--pending === 0)
@@ -178,7 +178,7 @@ var terminated;                                 // flag that this service worker
         includeUncontrolled: true
     }).then(function(clientList) {
         clientList.every(function(client) {
-            console.log("[0.9.16+1] requesting new msgport for", client.id);
+            console.log("[0.9.17+1] requesting new msgport for", client.id);
             ++pending;
             client.postMessage({                                            // tell client(s) we need this fetch source
                 msg: "Naan_need_fetch_port",
@@ -224,12 +224,12 @@ function Reaper() {
             clients[clientList[clidex].id] = clientList[clidex];
         for (var sourceId in msgPorts)
             if (!clients[sourceId]) {
-                console.log("[0.9.16+1] source gone:", sourceId);
+                console.log("[0.9.17+1] source gone:", sourceId);
                 delete msgPorts[sourceId];                                  // no longer a source
             }
         for (var clientId in fetchPorts)
             if (!clients[clientId]) {
-                console.log("[0.9.16+1] client gone:", clientId);
+                console.log("[0.9.17+1] client gone:", clientId);
                 delete fetchPorts[clientId];                                // no longer a client
             }
         for (var fqdex = 0; fqdex < fetchQueue.length; ++fqdex) {
@@ -263,16 +263,16 @@ function ClearCaches() {
             return (Promise.all(
                 cacheNames.map(function(cacheName) {
                     if (cacheName != CurrentCacheName) {
-                        console.log('[0.9.16+1] deleting old cache:', cacheName);
+                        console.log('[0.9.17+1] deleting old cache:', cacheName);
                         return (caches.delete(cacheName));
                     }
                 })
             ));
         }).then(function() {                                                // claim all clients
-            console.log('[0.9.16+1] claiming clients');
+            console.log('[0.9.17+1] claiming clients');
             return (self.clients.claim());
         }).then(function() {
-            console.log('[0.9.16+1] clients claimed');
+            console.log('[0.9.17+1] clients claimed');
             return (Promise.resolve(true));
         });
     return (promise);
@@ -315,7 +315,7 @@ function GetClientResponse(event, urlpath) {
             msgport.postMessage({
                 id: "fetch",
                 seq: seqno,
-                version: "0.9.16+1",
+                version: "0.9.17+1",
                 request: {
                     method: event.request.method,
                     url: event.request.url
@@ -363,7 +363,7 @@ function GetClientResponse(event, urlpath) {
  */
 
 self.addEventListener('install', function(event) {
-    console.log("[0.9.16+1] install");
+    console.log("[0.9.17+1] install");
     self.skipWaiting();
 });
 
@@ -376,20 +376,20 @@ self.addEventListener('install', function(event) {
  */
 
 self.addEventListener('activate', function(event) {
-    console.log("[0.9.16+1] activate");
+    console.log("[0.9.17+1] activate");
     self.clients.matchAll({                                                 // for debugging, list controlled clients           
         includeUncontrolled: true
     }).then(function(clientList) {
         var urls = clientList.map(function(client) {
             return (client.url);
         });
-        console.log('[0.9.16+1] matching clients:', urls.join(', '));
+        console.log('[0.9.17+1] matching clients:', urls.join(', '));
     });
     var promise = ClearCaches().then(function() {
         for (var sourceId in upgradeMsgPorts) {
             upgradeMsgPorts[sourceId].postMessage({                         // notify new version available
                 id: "upgrade",
-                version: "0.9.16+1"
+                version: "0.9.17+1"
             });
         }
         upgradeMsgPorts = false;
@@ -410,7 +410,7 @@ self.addEventListener('fetch', function(event) {
     event.respondWith(
         caches.match(event.request).then(function(response)
         {
-            if (response)
+            if (response && response.status != 299)
                 return (response);
             if (terminated)
                 return (new Response(undefined, {
@@ -421,7 +421,7 @@ self.addEventListener('fetch', function(event) {
             var promise;
             var url = new URL(request.url);
             var nocache = request.method != "GET"
-                || url.search.length !== 0 && url.searchParams.get("naanver") !== "d0dbe33d09a6d9dff9c044023f895716"
+                || url.search.length !== 0 && url.searchParams.get("naanver") !== "4df9223df9d8be2cedf82267601cee62"
                 || request.headers.get('range');
             if (url.pathname.startsWith("/run/")) {
                 nocache = true;
@@ -449,12 +449,13 @@ self.addEventListener('fetch', function(event) {
                         return (item !== abortItem);
                     });
                     if (abortItem.aborted) {
+                        nocache = true;                                     // don't cache the 299!
                         return (new Response(undefined, {
                             status: 299,
                             statusText: "Request Cancelled"
                         }));
                     }
-                    console.log("[0.9.16+1] fetch failed", request.url, e);
+                    console.log("[0.9.17+1] fetch failed", request.url, e);
                     return (new Response(undefined, {
                         status: 404,
                         statusText: "Fetch Failed"

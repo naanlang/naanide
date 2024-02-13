@@ -1,0 +1,265 @@
+/*
+ * logs_display.nlg
+ * LogViewer: a NaanIDE plugin
+ *
+ * Logs display UI.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2024 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * logdRecordBox
+ *
+ * Make a listbox of log records for the log array specified in resetContents.
+ *
+ */
+
+closure logdRecordBox(divid, delegate, local lobox, columnDefs) {
+    lobox = new(object, this)
+    lobox.divid = divid
+
+    // resetContents
+    //
+    // Reset the contents of the listbox to be the specified log records.
+    //
+    lobox.resetContents = function resetContents(records, local output, request) {
+        output = []
+        for request in records.requests
+            output.push({
+                request: request
+                date: Date(request.date).toISOString().replace("T", " T ")
+                epmsg: request.info.reqEP || undefined
+                devID: request.info.devID || undefined
+                userID: request.info.userID || undefined
+                ipAddr: request.info.ipAddr || undefined
+                error: request.info.error || undefined
+                clientVersion: request.info.clientVersion || undefined
+                serverVersion: request.info.serverVersion || undefined
+                endpoint: request.info.reqEP || undefined
+                method: request.info.reqMethod || undefined
+                duration: request.info.duration && Math.round(request.info.duration) || undefined
+                billed: request.info.billed || undefined || undefined
+                malloc: request.info.malloc || undefined
+                memory: request.info.memory || undefined
+                queueing: request.info.queueing || undefined
+                lines: request.lines
+            })
+        lobox.box.setRowData(output)
+    }
+
+    // childDetails
+    //
+    function childDetails(data, local output) {
+        if !data.lines
+            return(null)
+        output = {
+            group: true
+            expanded: false
+            children: data.lines.map(function(item) {                       // data.lines is an array of tuples
+                {
+                    date: Date(item.0-data.request.date).toISOString().slice(-7,-1)
+                    epmsg: item.1
+                    wide: true
+                }
+            })
+        }
+        output
+    }
+    
+    // expandRow
+    //
+    function expandRow(params) {
+    }
+    
+    // collapseRow
+    //
+    function collapseRow(params) {
+    }
+
+    // innerCellRenderer
+    //
+    function innerCellRenderer(params) {
+        if params.column.colId == "date" {
+            if string(params.data.date)
+                params.data.date
+            else
+                Date(params.data.date).toISOString().replace("T", " T ")
+        }
+        else
+            params.value
+    }
+    
+    // rowClick
+    //
+    function rowClick(params) {
+        delegate.loboxSelect(params.node.data)
+    }
+
+    //
+    // initialize
+    //
+
+    columnDefs = [
+        {
+            headerName: "Log Record", field: "date", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+            maxSortLevel: 0
+            cellStyle: function(params) {
+                if params.data.wide
+                    return ({
+                        "justify-content": "flex-end",
+                        "display": "flex",
+                        "padding-right": "2.8em"
+                    })
+                else
+                    null
+            }
+        }
+        {
+            headerName: "Endpoint", field: "epmsg", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+            nogroup: true
+            noautosize: true
+            maxSortLevel: 0
+            colSpan: function(params) {
+                params.data.wide && 5 || 1
+            }
+        }
+        {
+            headerName: "DevID", field: "devID", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+            nogroup: true
+        }
+        {
+            headerName: "UserID", field: "userID", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+            nogroup: true
+        }
+        {
+            headerName: "IP", field: "ipAddr", minWidth: 50
+            resizable: true
+            sortable: true
+            filter: true
+            nogroup: true
+        }
+        {
+            headerName: "Time", field: "duration", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+            nogroup: true
+            cellStyle: function(params) {
+                return ({
+                    "justify-content": "flex-end",
+                    "display": "flex",
+                    "padding-right": "2em"
+                })
+            }
+        }
+        {
+            headerName: "SerVer", field: "serverVersion", minWidth: 50
+            resizable: true
+            sortable: true
+            filter: true
+            nogroup: true
+        }
+        {
+            headerName: "CliVer", field: "clientVersion", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+            nogroup: true
+        }
+        {
+            headerName: "Error", field: "error", minWidth: 50,
+            resizable: true
+            sortable: true
+            filter: true
+            nogroup: true
+        }
+    ]
+
+    lobox.box = zux.BoxHierarchy(divid, columnDefs, {
+        headerHeight: 24
+        renderer: innerCellRenderer
+        rowClick: rowClick
+        noRowsText: "<i>No Log Records</i>"
+        childDetails: childDetails
+        expandRow: expandRow
+        collapseRow: collapseRow
+        colSize: "auto"
+    })
+
+    // finis
+    
+    lobox
+};
+
+
+/*
+ * LogsDisplay
+ *
+ *     A log display object.
+ *
+ */
+
+closure LogsDisplay(panel, local display) {
+    display = new(object, this)
+    display.viewAreaDiv = document.getElementById("LogsDisplayArea")
+    display.displayDiv = document.getElementById("LogsDisplay")
+    display.lobox = logdRecordBox("LogsRecordBox", display)
+    display.loboxdiv = document.getElementById("LogsRecordBox")
+    display.loboxdiv.addEventListener("contextmenu", function(event) {
+        zux.MenuContext(event, ["Copy"], {}, function(event, itemdex, itemdiv) {
+            if itemdex == 0
+                panel.displayCopy(new(display.lobox.box.selRow().data.request))
+        })
+    })
+
+    // loboxSelect
+    //
+    // The user clicked a record.
+    //
+    display.loboxSelect = function loboxSelect(data) {
+    }
+
+    // setContent
+    //
+    // Set the content of our display box.
+    //
+    display.setContent = function setContent(treeNode) {
+        display.lobox.resetContents(treeNode)
+    }
+
+    // finis
+
+    display
+};
+
+
+/*
+ * logdInit
+ *
+ * Initialize the component.
+ *
+ */
+
+function logdInit(local manifest) {
+    manifest = `(logdRecordBox, LogsDisplay, logdInit)
+
+    Naan.module.build(module.id, "logs_display", function(modobj, compobj) {
+        compobj.manifest = manifest
+    })
+} ();

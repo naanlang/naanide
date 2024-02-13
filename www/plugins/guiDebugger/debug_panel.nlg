@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2021-2022 by Richard C. Zulch
+ * Copyright (c) 2021-2024 by Richard C. Zulch
  *
  */
 
@@ -39,7 +39,8 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
         readOnly: true
     })
     depan.aceCenter.setShowPrintMargin(false)
-    session = window.ace.createEditSession("", "ace/mode/naan_lingo")
+    depan.aceModeLingo = window.ace.require("ace/mode/naan_lingo").Mode
+    session = window.ace.createEditSession("", xnew(depan.aceModeLingo))
     depan.aceCenter.setSession(session)
     
     // right side
@@ -70,6 +71,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     // We are informed of becoming visible or not.
     
     depan.navtab = function navtab(visible) {
+        depan.visible = visible
         depan.aceCenter.setShowPrintMargin(visible)
     }
 
@@ -373,29 +375,43 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
                 setControlsRunState()
             }, 50)                                                          // run after delay
     }
-    
+
+    // debuggerNotice
+    // Tell the user we entered the debugger, if it's not visible.
+    //
+    function debuggerNotice(why) {
+        if !depan.visible
+            gude.niui.alert("<h5>Debugger Activated</h5><hr>".concat(why),
+                {class:"alert-warning", unique: "debugger" }).onClose(function(){
+                    gude.niui.navbar.selectPage("debug")                    // go to page on close
+                })
+    }
+
     // hitException
     // Note that the instance hit an exception.
     //
     depan.hitException = function hitException(exdata) {
         setMessage("<span class='gude-msg-exception'><span class='gude-rounded'>!</span>".concat(
             " exception: ", exdata.exceptstr, "</span>"))
+        debuggerNotice("exception")
     }
-        
+
     // hitBreakpoint
     // Note that the instance hit a breakpoint.
     //
     depan.hitBreakpoint = function hitBreakpoint(bpdata) {
         setMessage("<span class='gude-msg-breakpoint'><span class='gude-rounded'>i</span>".concat(
             " breakpoint: ", bpdata.bpid, "</span>"))
+        debuggerNotice("breakpoint")
     }
-        
+
     // hitStep
     // Note that the instance "hit" a step completion.
     //
     depan.hitStep = function hitStep(stepdata) {
         setMessage("<span class='gude-msg-stepped'><span class='gude-rounded'>i</span>".concat(
             " step value: ", stepdata.value, "</span>"))
+        debuggerNotice("step")
     }
 
     // fetchUpdates

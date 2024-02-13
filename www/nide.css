@@ -442,3 +442,7 @@ header > .navbar {
 .spinner-black {
     filter:invert(87%);
 }
+
+.zux_table {
+    --bs-table-bg: transparent;
+}

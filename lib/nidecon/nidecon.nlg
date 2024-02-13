@@ -1,0 +1,329 @@
+/*
+ * nidecon.nlg
+ * Naanide
+ *
+ * NaanIDE controller for startup and scripting.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2020-2024 by Richard C. Zulch
+ *
+ */
+
+
+savedGUID = false;                              // persistent guid
+
+
+/*
+ * NideCon
+ *
+ *     Make a NaanNide controller object.
+ *
+ */
+
+closure NideCon(options, local nicon) {
+    global(js, apiServerMod, nodeMod, commonMod, relayMod, savedGUID, JSpath, module)
+    nicon = new(object, this)
+    nicon.relays = []
+    nicon.rc = nodeMod.NaanlangRC()
+    nicon.defPort = 8008
+    processNetOptions(options)
+
+    // processNetOptions
+    //
+    // Process options whether client or server, with optional port update.
+    //
+    function processNetOptions(options, port, local net) {
+        net = nicon.net || {
+                guid: options.guid || nicon.rc.ideserver.guid || savedGUID || commonMod.UUID()
+            }
+        net.port = options.fixedPort || port || nicon.defPort
+        net.host = "localhost:${tostring(net.port)}"
+        net.oururl = "http://${net.host}/nide.html?guid=${net.guid}"
+        nicon.net = net
+    }
+
+    // connect
+    //
+    // Try to make sure we are connected, returning false on success or a result tuple on error.
+    //
+    closure connect(local error) {
+        if !App.api && !nicon.serverRemote
+            `(error) = connectServer()
+        if error
+            list(error)
+    }
+
+    // launchBrowser
+    //
+    // Launch the browser on our API server, after it is open.
+    //
+    nicon.launchBrowser = closure launchBrowser(local result, open, apps) {
+        if connect()
+            return
+        result = await(js.i("open"))
+        if !result.0 {
+            open = result.1.default
+            apps = result.1.apps
+            result = await(open(nicon.net.oururl, { app: {
+                name: [apps.chrome, apps.safari, apps.edge]
+            }}))
+        }
+        return (result)
+    }
+
+    // launchBrowserWait
+    //
+    // Launch the browser on our API server, after it is open. This waits until the client responds
+    // before returning, up to a timeout. The return value is standard result tuple with the destID
+    // of the new client (for remote, below) on success. This is not flawless--it can be confused by
+    // by other processes launching NaanIDE browser tabs, or by existing browser tabs that are in
+    // the process to reconnecting to a newly-launched server.
+    //
+    nicon.launchBrowserWait = closure launchBrowserWait(options, 
+        local error, result, prev, timeout) {
+        // newClients
+        // Return an array, listing any new clients since the provided sorted list
+        function newClients(prev, local found, current, xp, xc, pid, cid) {
+            found = []
+            current = clients().sort()
+            xp = xc = 0
+            loop {
+                pid = prev[xp]
+                cid = current[xc]
+                if !cid
+                    return (found)                                          // no more new ones
+                if !pid || cid < pid {
+                    found.push(cid)
+                    ++xc
+                } else if cid == pid {
+                    ++xp
+                    ++xc
+                } else
+                    ++xp
+            }
+        }
+
+        options = merge({
+            timeout: 30000                                                  // milliseconds
+            interval: 100
+        }, options)
+        prev = clients().sort()
+        `(error) = launchBrowser()
+        if error
+            return (list(error))
+        timeout = milliseconds() + options.timeout
+        while milliseconds() < timeout {
+            sleep(options.interval)
+            result = newClients(prev)
+            if result.length >= 1
+                return (list(false, result.0))
+        }
+        list(Error("timeout on client launch"))
+    }
+
+    // startServer
+    //
+    // Start our API server, returning a result tuple of `(error, api, exists) where the exists
+    // argument is true to note that our requested port is busy, and the caller can try to connect to
+    // it as a client for remote access.
+    //
+    // Options:
+    //  {
+    //      statics:    <tuple>                 // tuple of ExpressJS static server path pairs
+    //      guid:       <string>                // server secret that clients must provide
+    //      fixedPort:  <integer>               // specific server listener port to use, or
+    //      basePort:   <integer>               // base port to hunt for free port
+    //  }
+    //
+    // If not specified above, following are used from .naanlang/naanlangrc file:
+    //      ideserver.guid      <string>        // guid
+    //      ideserver.baseport  <integer>       // base port for finding open port
+    //
+    nicon.startServer = closure startServer(local config, error, port) {
+        config = {
+            name: "NaanIDEServer"
+            relpath: "../www"
+            statics: options.statics || undefined
+            guid: nicon.net.guid
+        }
+        if options.fixedPort
+            config.fixedPort = options.fixedPort
+        else
+            config.basePort = options.basePort || nicon.rc.ideserver.baseport || nicon.defPort
+        nicon.api = apiServerMod.APIServer(config)
+        `(error, port) = nicon.api.open()
+        if error
+            list(error, false, error.code == "EADDRINUSE")
+        else {
+            processNetOptions(options, port)                                // port may have been updated
+            savedGUID = config.guid
+            list(false, nicon.api)
+        }
+    }
+
+    // connectServer
+    //
+    // After startServer fails because the server already exists, call this method to connect to the
+    // existing server. This creates a relay connection so that the clients() and remote() methods
+    // still work, just as if we were running the server. This returns a result tuple with the url
+    // of the remote server if we are successful.
+    //
+    // Options:
+    //  {
+    //      keepRunning: <boolean>              // don't auto-quit the REPL
+    //  }
+    //
+    nicon.connectServer = closure connectServer(options, local error, remote, oururl) {
+        `(error, remote) = nicon.remote("server")
+        if !error
+            `(error, oururl) = remote.evalq(App.nidecon.net.oururl)         // get remote server's URL
+        if !error && options.keepRunning
+            js.expr = false
+        list(error, oururl)
+    }
+    
+    // getServer
+    //
+    // Start or connect to the server.
+    //
+    nicon.getServer = closure getServer(options, local error, api, exists, oururl) {
+        `(error, api, exists) = startServer()
+        if exists {
+            `(error, oururl) = connectServer(options)
+            if error
+                return (list(Error("server not responding", error)))
+        } else if error
+            return (list(Error("can't start server", error)))
+        else
+            oururl = api.oururl
+        list(false, oururl, exists)
+    }
+
+    // clients
+    //
+    // Return an array of destIDs for clients that can be remote-controlled. Each client corresponds
+    // to a browser tab. These are persistent until the tab is reloaded. Note that there is a delay
+    // between launching a new browser tab and seeing the client show up here. This can be quite long
+    // in the case that a new version is being installed.
+    //
+    //  Typical result:
+    //  [ "7040da37-c029-42fa-a740-5db28bde4d1d",
+    //    "5fa859ec-e271-4ec1-a3a2-47a362cdceaf" ]
+    //
+    nicon.clients = closure clients(local error, ids) {
+        if connect()
+            return
+        if nicon.serverRemote {
+            `(error, ids) = nicon.serverRemote.evalq(App.nidecon.clients())
+            if error {                                                      // can't report error from here
+                ErrorDebuglog("NideCon.clients remote fail:", error)
+                ids = []
+            }
+            ids
+        }
+        else
+            nicon.api.Relays().map(function(item) { item.destID })
+    }
+
+    // remote
+    //
+    // Create a remote evaluation context object for the specified browser client. This returns a
+    // standard result tuple.
+    //
+    nicon.remote = closure remote(destID, local relaycon, error, context) {
+        relaycon = relayMod.RelayCon(nicon.net.host, nicon.net.guid, { destID: destID })
+        `(error) = relaycon.connect()
+        if !error {
+            nicon.relays.push(relaycon)
+            `(error, context) = relaycon.context()
+            if context && destID == "server"
+                nicon.serverRemote = context
+        }
+        list(error, context)
+    }
+
+    // loadStartupModule
+    //
+    // Load a startup module from the path and return the exports. Returns result tuple. This reloads
+    // the startup module if it has changed since the last time we loaded it.
+    //
+    nicon.loadStartupModule = closure loadStartupModule(cmdpath, local mod, stat) {
+        cmdpath = commonMod.JSpath.normalize(cmdpath)
+        mod = module.owner.find(function(mod){ mod.locpath == cmdpath })
+        try {
+            if mod.locstat {
+                stat = js.r("fs").statSync(cmdpath)
+                if stat.mtimeMs != mod.locstat.mtimeMs {                    // different modify timestamp
+                    mod = require(cmdpath, { reload: true })@module
+                    mod.locstat = stat                                      // save for future test
+                }
+            } else
+                mod = require(cmdpath, { reload: true })@module
+        } catch {
+            return (list(exception))
+        }
+        list(false, mod.exports)
+    }
+
+    // runCommand
+    //
+    // Run a startup command from the module at the path. Returns result tuple.
+    //
+    nicon.runCommand = closure runCommand(name, path, arglist,
+        local error, exports, data) {
+        `(error, exports) = loadStartupModule(path)
+        if !error
+            `(error, data) = exports.startup(arglist)
+        if error
+            list(error)
+        else
+            list(false, data)
+    }
+    
+    // quit
+    //
+    // Quit the application at a convenient time, with optional error code and state save.
+    //
+    nicon.quit = closure quit(exitCode, save) {
+        if !exitCode
+            exitCode = 0
+        if save
+            js.save()
+        sleep(1)
+        exec(quote(js.g.process.exit(exitCode)))
+    }
+
+    // process exit hook
+    //
+    js.g.process.on("exit", function(local conn) {
+        App.api.notify("NideServer exited")
+        for conn in nicon.relays
+            conn.close()
+        nicon.relays = []
+    })
+
+    // finis
+
+    nicon
+};
+
+
+/*
+ * niconInit
+ *
+ *     Initialize the module.
+ *
+ */
+
+function niconInit(local manifest) {
+    manifest = `(savedGUID, NideCon, niconInit)
+    Naan.module.build(module.id, "nidecon", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.NideCon = NideCon
+    })
+    apiServerMod = require("frameworks/node/apiserver.nlg", { in: "naanlib" })
+    nodeMod = require("frameworks/node", { in: "naanlib" })
+    commonMod = require("frameworks/common", { in: "naanlib" })
+    relayMod = require("frameworks/client/relaycon.nlg", { in: "naanlib" })
+} ();

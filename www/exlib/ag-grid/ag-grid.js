@@ -1,3 +1,9 @@
+/*
+ * Forked by Rcz with these changes:
+ *  1. New column option maxSortLevel stops tree children sort below this depth. Zero is root.
+ *  2. FilterService.doingTreeDataFiltering now uses getNodeChildDetails as legacy tree data indicator.
+ */
+
 /**
  * @ag-grid-community/all-modules - Advanced Data Grid / Data Table supporting Javascript / React / AngularJS / Web Components
  * @version v23.2.1
@@ -11847,7 +11853,8 @@ var ColDefUtil = /** @class */ (function () {
         'minWidth',
         'maxWidth',
         'rowGroupIndex',
-        'pivotIndex'
+        'pivotIndex',
+        'maxSortLevel'
     ];
     ColDefUtil.BOOLEAN_PROPERTIES = [
         'suppressCellFlash',
@@ -45728,6 +45735,9 @@ var SortService = /** @class */ (function (_super) {
         // Iterate columns, return the first that doesn't match
         for (var i = 0, len = sortOptions.length; i < len; i++) {
             var sortOption = sortOptions[i];
+            var maxSortLevel = sortOption.column.getColDef().maxSortLevel;
+            if (nodeA.level > maxSortLevel)
+                continue;
             // let compared = compare(nodeA, nodeB, sortOption.column, sortOption.inverter === -1);
             var isInverted = sortOption.inverter === -1;
             var valueA = this.getValue(nodeA, sortOption.column);
@@ -45969,7 +45979,9 @@ var FilterService = /** @class */ (function (_super) {
         }
     };
     FilterService.prototype.doingTreeDataFiltering = function () {
-        return this.gridOptionsWrapper.isTreeData() && !this.gridOptionsWrapper.isExcludeChildrenWhenTreeDataFiltering();
+        var doingTreeData = this.gridOptionsWrapper.isTreeData();
+        var doingLegacyTreeData = this.gridOptionsWrapper.getNodeChildDetailsFunc();
+        return (doingTreeData || doingLegacyTreeData) && !this.gridOptionsWrapper.isExcludeChildrenWhenTreeDataFiltering();
     };
     __decorate([
         Object(_ag_grid_community_core__WEBPACK_IMPORTED_MODULE_0__["Autowired"])('filterManager')

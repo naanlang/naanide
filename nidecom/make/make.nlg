@@ -1,0 +1,192 @@
+/*
+ * make.nlg
+ *
+ * Example NaanIDE script to build projects and stages.
+ *
+ * Usage: naanide [options] make -- <project>[.<stage>] [<project>[.<stage>]...]
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2024 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * Make
+ *
+ * Create an object that can build the specified project(s) in whatever tab they are found. Each 
+ * element of the projects array is a dictionary:
+ *  [
+ *      {
+ *          name:           <string>            // project name
+ *          stage:          <string>            // stage to build, default first
+ *          buildOnly:      <boolean>           // true to omit running
+ *      },
+ *      ...
+ *  ]
+ *
+ */
+
+closure Make(projects, local maker) {
+    global()
+    maker = new(object, this)                                               // create object; methods below
+
+    // buildProjectInTab
+    //
+    // Build the project in a tab, both being dictionaries. The project must already be open in the
+    // tab. The results of the build are stored in the tab dictionary. This blocks until the build is
+    // complete and then returns a result tuple.
+    //
+    closure buildProjectInTab(tab, proj, local error, info) {
+        //
+        // Send a closure procedure to the browser tab, execute it, and then return the resulting
+        // value. The procedure definition is identical to whether local or remote.
+        //
+        closure buildByName(name, options, local project) {
+            project = App.model.project.active
+            if project.name() == name
+                project.build(options)
+            else
+                list(Error("project not found:", name))
+        }
+        // Evaluate the procedure remotely with arguments evaluated locally:
+        `(error, info) = tab.context.call(buildByName, proj.name, {
+            stage:      proj.stage
+            buildOnly:  proj.buildOnly
+        })
+        //
+        // This isn't pretty, but the (error, info) tuple above reports an error from the
+        // transport layer. The info value comes from the buildByName function defined above,
+        // and it is also a (error, info) tuple. If there is no transport error then we
+        // unpeel the transport tuple to get the actual function result.
+        //
+        if !error
+            `(error, info) = info                                           // unpeel error wrapper
+        proj.result = list(error, info)
+    }
+
+    // tabarray
+    //
+    // Get an array of existing browser tabs with their project names.
+    //
+    function tabarray(local existing, tabID, error, context, name) {
+        existing = []
+        for tabID in App.nidecon.clients() {
+            `(error, context) = App.nidecon.remote(tabID)
+            if !error
+                `(error, name) = context.evalq(App.model.project.active.name())
+            if !error
+                existing.push({
+                    id: tabID
+                    name: name                                              // name is false for no project
+                    context: context
+                    waiting: []
+                })
+        }
+        existing
+    }
+
+    // associate
+    //
+    // Associate each project with one or more tabs that can process it.
+    //
+    function associate(existing, local proj, tab) {
+        for proj in projects
+            for tab in existing
+                if tab.name == proj.name {                                  // this tab can build our project
+                    tab.waiting.unshift(proj)
+                    proj.result = true }
+        for proj in projects
+            if proj.result
+                proj.result = false
+            else
+                proj.result = list(Error("no project open"))
+    }
+
+    // start
+    //
+    // The start method attempts to build the projects defined by projects. A project must be already
+    // open in a tab to be built. Each project is built once. More than one stage can be specified,
+    // in which case the project is built for each stage, sequentially. If more than one tab is open
+    // for a given project then the stages are distributed among the tabs.
+    //
+    maker.start = closure start(
+        local error, oururl, exists, existing, proj, final) {
+        //
+        // Start the server so we have something to talk with.
+        //
+        `(error, oururl, exists) = App.nidecon.connectServer()
+        if error
+            return (list(Error("make:", error, { exit: 101 })))
+        //
+        // Process projects in tabs
+        //
+        existing = tabarray()
+        associate(existing)
+        asyncArray(existing, 10, closure(tab, index, cancel, local proj) {
+            while tab.waiting.length > 0 {
+                proj = tab.waiting.pop()
+                if !proj.result {
+                    proj.result = list(Error("pending"))                    // mark as queued
+                    buildProjectInTab(tab, proj)                            // blocks until complete
+                }
+            }
+        }).wait()
+        for proj in projects {
+            final = proj.result.0 && ErrorString(proj.result.0) || "succeeded"
+            printline("${proj.name}: ${proj.stage||''} ${final}")
+        }
+        App.nidecon.quit()
+    }
+
+    // finis
+
+    maker
+};
+
+
+/*
+ * startup
+ *
+ * Create a Make object using a workspace definition dictionary, and then start it.
+ *
+ */
+
+function startup(arglist, local projects) {
+    global(make)                                                            // allowed global variables
+    if !arglist || arglist.length == 0 {
+        printline("Usage:")
+        printline("  naanide [options] make -- <project>[.<stage>] [<project>[.<stage>]...]")
+        return (list(Error("", { exit: 1 })))                               // "" error doesn't report
+    }
+    projects = arglist.map(function(arg, local proj, found){
+        proj = { }
+        found = RegExp("(.+)[.]([^.]+)").exec(arg)
+        if found {
+            proj.name = found.1
+            proj.stage = found.2
+        } else
+            proj.name = arg
+        proj
+    })
+    make = Make(projects)
+    make.start()
+    list(false, { ok: true })                                               // not reachable
+};
+
+
+/*
+ * initialize
+ *
+ *     Initialize the startup command module.
+ *
+ */
+
+function initialize(local manifest) {
+    manifest = `(Make, startup, initialize)
+    Naan.module.build(module.id, "make", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.startup = startup
+    })
+} ();

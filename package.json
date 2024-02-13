@@ -1,17 +1,17 @@
 {
     "name": "@naanlang/naanide",
-    "version": "0.9.16",
+    "version": "0.9.17",
     "author": "Richard C. Zulch",
     "description": "NaanIDE",
-    "main": "./lib/node_server.js",
+    "main": "./bin/index.js",
     "dependencies": {
         "aws-sdk": "^2.647.0",
-        "body-parser": "^1.19.0",
-        "express": "^4.17.1",
-        "pouchdb": "^7.1.1",
-        "ws": "^7.3.1",
-        "open": "^8.2.0",
-        "@naanlang/naan": "^1.0.16"
+        "body-parser": "^1.20.2",
+        "express": "^4.18.2",
+        "pouchdb": "^8.0.1",
+        "ws": "^8.16.0",
+        "open": "^10.0.3",
+        "@naanlang/naan": "^1.1.0"
     },
     "devDependencies": {},
     "keywords": [],
@@ -21,6 +21,7 @@
         "naanide": "./bin/index.js"
     },
     "scripts": {
-        "start": "node ./lib/node_server.js"
+        "start": "node ./bin/index.js",
+        "scripting": "node ./bin/index.js examples/idecon_debug.nlg"
     }
 }

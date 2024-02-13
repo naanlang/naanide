@@ -1,0 +1,75 @@
+/*
+ * idecon_debug.nlg
+ *
+ * Example NaanIDE script to aide in creating such scripts. This starts a server, prints its network
+ * details, and leaves the Naan REPL running so you can experiment. If the server is already running
+ * then this connects to it for testing remote evaluation.
+ *
+ * Usage: naanide [options] idecon_debug.nlg
+ *
+ * Example:
+ *     node bin/index.js --port 8009 examples/idecon_debug.nlg      # start a server on 8009
+ *     node bin/index.js --port 8009 examples/idecon_debug.nlg      # connect to existing server
+ * 
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2023-2024 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * startup
+ *
+ * Run our idecon_debug command at NaanIDE startup.
+ *
+ */
+
+function startup(arglist, local error, exists, oururl) {
+    global()                                                                // detect mistaken global variables
+
+    // snippets
+    // Display some helpful snippets to theuser
+    //
+    function snippets() {
+        printline("")
+        printline("Expression snippets that may be useful:")
+        if exists
+            printline("    `(error, context) = App.nidecon.remote('server')         // remote evaluation context for existing server")
+        printline("    `(error, tabID) = App.nidecon.launchBrowserWait()        // new browser tab returning its ID")
+        printline("    App.nidecon.clients()                                    // array of known browser tabIDs")
+        printline("    `(error, context) = App.nidecon.remote(tabID)            // make remote evaluation context")
+        printline("    context.evalq(js.w.alert('hello world'))                 // evaluate literal expression")
+        printline("    context.call(test, tabID)                                // send function test to remote and call it")
+        printline("        function test(x) { js.w.alert('you are $${x}') }     // example function for sending")
+        printline("    context.evalq(App.model.project.list())                  // list known projects in browser tab")
+        printline("    context.evalq(js.w.close())                              // close browser tab")
+    }
+
+    `(error, oururl, exists) = App.nidecon.getServer({ keepRunning: true }) // stay in REPL
+    if exists
+        printline("NaanIDE Server already exists:\n", Dialect.print(App.nidecon.net))
+    else if error
+        return (list(Error("idecon_debug:", ErrorString(error))))
+    else
+        printline("NaanIDE Server started:\n", Dialect.print(App.nidecon.net))
+    snippets()
+    list(false, { ok: true })                                               // successful startup
+};
+
+
+/*
+ * initialize
+ *
+ *     Initialize the startup command module.
+ *
+ */
+
+function initialize(local manifest) {
+    manifest = `(startup, initialize)
+    Naan.module.build(module.id, "idecon_debug", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.startup = startup
+    })
+} ();

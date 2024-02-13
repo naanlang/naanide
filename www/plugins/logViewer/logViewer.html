@@ -1,0 +1,28 @@
+<!--
+ === Docs Tab ===
+ -->
+
+<link rel="stylesheet" href="plugins/logViewer/logViewer.css">
+
+<div id='LogsPanel' class="col-auto d-flex flex-column" style="width:20%;height:100%;margin:0;padding:0;overflow:hidden">
+    <div>
+        <div class="input-group p-2 LogsControlArea logHeader">
+            <button type="button" id="LogvLocationButton" class="btn-sm dropdown-toggle me-1" data-toggle="dropdown">Location</button>
+            <div class="dropdown-menu" id="LogvLocationMenu"></div>
+            <button type="button" id="LogvReload" class="btn btn-secondary btn-sm disabled ms-1">↺</button>
+        </div>
+    </div>
+    <div class="flex-grow-1 ag-theme-dark" style="width:100%;position:relative">
+        <div id="LogsNav" style="height:100%;width:100%;margin:0;padding:0;position:absolute"></div>
+    </div>
+</div>
+<div id='LogsDisplayArea' class="col-auto d-flex flex-column" style="width:80%;height:100%;margin:0;padding:0;overflow:hidden">
+    <div>
+        <div class="input-group p-2 LogsControlArea logHeader">
+            <button type="button" id="LogdReport" class="btn btn-secondary btn-sm disabled me-1">Report</button>
+        </div>
+    </div>
+    <div class="flex-grow-1 ag-theme-dark" style="width:100%;position:relative">
+        <div id="LogsRecordBox" style="height:100%;width:100%;margin:0;padding:0;position:absolute"></div>
+    </div>
+</div>

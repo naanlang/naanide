@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2018-2023 by Richard C. Zulch
+ * Copyright (c) 2018-2024 by Richard C. Zulch
  *
  */
 
@@ -750,19 +750,21 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
     
     project.closeProject = function closeProject() {
         if project.current {
-            project.imageEditor.saveAll()
             project.imageEditor.reset()
             project.textEditor.saveAll()
             project.textEditor.reset()
             project.projEditor.saveAll()
             project.projEditor.reset()
             project.hisel.setTree()
+            project.searchedSel.setResults()
+            project.boxTab.selectPage("edit")
             project.current = false
             project.storeIDs = {}
             project.stage = false
             project.sessionList = []
             project.fs = false
             project.fm = false }
+        setCurrentEditor()
     }
     
     //
@@ -803,7 +805,7 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
         }
         else if error {
             niui.alert("<h5>project failed to run</h5><hr>".concat(ErrorString(error)),
-                {class:"alert-warning"})
+                {class:"alert-warning", unique: "project-build" })
         }
         else {
             niui.alert("<strong>build ".concat(stage, "+", buildno, " completed successfully</strong>"),
@@ -840,7 +842,6 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
 
     setCurrentEditor()
     updateSessionArrows()
-    updateDiffEdit()
     project.widthAdjuster.setProportion(projectLeftPct)
     project.setPreviewVisibility(false)
     project.boxTab.selectPage("edit")

@@ -1,0 +1,208 @@
+/*
+ * workspace.nlg
+ *
+ * Example NaanIDE script to open a browser workspace with multiple projects.
+ *
+ * Usage: naanide [options] workspace -- <project> [<project>...]
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2023-2024 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * Workspace
+ *
+ * Launch a server with tabs defined by the specified dictionary.
+ *
+ */
+
+closure Workspace(config, local myws) {
+    global()
+    myws = new(object, this)                                                // create object; methods below
+    myws.config = new(config)                                               // make our own copy so we can change it
+
+    // openProjectTab
+    //
+    // Open a browser tab, and a project within it. This blocks the caller until the browser tab is
+    // open, then starts a fiber to open the project in the background. This operates sequentially
+    // because after a version upgrade, the first tab is slow to open. After that everything is 
+    // cached and it's much faster. If you opened them in parallel then it would be slower as
+    // multiple tabs compete to load data and cache it. Also, there is no way to identify a browser
+    // tab uniquely until it connects back to our server. If opened in parallel the order of tabs
+    // would not be guaranteed.
+    //
+    closure openProjectTab(tab, tabID, local error) {
+        ++myws.pending.count
+        if !tabID
+            `(error, tabID) = App.nidecon.launchBrowserWait()
+        if error
+            return (list(error))
+        tab.id = tabID                                                      // sent from the browser via WebSocket
+        //
+        // Open a remote evaluation context with the browser tab. This can be done in parallel so we
+        // put it in a separate fiber with future(). The access error below is unlikely because the
+        // launchBrowserWait() call already established communication. Maybe a well-timed user tab
+        // close could cause this.
+        //
+        future(function(local error, context, info) {
+            `(error, context) = App.nidecon.remote(tab.id)
+            if error {
+                if --myws.pending.count == 0
+                    myws.pending.signal()
+                ErrorDebuglog("Workspace: cannot access ${tab.project} browser tab", error)
+                return
+            }
+            tab.context = context                                           // useful later for remote tab access
+            //
+            // Send a closure procedure to the browser tab, execute it, and then return the resulting
+            // value. The procedure definition is identical to whether local or remote.
+            //
+            closure openByName(name, local project) {
+                for project in App.model.project.list()
+                    if project.name == name {
+                        App.model.project.open(project.projID)
+                        return (list(false, project))
+                    }
+                list(Error("project not found:", name))
+            }
+            // Evaluate the procedure remotely with arguments evaluated locally:
+            `(error, info) = context.call(openByName, tab.project)
+            //
+            // This isn't pretty, but the (error, info) tuple above reports an error from the
+            // transport layer. The info value comes from the openByName function defined above,
+            // and it is also a (error, info) tuple. If there is no transport error then we
+            // unpeel the transport tuple to get the actual function result.
+            //
+            if !error
+                `(error, info) = info                                       // unpeel error wrapper
+            if error {
+                ErrorDebuglog("Workspace: cannot find project ${tab.project} in browser")
+                tab.error = error
+            }
+            else
+                tab.info = info
+            if --myws.pending.count == 0
+                myws.pending.signal()
+        }, 1)                                                               // 1 msec: run "soon"
+        list(false, tabID)                                                  // an error could occur later
+    }
+
+    // start
+    //
+    // The start method attempts to create the workspace defined by config.
+    //
+    myws.start = closure start(
+        local error, oururl, exists, existing, tabID, context, name, count, tab, extab) {
+        //
+        // Start the server so we have something to talk with.
+        //
+        `(error, oururl, exists) = App.nidecon.getServer()
+        if error
+            return (list(Error("orkspace:", error, { exit: 101 })))
+
+        /*
+         * when the server just opened and diconnected browser tabs are sitting around,
+         * we could, in theory, wait for them to connect. They eventually will. But that
+         * would delay normal cold startup. And old tabs sitting around don't get a lot
+         * of cycles to do polling. Chrome tends to put them on the back-burner.
+         *
+        if !exists
+            sleep(5000)                                                     // allow time for existing tabs to reconnect
+         *
+         */
+
+        //
+        // Get a list of existing browser tabs.
+        //
+        existing = []
+        for tabID in App.nidecon.clients() {
+            `(error, context) = App.nidecon.remote(tabID)
+            if !error
+                `(error, name) = context.evalq(App.model.project.active.name())
+            if !error
+                existing.push({
+                    id: tabID
+                    name: name                                              // name is false for no project
+                })
+        }
+
+        //
+        // Open the browser tabs.
+        //
+        count = 0
+        for tab in myws.config.tabs {
+            if existing.find(function(item) { item.name == tab.project })
+                continue                                                    // project already open in tab
+            if !myws.pending {
+                myws.pending = new(nonce)                                   // will need to wait on open(s)
+                myws.pending.count = 0
+            }
+            extab = existing.find(function(item) { !item.name })
+            if extab                                                        // found an existing empty tab
+                extab.name = tab.project                                    // don't re-use it
+            `(error, tabID) = openProjectTab(tab, extab.id)
+            if error {
+                ErrorDebuglog("workspace: cannot open browser tab ${tab.project}", error)
+                ++count                                                     // count failed tabs
+            }
+        }
+        myws.pending.wait()                                                 // wait until opens are complete
+        if exists
+            App.nidecon.quit()
+        if count == config.tabs.length
+            list(Error("workspace: cannot launch any browser tabs", { exit: 102 }))
+        else
+            list(false, oururl, exists)                                     // success with server URL
+    }
+
+    // finis
+
+    myws
+};
+
+
+/*
+ * startup
+ *
+ * Create a Workspace object using a workspace definition dictionary, and then start it.
+ *
+ */
+
+function startup(arglist, local config, error, oururl, exists) {
+    global(myWorkspace)                                                     // allowed global variables
+    if !arglist || arglist.length == 0 {
+        printline("Usage:")
+        printline("  naanide [options] workspace -- <project> [<project>...]")
+        return (list(Error("no projects specified", { exit: 1 })))
+    }
+    config = { tabs: arglist.map(function(arg){ { project: arg } }) }
+    myWorkspace = Workspace(config)
+    `(error, oururl, exists) = myWorkspace.start()
+    if error.exit
+        return (list(error))
+    else if error
+        ErrorDebuglog("startup error:", error)
+    else if !exists
+        debuglog("server access:", oururl)                                  // URL for manually adding tabs
+    printline("workspace completed successfully")
+    list(false, { ok: true })
+};
+
+
+/*
+ * initialize
+ *
+ *     Initialize the startup command module.
+ *
+ */
+
+function initialize(local manifest) {
+    manifest = `(Workspace, startup, initialize)
+    Naan.module.build(module.id, "workspace", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.startup = startup
+    })
+} ();

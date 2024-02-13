@@ -55,12 +55,8 @@
                 "name": "03-naanide/",
                 "children": [
                     {
-                        "title": "Naan for Beginners",
-                        "name": "naan-for-developers.md"
-                    },
-                    {
-                        "title": "Naan for Developers",
-                        "name": "naan-for-developers.md"
+                        "title": "NaanIDE Installation",
+                        "name": "01-installing-naanide.md"
                     }
                 ]
             },

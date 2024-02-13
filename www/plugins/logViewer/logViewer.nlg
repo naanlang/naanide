@@ -1,0 +1,93 @@
+/*
+ * logViewer.nlg
+ * LogViewer: a NaanIDE plugin
+ *
+ * NaanIDE plugin for Log viewing. This is our interface to NaanIDE.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2024 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * logvIdePlugin
+ *
+ * Add a tab to the Nide main navigation area.
+ *
+ */
+
+closure logvIdePlugin(niui, local logv) {
+    logv = new(object, this)
+    logv.niui = niui
+    App.logViewer = logv
+    logv.logman = LogsManager(logv)
+
+    // fetchFile
+    //
+    closure fetchFile(path, respType, local fetchpath) {
+        if !respType
+            respType = `text
+        fetchpath = js.w.location.origin.concat("/", path, requireQuery())
+        await(js.w.fetch(fetchpath).then(function(response) {
+            if response.ok
+                response[respType]()
+            else
+                Promise.reject(response.status)
+        }))
+    }
+    
+    // App our UI to navbar
+    //
+    future(function(error, content) {
+        `(error, content) = fetchFile("plugins/logViewer/logViewer.css")
+        if content.length > 0
+            niui.appendCss(req.responseText)
+        `(error, content) = fetchFile("plugins/logViewer/logViewer.html")
+        if content.length > 0 {
+            niui.navbar.appendPage("logs", "Logs", content, logv)
+            logv.logman.reload()
+        }
+    }).run()
+    
+    //
+    // Tab activation/deactivation
+    //
+
+    logv.navtab = function navtab(visible) {
+        logv.logman.vate(visible)
+    }
+
+    // finis
+
+    logv
+};
+
+
+/*
+ * logvIdeInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function logvIdeInit(local manifest) {
+    manifest = `(logvIdePlugin, logvIdeInit)
+
+    Naan.module.build(module.id, "logViewer", function(modobj, compobj) {
+        compobj.manifest = manifest
+
+        function logvPostload() {
+            jspath = js.r("path")
+            window = js.w
+            document = window.document
+            App.nide.addUI(logvIdePlugin)
+        }
+        module.postload = logvPostload
+        require("frameworks/common").LiveImport()
+        require("./logs_manager.nlg")
+        zux = require("nide/zux/zux.nlg")
+        logvPostload()
+    })
+} ();

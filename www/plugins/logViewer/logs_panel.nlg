@@ -1,0 +1,156 @@
+/*
+ * logs_panel.nlg
+ * LogViewer: a NaanIDE plugin
+ *
+ * This panel contains all UI components.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2024 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * LogsPanel
+ *
+ *     A log viewer panel object.
+ *
+ */
+
+closure LogsPanel(logman, local panel) {
+    panel = new(object, this)
+    panel.logman = logman
+    panel.repbut = document.getElementById("LogdReport")
+    panel.nav = LogsNavOutline(panel, "LogsNav")
+    panel.locreload = document.getElementById("LogvReload")
+    panel.source = LogSource(panel)
+    panel.display = LogsDisplay(panel)
+    panel.nav.setTree()
+
+    //
+    // event handlers
+    //
+    
+    window.addEventListener("resize", function() {
+        future(function winResizeF(){sizeToFit()}, 0)
+    })
+
+    panel.repbut.onclick = function() {
+        panel.expert.report(panel.showNode)
+    }
+    
+    panel.locreload.onclick = function(local error) {
+        `(error) = logman.updateLocation()
+        if !error {
+            panel.nav.reloadTree(panel.expert.navTree())
+            updateFolder()
+        }
+    }
+
+    // uiUpdate
+    //
+    // Update our UI controls based on current status.
+    //
+    function uiUpdate(local validData) {
+        validData = panel.showNode && panel.showNode.requests.length > 0
+        zux.setElementClass(panel.repbut, "disabled", !panel.expert || !validData)
+        zux.setElementClass(panel.locreload, "disabled", !panel.expert)
+    }
+
+    // sizeToFit
+    //
+    // Tell the tree controls to resize
+    //
+    function sizeToFit() {
+        panel.nav.sizeToFit()
+    }
+
+    // navSelect
+    //
+    // User made a selection in the nav outline. This returns true to accept the selection.
+    //
+    panel.navSelect = function navSelect(treeNode) {
+        if panel.showNode.path != treeNode.path {
+            panel.showNode = new(treeNode)
+            updateFolder()
+        }
+        true
+    }
+    
+    // updateFolder
+    //
+    // Update our folder and then our display.
+    //
+    panel.updateFolder = function updateFolder(local prog) {
+        try {
+            prog = App.ui.progress()
+            panel.expert.parseFolder(panel.showNode)
+            panel.display.setContent(panel.showNode)
+        } finally {
+            prog.done()
+            uiUpdate()
+        }
+    }
+
+    // setSource
+    //
+    // The log source has been set
+    //
+    panel.setSource = function setSource(expert) {
+        panel.expert = expert
+        panel.showNode = false
+        if expert
+            panel.nav.setTree(expert.navTree(), panel)
+        else
+            panel.nav.setTree()
+        uiUpdate()
+    }
+    
+    // displayCopy
+    //
+    // The user selected right-click copy on an item.
+    //
+    panel.displayCopy = function displayCopy(data) {
+        data = panel.expert.formatRequest(data)
+        `(error, result) = await(js.w.navigator.clipboard.writeText(data))
+        if error
+            debuglog("clipboard write failed", ErrorString(error))
+        else
+            panel.logman.niui.alert("<b>Log Record copied to clipboard:</b>",
+                { class: "alert-secondary", timeout: 500 })
+    }
+
+    // vate
+    //
+    // Activate/deactivate the viewer.
+    //
+    panel.vate = function vate(visible) {
+        panel.nav.vate(visible)
+        panel.source.vate(visible)
+        panel.display.vate(visible)
+    }
+
+    // finis
+
+    panel
+};
+
+
+/*
+ * logpanInit
+ *
+ * Initialize the component.
+ *
+ */
+
+function logpanInit(local manifest) {
+    manifest = `(LogsPanel, logpanInit)
+
+    Naan.module.build(module.id, "logs_panel", function(modobj, compobj) {
+        compobj.manifest = manifest
+        require("./logs_display.nlg")
+        require("./logs_nav.nlg")
+        require("./logs_source.nlg")
+    })
+} ();

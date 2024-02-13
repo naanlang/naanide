@@ -1,0 +1,306 @@
+/*
+ * logs_nav.nlg
+ * LogViewer: a NaanIDE plugin
+ *
+ * Hierarchical navigation UI for log viewing.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2024 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * LogsNavOutline
+ *
+ * An outline selection object.
+ *
+ */
+
+closure LogsNavOutline(panel, divid, local lono, columnDefs, rowData) {
+    lono = new(object, this)
+    lono.divid = divid
+    lono.defopen = true                                                     // default open folders
+
+    rowData = []
+
+    function sizeCellStyle() {
+        return ({"text-align": "right"})
+    }
+
+    function innerCellRenderer(params, local image, imageFullUrl, imageStyle, textSpan) {
+        if (params.node.data.children) {
+            if params.node.data.path != ""
+                image = "FolderIcon.ico"
+            else
+                image = "file-disk.png"
+        } else
+            image = "Document.ico"
+        imageFullUrl = "exlib/images/".concat(image)
+        imageStyle = "style=\"padding-bottom:3px;".concat("height: ", params.node.rowHeight * 0.7, "px\"")
+        textSpan = params.data.name
+        return ("<img src=\"".concat(imageFullUrl, "\"", imageStyle, "/>&nbsp;", textSpan))
+    }
+
+    columnDefs = [
+        {
+            headerName: "Name", field: "name", minWidth: 250,
+            resizable: true
+            sortable: true
+            filter: true
+            cellRenderer: "agGroupCellRenderer",
+            cellRendererParams: {
+                innerRenderer: function(params){ innerCellRenderer(params) },
+                suppressCount: true
+            }
+        },
+    ]
+
+    lono.gridOptions = xnew({
+        columnDefs: columnDefs,
+        rowData: rowData,
+        rowSelection: "multiple",
+        animateRows: true,
+        rowHeight: 24,
+        groupSelectsChildren: false,
+        rowClass: "ag-row-even",                                            // remove zebra striping
+        suppressHorizontalScroll: true,
+        getNodeChildDetails: function(node, local children, opened) {
+            children = node.children
+            if children {
+                //debuglog("node ${node.name} ${children.length} ${children.0.children}")
+                if !children.0.children
+                    return (null)
+                opened = lono.defopen && !node.collapsed || lono.openIndex[node.path]
+                return ({
+                    group: true,
+                    children: children
+                    expanded: opened
+                })
+            }
+            else
+                return (null)
+        },
+        onRowClicked: function(params, local treenode) {
+            treenode = params.node.data
+            if lono.delegate.navSelect(treenode, params.node)
+                selectOnly(params.node)
+        }
+        onRowGroupOpened: function(param) {
+            // debuglog("rowGroupOpened", param.expanded)
+        }
+        onGridReady: function() {
+            lono.sizeToFit()
+        }
+    })
+
+    lono.gridiv = document.getElementById(divid)
+    lono.agrid = xnew(window.agGrid.Grid, lono.gridiv, lono.gridOptions)
+    lono.api = lono.gridOptions.api
+    lono.columnApi = lono.gridOptions.columnApi
+
+    // relpathToRowNode
+    //
+    // Update our path index that associates relpaths with rowNodes
+    
+    lono.relpathToRowNode = function relpathToRowNode(relpath) {
+        if !lono.pathIndex {
+            lono.pathIndex = { }
+            lono.api.forEachNode(function(rowNode, index, local path) {
+                path = rowNode.data.path
+                if !path
+                    path = ""
+                lono.pathIndex[path] = rowNode
+            }) }
+        lono.pathIndex[relpath]
+    }
+
+    //
+    // refreshRowNode
+    //
+    lono.refreshRowNode = function refreshRowNode(rowNode, local rn) {
+        if array(rowNode)
+            for rn in rowNode
+                refreshRowNode(rn)
+        else if rowNode
+            lono.api.refreshCells({
+                rowNodes: [rowNode],
+                force: true
+            })
+    }
+
+    //
+    // focusedCellData
+    //
+    lono.focusedCellData = function focusedCellData(local cell) {
+        cell = lono.api.getFocusedCell()
+        row = lono.api.getDisplayedRowAtIndex(cell.rowIndex)
+        row.data
+    }
+    
+    //
+    // editFocusedCell
+    //
+    lono.editFocusedCell = closure editFocusedCell(cbdone, local cell, row) {
+        cell = lono.api.getFocusedCell()
+        row = lono.api.getDisplayedRowAtIndex(cell.rowIndex)
+        lono.api.startEditingCell({
+            rowIndex: cell.rowIndex
+            colKey: cell.column.colId
+        })
+    }
+
+    //
+    // selectOnly
+    //
+    lono.selectOnly = function selectOnly(selRowNode, local nodes) {
+        nodes = lono.api.getSelectedNodes()
+        for row in nodes
+            if row != selRowNode
+                row.setSelected(false)
+        selRowNode.setSelected(true)
+    }
+    
+    //
+    // sizeToFit
+    //
+    lono.sizeToFit = function sizeToFit() {
+        lono.api.sizeColumnsToFit()
+    }
+    
+    // updateTree
+    //
+    //     Update for a modified tree.
+    //
+    lono.updateTree = function updateTree(tree, openpaths) {
+        if !openpaths
+            openpaths = openPaths()                                         // save existing open folders
+        if openpaths.length == 0                                            // default to current date open
+            let (date, yyyy, mm, dd) {
+                date = Date()
+                yyyy = date.getFullYear()
+                mm = prepad(date.getMonth()+1, 2, "0")
+                dd = prepad(date.getDate(), 2, "0")
+                openpaths = ["${yyyy}/", "${yyyy}/${mm}/", "${yyyy}/${mm}/${dd}/"]
+            }()
+        lono.openIndex = { }
+        for path in openpaths
+            lono.openIndex[path] = true
+        if tree && tree.children
+            tree = tree.children
+        else
+            tree = []
+        lono.api.setRowData(tree)
+        lono.openIndex = undefined
+        lono.pathIndex = undefined
+        setHeaderText()
+    }
+
+    // setHeaderText
+    //
+    //     Set the header text, "Topics" if blank.
+    //
+    lono.setHeaderText = function setHeaderText(text) {
+        if !text
+            text = "Dates"
+        lono.columnApi.getAllColumns().0.colDef.headerName = text
+        lono.api.refreshHeader()
+    }
+
+    // setTree
+    //
+    // Set the specified tree as the new content, using only directory nodes.
+    //
+    lono.setTree = function setTree(tree, delegate, openpaths) {
+        lono.delegate = delegate
+        updateTree(tree, openpaths)
+        lono.defopen = false
+    }
+    
+    // reloadTree
+    //
+    // Reload the tree, maintaining the openpaths and selection if possible.
+    //
+    lono.reloadTree = function reloadTree(tree, local relpath, openp, node) {
+        relpath = lono.api.getSelectedNodes().0.data.path
+        openp = panel.nav.openPaths()                                       // keep current selection/open
+        updateTree(tree, openp)
+        node = lono.relpathToRowNode(relpath)
+        if node
+            openAndSelect(node)
+    }
+
+    // openPaths
+    //
+    //     Return an array of relpaths that are expanded. The path of the root is "".
+    //
+    lono.openPaths = function openPaths(local pathlist) {
+        pathlist = []
+        lono.api.forEachNode(function(rowNode, index, local path) {
+            if rowNode.data.children && rowNode.expanded {
+                path = rowNode.data.path
+                if !path
+                    path = ""
+                pathlist.push(path)
+            }
+        })
+        pathlist
+    }
+
+    // getLogList
+    //
+    //     Return an array of document rowNodes in the current tree.
+    //
+    lono.getLogList = function getLogList(local docNodes) {
+        docNodes = []
+        lono.api.forEachLeafNode(function(rowNode, index) {
+            docNodes.push(rowNode)
+        })
+        docNodes
+    }
+    
+    // openAndSelect
+    //
+    //     Open the parents of the specified rowNode and then select it.
+    //
+    lono.openAndSelect = function openAndSelect(rowNode, local count) {
+        count = 0
+        function openParent(rowNode) {                                      // open chain of parents
+            if rowNode {
+                if !rowNode.expanded
+                    ++count
+                openParent(rowNode.parent)
+                if count >= 2 {
+                    rowNode.expanded = true                                 // 2 or more expansions
+                    return (true)
+                }
+                rowNode.setExpanded(true)
+                return (false) }
+        }
+        if openParent(rowNode.parent)
+            lono.api.onGroupExpandedOrCollapsed()                          // refresh all expansions at once
+        selectOnly(rowNode)
+        lono.api.ensureNodeVisible(rowNode)
+    }
+
+    // finis
+
+    lono
+};
+
+
+/*
+ * docnavInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function docnavInit(local manifest) {
+    manifest = `(LogsNavOutline, docnavInit)
+    Naan.module.build(module.id, "logs_nav", function(modobj, compobj) {
+        compobj.manifest = manifest
+        modobj.exports.LogsNavOutline = LogsNavOutline
+    })
+} ();

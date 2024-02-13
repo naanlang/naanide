@@ -236,10 +236,13 @@ closure MakeDebug(niui, local debug) {
     debug.terminalReady = function terminalReady(local m1, m2, m3, m4) {
         m1 = niui.track.spawn("Local", "NaanIDE", "NaanIDE")
         m2 = niui.track.spawn("Local", "Play", "NaanIDE-Play")
-        m3 = niui.track.spawn("Host", "NaanIDE Server", "NideServer")
+        m3 = niui.track.spawn("Host", "NaanIDE Server", "NideServer", {
+            dispatcher: require("frameworks/running/taskexec.nlg").TaskDispatcher
+        })
         m4 = niui.track.spawn("Host", "Play", "NaanIDE-Server-Play")
 // ### AWS Lambda currently disabled
 //        m5 = niui.track.spawn("Lambda", false, "my lambda")
+        App.nide.hostTerm = m3.1                                            // result tuple
         debug.debex.resetContents()
         niui.track.watch(closure watch(changes) {
             if changes.added || changes.deleted || changes.updated

@@ -1,0 +1,521 @@
+/*
+ * ah_yandex.nlg
+ * LogViewer: a NaanIDE plugin
+ *
+ * AskHow-Yandex data processor for logViewer.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2024 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * AhYandex
+ *
+ * This is an AskHow-YandexCloud data expert for the logViewer.
+ *
+ */
+
+closure AhYandex(logman, notify, local ahya) {
+    global()
+    ahya = new(object, this)
+    ahya.reMsgVersion = RegExp("\\[INFO\\] naanlib (\\S+) (\\S+)")
+    ahya.reReqEndpoint = RegExp("=========> (\\S+) (\\S+) =========>")
+    ahya.reRequester = RegExp('"devID":"?([^"]+)"?,"userID":"?([^"]+)"?,"version":"?([^"]+)"?,"ipAddr":"([^"]+)"')
+    ahya.reDuration = RegExp("Duration: ([0-9.]+) ms "
+        "Billed Duration: ([0-9.]+) ms "
+        "Memory Size: ([0-9]+) MB "
+        "(?:Max Memory Used: ([0-9]+) MB )?"
+        "Queuing Duration: ([0-9.]+)")
+    ahya.reError = RegExp("^ERROR RequestID: \\S+ (.*)$")
+    ahya.reAuth = RegExp('"state":{"devID":"?([^"]+)"?,')
+    ahya.reRequestBody = RegExp('request body (.+)$')
+    ahya.reResponseBody = RegExp('response body: (.+) in [0-9]+ ms <---------$')
+    ahya.reJson = RegExp("^[{[]")
+
+    // treeAddPaths
+    //
+    // Ensure that nodes in the tree have a path field indicating their location.
+    //
+    function treeAddPaths(node, path, local child) {
+        if !node.path {
+            if !path
+                node.path = ""
+            else if node.children
+                node.path = path.concat(node.name, "/")
+            else
+                node.path = path.concat(node.name)
+        }
+        for child in node.children
+            treeAddPaths(child, node.path)
+    }
+
+    // setLocation
+    //
+    // Set a log source location, which is a PSM filesystem resource location.
+    //
+    ahya.setLocation = function setLocation(where, local error, fs, tree) {
+        debuglog("AhYandex.setLocation", totuple(where))
+        `(error, fs) = logman.niui.locate.connect(where.resID, "NideFS", where.path)
+        if !error
+            `(error, tree) = fs.tree("", 4)                                 // depth limit
+        if error {
+            debuglog("AhYandex.setLocation failed,", error)
+            return(list(error))
+        }
+        treeAddPaths(tree)
+        ahya.fs = fs
+        ahya.tree = tree
+        list(false, { ok: true })
+    }
+
+    // navTree
+    //
+    // Return the log tree for hierarchical navigation. The structure of a Yandex log tree is:
+    //  yyyy / mm / dd / <files>.
+    //
+    ahya.navTree = function navTree() {
+        if ahya.tree
+            { }
+        else
+            []
+    }
+    
+    // syncTree
+    //
+    // Synchronize the specified folder with our current tree, in case the tree has new files.
+    // This modifies adds any new files to the folder.
+    //
+    function syncTree(folder, local relpath, node, index, child, orig) {
+        relpath = folder.path.split("/")
+        node = ahya.tree
+        while relpath.length > 1 {
+            node = node.children.find(function(kid){ kid.name == relpath.0 })
+            if !node
+                break
+            relpath.shift()
+        }
+        debuglog("syncTree: update ${folder.path} from ${node.path}")
+        debuglog("syncTree: existing ${folder.children.length} / new ${node.children.length} files")
+        index = {}
+        for child in folder.children
+            index[child.name] = child
+        folder.children = new(node.children)
+        for child in folder.children {
+            orig = index[child.name]
+            if orig {
+                child.items = orig.items
+                child.parsed = orig.parsed
+            }
+        }
+        debuglog("syncTree: updated to ${folder.children.length} files")
+    }
+
+    // parseItem
+    //
+    // Parse a log item, returning a dictionary containing anything useful that we might want to
+    // track that does not vary by line. For example, This obtains the duration and memory usage
+    // when it happens to come across the REPORT item.
+    //
+    closure parseItem(item, local output, message, version, endpoint, requester, report, auth, exerror) {
+        output = {}
+        message = item.message
+        version = message.match(ahya.reMsgVersion)
+        if version
+             output.serverVersion = version.1                               // Naan version
+        endpoint = message.match(ahya.reReqEndpoint)
+        if endpoint {
+            output.reqMethod = endpoint.1                                   // http request method
+            output.reqEP = endpoint.2                                       // endpoint path
+        }
+        requester = message.match(ahya.reRequester)
+        if requester {
+            if requester.1 != "false"
+                output.devID = requester.1                                  // client device ID
+            if requester.2 != "false"
+                output.userID = requester.2                                 // client user ID
+            if requester.3 != "false"
+                output.clientVersion = requester.3                          // client version
+            output.ipAddr = requester.4                                     // client IP address
+        }
+        report = message.match(ahya.reDuration)
+        if report {
+            output.duration = tofloat(report.1)                             // used msec
+            output.billed = tofloat(report.2)                               // billed msec
+            output.malloc = toint(report.3)                                 // memory size
+            output.memory = toint(report.4)                                 // memory used
+            output.queueing = tofloat(report.5)                             // queueing time
+        }
+        auth = message.match(ahya.reAuth)
+        if auth.1 && auth.1 != "false"
+            output.devID = auth.1                                           // client device ID during auth
+        exerror = message.match(ahya.reError)
+        if exerror
+            output.error = exerror.1                                        // execution error
+        output
+    }
+
+    // parseFile
+    //
+    // This reads and parses a Yandex log file, which is in NDJSON (Newline-Delimited JSON) format.
+    // Pass in the file's node from the tree, and get back a result tuple with error/items.
+    //
+    closure parseFile(node, local error, text, lines, items, line, item) {
+        `(error, text) = ahya.fs.read(node.path)
+        if error
+            return (list(error))
+        lines = text.split(RegExp("[\\r\\n]"))
+        items = []
+        for line in lines
+            if line.length > 0 {
+                `(error, item) = JsonParse(line)
+                if !error && string(item.data) && string(item.topic)
+                    `(error, item) = JsonParse(item.data)                   // CloudLogging parser not used
+                if item
+                    items.push(new(item))
+                else
+                    ErrorDebuglog("AhYandex.parseFile:", error)
+            }
+        list(false, items)
+    }
+
+    // parseFolder
+    //
+    // This parses the files in a Yandex log directory, skipping over those that are already parsed
+    // so that this can run repeatedly on a changing folder without redundant processing. This
+    // returns the number of new folders found.
+    //
+    // The ouput format of the log data is:
+    //  {
+    //      requests: [                         // request records sorted by time
+    //          {
+    //              reqID:      <string>        // YC GUID
+    //              date:       <Date object>   // timestamp of first time in lines
+    //              origin:     <string>        // resourceID '-' versionID
+    //              info:       { }             // info gleaned from lines
+    //              lines:      [<string>]      // lines of log text text in the request
+    //          }
+    //      ]
+    //  }
+    //
+    ahya.parseFolder = closure parseFolder(folder,
+        local count, child, requests, reqdex, item, pay, stamp, request) {
+        syncTree(folder)
+        count = 0
+        asyncArray(folder.children, 10, closure(child, index, cancel) {
+            if !child.items {
+                ++count
+                child.items = parseFile(child).1
+            }
+        }).wait()
+        if count == 0
+            return (list(false, 0))
+        requests = folder.requests
+        if !requests
+            folder.requests = requests = []
+        reqdex = { }
+        for request in requests
+            reqdex[request.reqID] = request
+        for child in folder.children {
+            if child.parsed
+                continue
+            for item in child.items {
+                pay = item.jsonPayload
+                if item.resource.type != "serverless.function"
+                    continue
+                stamp = Date.parse(item.timestamp)
+                request = reqdex[pay.request_id]
+                if request
+                    request.date = false                                    // need to sort again
+                else {
+                    request = reqdex[pay.request_id] = {
+                        date: false                                         // needs sorting
+                        reqID: pay.request_id                               // on every item
+                        origin: item.resource.id.concat("-", pay.version_id)    // on every item
+                        info: {}
+                        lines: []
+                    }
+                    requests.push(request)
+                }
+                request.info = merge(request.info, parseItem(item))         // catch what we can on this item
+                if !request.lines.find(function(line){
+                    line.0 == stamp && line.1 == item.message
+                })
+                    request.lines.push(list(stamp, item.message))           // add only unique lines
+            }
+            child.parsed = true                                             // all child items processed
+        }
+        for request in requests
+            if !request.date {                                              // ensure each request's lines sorted
+                request.lines.sort(function(a,b) {
+                    a.0 <=> b.0
+                })
+                request.date = request.lines.0.0                            // first line, timestamp
+            }
+        requests.sort(function(a,b) {                                       // ensure requests are sorted
+            a.date <=> b.date
+        })
+        list(false, count)
+    }
+    
+    // formatRequest
+    //
+    // Format the specified request record for human consumption.
+    //
+    ahya.formatRequest = function formatRequest(request, local tlines, line, output, reqbody, respbody) {
+        tlines = ""
+        for line in request.lines {
+            if !reqbody && (reqbody = line.1.match(ahya.reRequestBody).1) {
+                if reqbody.match(ahya.reJson)
+                    reqbody = new(JsonParse(reqbody).1)
+            }
+            if !respbody && (respbody = line.1.match(ahya.reResponseBody).1) {
+                if respbody.match(ahya.reJson)
+                    respbody = new(JsonParse(respbody).1)
+                else if string(respbody) && respbody.startsWith('"') {
+                    // some moron formatted the response in the log as source (!)
+                    respbody = Dialect.parse(new(textstream,tostring(respbody,{noquote:true}).concat(";;"))).1
+                    if respbody.match(ahya.reJson)
+                        respbody = new(JsonParse(respbody).1)
+                }
+            }
+            tlines = tlines.concat(Date(line.0-request.date).toISOString().slice(-7,-1),
+                " ", line.1.slice(0,250), "\n")
+        }
+        output =
+            'Date:   ${Date(request.date).toISOString().replace("T", " T ")}\n'
+            'EP:     ${request.info.reqEP}\n'
+            'devID:  ${request.info.devID}\n'
+            'userID: ${request.info.userID}\n'
+            'IP:     ${request.info.ipAddr}\n'
+            '\n'
+            'Lines:\n'
+            '${tlines}'
+        if reqbody
+            output = output.concat(
+                '\n'
+                'Request:\n'
+                '${Dialect.print(reqbody)}\n')
+        if respbody
+            output = output.concat(
+                '\n'
+                'Response:\n'
+                '${Dialect.print(respbody)}\n')
+        output
+    }
+
+    // report
+    //
+    // Generate a report for the current folder node, that was already processed by parseFolder.
+    //
+    ahya.report = closure report(folder,
+        local reSVtest, reCurUser, stats, requests, request, count) {
+        reSVtest = RegExp("yctest")
+        reCurUser = RegExp('fullName\\\\":\\\\"([^"]+)\\\\",')              // oh man that's ugly; derived in the debugger
+        stats = {
+            identity: { }                                                   // master list of identity information
+            id_user: { }                                                    // userID to identity key
+            id_dev: { }                                                     // devID to identity key
+
+            test_ip_index: { }                                              // group by IP address
+            test_user_index: { }                                            // group by userID
+            test_dev_index: { }                                             // group by devID
+        }
+        
+        // setDictArray
+        //
+        // If an array exists in the dictionary, push an element on it. Otherwise add as first element.
+        //
+        function setDictArray(dict, key, item) {
+            if array(dict[key]) {
+                if dict[key].indexOf(item) < 0                              // no dupes
+                    dict[key].push(item)
+            }
+            else
+                dict[key] = [item]
+        }
+        
+        // addRequestToIdentity
+        //
+        // Add useful information from our request to the identity defined by key. Each request can
+        // have a userID or devID or both. If a request is ever found with both then it shares the
+        // same identity with those requests that have either. However one user can use two devices
+        // or two users can use one device, and any number of IP addresses can be involved. This
+        // makes a list of everything connected to each identity.
+        //
+        function addRequestToIdentity(req, key, local info) {
+            info = req.info
+            if !stats.identity[key]
+                stats.identity[key] = { }
+            if info.userID
+                setDictArray(stats.identity[key], `userID, info.userID)
+            if info.devID
+                setDictArray(stats.identity[key], `devID, info.devID)
+            if info.ipAddr
+                setDictArray(stats.identity[key], `ipAddr, info.ipAddr)
+            if req.fullName
+                setDictArray(stats.identity[key], `fullName, req.fullName)
+            if req.test
+                stats.identity[key].test = true
+        }
+
+        // addIfBoth
+        //
+        // Add to a list of userID/devID correlations if both defined.
+        //
+        function addIfBoth(req, local info, both) {
+            info = req.info
+            if info.userID && info.devID {
+                both = info.userID.concat("-", info.devID)
+                addRequestToIdentity(req, both)
+                stats.id_user[info.userID] = both
+                stats.id_dev[info.devID] = both
+            }
+        }
+        
+        // addIfOne
+        //
+        // Add to a list of userID/devID correlations based on one being defined.
+        //
+        function addIfOne(req, local info, key) {
+            info = req.info
+            if info.userID && info.devID
+                return                                                      // already done
+            key = stats.id_user[info.userID] || stats.id_dev[info.devID]
+            if !key
+                key = info.userID || info.devID
+            if !key
+                return                                                      // invalid for identity
+            addRequestToIdentity(req, key)
+        }
+
+        // addRequestToTests
+        //
+        function addRequestToTests(req, local info) {
+            info = req.info
+            req.test = true
+            if info.ipAddr
+                stats.test_ip_index[info.ipAddr] = true
+            if info.userID
+                stats.test_user_index[info.userID] = true
+            if info.devID
+                stats.test_dev_index[info.devID] = true
+        }
+        
+        // gleanFullName
+        //
+        function gleanFullName(req, local line, fullName) {
+            for line in req.lines {
+                fullName = line.1.match(reCurUser)
+                if fullName
+                    return (fullName.1)
+            }
+            undefined
+        }
+        
+        // combineUnique
+        //
+        // Combine two arrays into a unique set of requests.
+        //
+        function combineUnique(a1, a2, local output, item) {
+            output = a1
+            if a2.length > a1.length {                                      // can't help but a little opto
+                a2 = a1
+                output = a2
+            }
+            for item in a2
+                if output.indexOf(item) < 0
+                    output.push(item)
+            output
+        }
+
+        requests = new(folder.requests)
+        //
+        // glean additional information from lines
+        //
+        for request in requests                                             // create non-test groups
+            if request.info.reqEP == "/users/currentUserInfo"
+                request.fullName = gleanFullName(request)
+        //
+        // put requests into appropriate groups
+        //
+        for request in requests
+            if request.info.serverVersion.match(reSVtest)
+                addRequestToTests(request)
+        for request in requests                                             // associate all test-ish requests
+            if stats.test_ip_index[request.info.ipAddr]
+                || stats.test_user_index[request.info.userID]
+                || stats.test_dev_index[request.info.devID]
+                addRequestToTests(request)
+        for request in requests                                             // create a user/dev correlation
+            addIfBoth(request)
+        for request in requests                                             // add remaining info
+            addIfOne(request)
+        
+        //
+        // print results
+        //
+
+        function outfield(field) {
+            if array(field) {
+                if field.length > 1
+                    '[${field.split(",")}]'
+                else
+                    field.0
+            } else
+                field
+        }
+
+        function outputRecords(test, local count, key, record, line) {
+            count = 0
+            for `(key, record) in stats.identity {
+                if test && !record.test || !test && record.test
+                    continue
+                line = "    "
+                if record.userID
+                    line = line.concat(outfield(record.userID), " ")
+                if record.ipAddr
+                    line = line.concat(outfield(record.ipAddr), " ")
+                if record.fullName
+                    line = line.concat(outfield(record.fullName))
+                printline(line)
+                ++count
+            }
+            count
+        }
+        
+        printline("Production users on ${folder.path}:")
+        count = outputRecords(false)
+        if count == 0
+            printline("    none")
+        else
+            printline("totalling ${count} production users")
+        printline("Test users on ${folder.path}:")
+        count = outputRecords(true)
+        if count == 0
+            printline("    none")
+        else
+            printline("totalling ${count} production users")
+    }
+
+    // finis
+
+    ahya
+};
+
+/*
+ * ahyaInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function ahyaInit(local manifest) {
+    manifest = `(AhYandex, ahyaInit)
+
+    Naan.module.build(module.id, "ah_yandex", function(modobj, compobj) {
+        compobj.manifest = manifest
+    })
+} ();

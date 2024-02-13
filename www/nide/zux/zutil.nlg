@@ -7,7 +7,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2021 by Richard C. Zulch
+ * Copyright (c) 2020-2024 by Richard C. Zulch
  *
  */
 
@@ -56,6 +56,21 @@ function escapeHTML(html) {
 
 
 /*
+ * initToolTips
+ *
+ *     Initialize tooltips within an element and its children.
+ *
+ */
+
+function initToolTips(element, local tooltipTriggerList) {
+    tooltipTriggerList = Array.from(element.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    niui.tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        js.w.bootstrap.Tooltip.getOrCreateInstance(tooltipTriggerEl)
+    })
+};
+
+
+/*
  * Tableize
  *
  *     Convert an array of text elements to an HTML table. The source array should have an element
@@ -90,7 +105,7 @@ function Tableize(data, options, local nlregx, indent, output, row, rowout, col,
         space.repeat(indent*4).concat(txt)
     }
 
-    output = "<table class='table'>\n"
+    output = "<table class='table zux_table'>\n"
         "    <tbody>\n"
     indent = 1
     for row in data {
@@ -124,8 +139,10 @@ function zutilInit(local manifest) {
 
     Naan.module.build(module.id, "zutil", function(modobj, compobj) {
         compobj.manifest = manifest
+        modobj.exports.setElementClass = setElementClass
         modobj.exports.elemVisible = elemVisible
         modobj.exports.escapeHTML = escapeHTML
+        modobj.exports.initToolTips = initToolTips
         modobj.exports.Tableize = Tableize
     })
 } ();

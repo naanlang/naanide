@@ -1,0 +1,120 @@
+/*
+ * logs_source.nlg
+ * LogViewer: a NaanIDE plugin
+ *
+ * Source selection UI for the log viewer.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2024 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * LogSource
+ *
+ * User controls for selecting log source and format.
+ *
+ */
+
+closure LogSource(panel, local loso, niui) {
+    loso = new(object, this)
+    niui = panel.logman.niui
+    loso.locbut = document.getElementById("LogvLocationButton")
+    loso.locmenu = document.getElementById("LogvLocationMenu")
+
+    // setLocation
+    //
+    // Set the location of our log data source. The where dictionary looks like:
+    //  {
+    //      name:   <string>                    // user-visible name of the folder or whatever
+    //      path:   <string>                    // pathname for the folder
+    //      resID:  <string>                    // PSM resource ID
+    //  }
+    //
+    loso.setLocation = closure setLocation(where) {
+        where = new(where)
+        loso.where = where
+        if !where.path
+            where.path = ""
+        updateControls()
+        panel.logman.setLocation(where)
+    }
+
+    // updateControls
+    //
+    // Update controls for current selection, etc.
+    //
+    loso.updateControls = function updateControls() {
+        loso.locbut.textContent = loso.where.name
+    }
+
+    //
+    // event handlers
+    //
+
+    loso.locbut.onclick = closure(local where, labels) {
+        labels = []
+        for where in loso.wheres
+            labels.push(where.name)
+        if labels.length != 0
+            labels.push("-")
+        labels.push("Add Location...")
+        zux.MenuDropdown(labels, {
+                menudiv: loso.locmenu
+                refel: loso.locbut
+            }, function(event, itemdex, itemdiv) {
+                where = loso.wheres[itemdex]
+                if !where {
+                    niui.addLocation()
+                    setResult(false)
+                } else if loso.where !== where
+                    loso.setLocation(where)
+        }).show()
+    }
+
+    // updateSourceList
+    //
+    // Update our source locations list.
+    //
+   function updateSourceList(local resID, where) {
+        loso.wheres = []
+        for resID in niui.locate.resources() {
+            where = {
+                name: niui.locate.info(resID).name
+                resID: resID
+            }
+            loso.wheres.push(where)
+        }
+    }
+
+    // vate
+    //
+    // Initialize our wheres list with all known locations at this time.
+    //
+    loso.vate = function vate(visible) {
+        if visible
+            updateSourceList()
+    }
+
+    // finis
+    loso
+};
+
+
+/*
+ * losoInit
+ *
+ * Initialize the log source UI.
+ *
+ */
+
+function losoInit(local manifest) {
+    manifest = `(LogSource, losoInit)
+
+    Naan.module.build(module.id, "logs_source", function(modobj, compobj) {
+        compobj.manifest = manifest
+    })
+
+} ();

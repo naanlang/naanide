@@ -139,14 +139,8 @@ function docmanInit(local manifest) {
 
     Naan.module.build(module.id, "docs_manager", function(modobj, compobj) {
         compobj.manifest = manifest
-
-        function ndocPostload() {
-            jspath = js.r("path")
-            window = js.w
-            document = window.document
-            App.nide.addUI(ndocIdePlugin)
-        } ()
-        module.postload = ndocPostload
         require("./docs_panel.nlg")
+        require("./docs_nav.nlg")
+        require("./docs_viewer.nlg")
     })
 } ();

@@ -255,10 +255,13 @@ closure makeHisel(divid, local hisel, columnDefs, rowData, delayer) {
     hisel.setTree = function setTree(fm, delegate, openpaths) {
         if hisel.fm
             hisel.fm.unWatch(updateOnChange)
-        hisel.fm = fm
-        hisel.fm.watch(updateOnChange)
-        hisel.delegate = delegate
-        updateTree(openpaths)
+        if fm {
+            hisel.fm = fm
+            hisel.fm.watch(updateOnChange)
+            hisel.delegate = delegate
+            updateTree(openpaths)
+        } else
+            hisel.api.setRowData([])
     }
 
     // delNode
@@ -505,9 +508,9 @@ closure searchedSel(divid, local sesel, columnDefs, rowData) {
                 })
             dicts }
 
+        tree = []
         if results {
             setHeaderText(strcat(results.foundCount, " results in ", results.foundFileCount, " files"))
-            tree = []
             for file in results.files
                 tree.push({
                     item: file.node

@@ -1,0 +1,100 @@
+/*
+ * logs_manager.nlg
+ * LogViewer: a NaanIDE plugin
+ *
+ * Overall manager for logViewer.
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2024 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * LogsManager
+ *
+ * Logs parser and viewer.
+ *
+ */
+
+closure LogsManager(logv, local logman) {
+    logman = new(object, this)
+    logman.niui = logv.niui
+
+    // changes
+    //
+    // Respond to data changes.
+    //
+    closure changes(changed) {
+        debuglog("### changes", changed)
+    }
+
+    // updateLocation
+    //
+    // Update for a new/changed location.
+    //
+    logman.updateLocation = function updateLocation(local prog, error) {
+        try {
+            prog = App.ui.progress()
+            `(error) = logman.expert.setLocation(logman.where)              // tell expert to read data
+        } finally {
+            prog.done()
+        }
+        if error
+            logman.niui.alert("Cannot access source, ${ErrorString(error)}", { class: "alert-danger"})
+        list(error)
+    }
+
+    // setLocation
+    //
+    // We have a new log source location.
+    //
+    logman.setLocation = function setLocation(where, local error) {
+        debuglog("location set to", totuple(where))
+        logman.panel.setSource()                                            // clear source from UI
+        logman.expert = AhYandex(logman, changes)                           // make appropriate expert
+        logman.where = where
+        `(error) = updateLocation()
+        if !error
+            logman.panel.setSource(logman.expert)                           // set updated information
+    }
+
+    // vate
+    //
+    // Activate/deactivate the viewer.
+    //
+    logman.vate = function vate(visible) {
+        logman.panel.vate(visible)
+    }
+
+    // reload
+    //
+    // Initialize at startup or reload.
+    //
+    logman.reload = function reload() {
+        logman.panel = LogsPanel(logman)
+    }
+
+    // finis
+
+    logman
+};
+
+
+/*
+ * logmanInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function logmanInit(local manifest) {
+    manifest = `(LogsManager, logmanInit)
+
+    Naan.module.build(module.id, "logs_manager", function(modobj, compobj) {
+        compobj.manifest = manifest
+        require("./ah_yandex.nlg")
+        require("./logs_panel.nlg")
+    })
+} ();

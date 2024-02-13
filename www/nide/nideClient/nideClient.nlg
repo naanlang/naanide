@@ -1,12 +1,12 @@
 /*
  * nideClient.nlg
- * NaanIDE version 0.9.16+1
+ * NaanIDE version 0.9.17+1
  *
  *     Naan IDE controller for browsers.
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2023 by Richard C. Zulch
+ * Copyright (c) 2017-2024 by Richard C. Zulch
  *
  */
 
@@ -85,7 +85,10 @@ closure niccPrefs(nicc, dbname, local prefs, error, data) {
                 ErrorDebuglog("Can't read nide_options.cfg", error)
                 config = { } }
             else {
-                `(error, config) = JsonParse(req.responseText)
+                if req.status == 200
+                    `(error, config) = JsonParse(req.responseText)
+                else
+                    error = Error(req.statusText)
                 if error {
                     ErrorDebuglog("Can't decode nide_options.cfg", error)
                     config = { }
@@ -126,7 +129,10 @@ closure niccPrefs(nicc, dbname, local prefs, error, data) {
             if error
                 ErrorDebuglog("Can't read ".concat(path), error)
             else {
-                `(error, config) = JsonParse(req.responseText)
+                if req.status == 200
+                    `(error, config) = JsonParse(req.responseText)
+                else
+                    error = Error(req.statusText)
                 if error
                     ErrorDebuglog("Can't decode ".concat(path), error)
                 else
@@ -327,18 +333,18 @@ closure niccTermControl(local newin, termState, winOpen) {
  */
 
 closure niccController(api, local nicc, result, homeDir, pollint, version) {
-    global(window)
+    global(window, document)
     nicc = new(object, this)
     nicc.alert = closure prealert(text, options) {
         future(function() { nicc.alert(text, options) }, 1000)              // reschedule alert if too early
     }
     App.nide = nicc
+    nicc.statusEl = document.getElementById("NideStatus")
     nicc.hostpath = window.location.origin.concat(js.r("path").dirname(window.location.pathname))
     if nicc.hostpath.slice(-1) != "/"
         nicc.hostpath = nicc.hostpath.concat("/")                           // must end in "/"
     nicc.baseurl = window.location.href.split(RegExp("[?#]"))[0]            // URL without variables or hashes
     nicc.api = api
-    niccTermControl()                                                       // open/prepare terminal early
     nicc.prefs = niccPrefs(nicc, "Nide")
     nicc.uilist = []
     nicc.psm = require("frameworks/client/psm_client.nlg").MakeClientPSM(nicc, "Nide")
@@ -350,7 +356,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     nicc.projman = require("frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
     nicc.projects = nicc.projman.tracker()
     nicc.projects.open()
-    nicc.sworker = require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.16+1", function() {
+    nicc.sworker = require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.17+1", function() {
         nicc.upgrade_sw = true
         nicc.checker.run(1)                                                 // run the update checker very soon
     })
@@ -377,8 +383,8 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
         if !options
             options = {
                 startup: {
-                    initcmds: 'App.version = "0.9.16+1";;\n'
-                        'App.cache = "d0dbe33d09a6d9dff9c044023f895716";;\n'
+                    initcmds: 'App.version = "0.9.17+1";;\n'
+                        'App.cache = "4df9223df9d8be2cedf82267601cee62";;\n'
                         'Naan.module.requireQuery({ naanver: App.cache });;\n'
                         'Naan.module.defineExt("nlg", true);;\n'
                         'require("naan_init_workers.nlg");;\n'
@@ -475,11 +481,20 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
         if error
             return (false)                                                  // errors tell us nothing
         result = RegExp('App.version = "([^"]+)"[\\s\\S]+App.cache = "([^"]+)"').exec(data)
-        if !result
-            return (false)                                                  // couldn't find version string
+        if !result.1 || !result.2 {
+            debuglog("appUpdateCheck: can't get current version")
+            window.localStorage.removeItem("nide-loading")
+            return (false)
+        }
         nicc.upgrade_nextversion = result.1
         age = VersionCheck(App.version, result.1)                           // result.1 is version; result.2 is cache
-        !age || age < 0                                                     // <0 means we are older than server
+        if !age || age < 0 {                                                // <0 means we are older than server
+            window.localStorage.setItem("nide-loading", "${result.1}|<font color=#00aa33>upgrading")
+            true
+        } else {
+            window.localStorage.removeItem("nide-loading")
+            false
+        }
     }
     
     // appUpdateNow
@@ -487,9 +502,10 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     // Update the app now by telling the service worker to reload.
     //
     nicc.appUpdateNow = function appUpdateNow() {
+        appUpdateCheck()                                                    // ensure updating message set
         future(function() {
             nicc.sworker.serv.reload()
-        }, 20)
+        }, 1)
     }
     
     // update at startup
@@ -497,11 +513,13 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     future(function() {                                                     // update automatically at startup
         if nicc.upgrade_sw || appUpdateCheck()
             appUpdateNow()
+        else
+            niccTermControl()
     },10)
     nicc.checker = future(function() {                                      // check hourly - 3,600,000 msec
         if nicc.upgrade_sw || appUpdateCheck() {
-            nicc.alert("<b>NaanIDE Upgrade Available</b><br>please reload page for version ".concat(nicc.upgrade_nextversion),
-                { class: "alert-primary" })
+            nicc.upalert = nicc.alert("<b>NaanIDE Upgrade Available</b><br>please reload page for version ".concat(nicc.upgrade_nextversion),
+                { class: "alert-primary", unique: "app-upgrade" })
         }
         nicc.checker.run(3600000)
     }, 3600000)
@@ -512,26 +530,27 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     // disconnection.
     //
     pollint = 60000                                                         // default timeout 1 minute
-    version = "NaanIDE 0.9.16+1"
-    window."$"("#NideStatus").html(version.concat("&nbsp;&nbsp;<font color=#00aa33>loading"))
+    version = "NaanIDE 0.9.17+1"
     function statusPoll(timeoutms) {
         api.status(function (status) {
             if not status {
                 nicc.connected = false
-                window."$"("#NideStatus").html(version.concat("&nbsp;&nbsp;<font color=#aa3300>disconnected"))
-                future(function poll1(){statusPoll(pollint)}, pollint)
+                nicc.statusEl.innerHTML = version.concat("&nbsp;&nbsp;<font color=#aa3300>disconnected")
+                future(function poll1(){statusPoll(1000)}, 1)               // once every second
             }
             else {
+                if !nicc.connected
+                    nicc.hostTerm.PostMessage("reconnected")                // make sure server knows about us
                 nicc.connected = true
                 if status.length > 0
-                    window."$"("#NideStatus").text(version.concat("&nbsp;&nbsp;", status[0].message))
+                    nicc.statusEl.innerHTML = status[0].message
                 else
-                    window."$"("#NideStatus").html(version.concat("&nbsp;&nbsp;<font color=#00aa33>ready"))
-                future(function poll2(){statusPoll(pollint)}, 1)
+                    nicc.statusEl.innerHTML = version.concat("&nbsp;&nbsp;<font color=#00aa33>ready")
+                future(function poll2(){statusPoll(pollint)}, 300)          // try to reconnect more quickly
             }
             window.nideHost.setConnectivity(nicc.connected)
         }, timeoutms)
-    }(1000)                                                                 // 1 second initial check
+    }
 
     // setUI
     //
@@ -586,6 +605,13 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     //
     
     nicc.prefs.loadplugins()
+    addUI(function(local loading) {
+        loading = window.localStorage.getItem("nide-loading")
+        loading = loading.split("|")
+        if loading.0 == "0.9.17+1"
+            window.localStorage.removeItem("nide-loading")
+        statusPoll(1)
+    })
 
     // finis
 
@@ -615,6 +641,7 @@ function niccInit(local manifest, nideRunning) {
         module.reload = niccReload
     })
 
+    App.model = require("model.nlg").NideModel()
     require("../common").LiveImport()
     require("frameworks/storage/dbt_pouch.nlg")
     require("frameworks/project/projects.nlg")

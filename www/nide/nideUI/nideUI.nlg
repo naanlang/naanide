@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2023 by Richard C. Zulch
+ * Copyright (c) 2017-2024 by Richard C. Zulch
  *
  */
 
@@ -254,9 +254,10 @@ closure niuiBase(nicc, local niui) {
     // it is assumed to be intentional HTML and no processing is performed. Otherwise the text
     // is escaped so that no inadvertent interpretation is done. Options are:
     // {
-    //      class:      bootstrap-4 alert class, such as "alert-danger"; default is "alert-primary"
+    //      class:      bootstrap-5 alert class, such as "alert-danger"; default is "alert-primary"
     //      timeout:    nnnn millisecond timeout, after which alert closes automatically
     //      noclose:    true to disable the close button
+    //      unique:     unique string removes existing matching ones
     // }
     //
     
@@ -277,11 +278,29 @@ closure niuiBase(nicc, local niui) {
             child.parentNode.removeChild(child)
         }
         earlier = niui.globalAlertDiv.children[0]
-        if earlier
+        if earlier {
             niui.globalAlertDiv.insertBefore(ocDiv, earlier)                // put newer on top
+            if !earlier.classList.contains("show")
+                setElementClass(earlier, "d-none", true)                    // hide fading alert immediately
+        }
         else
             niui.globalAlertDiv.append(ocDiv)
         alert = xnew(js.w.bootstrap.Alert, ocDiv)
+        if options.unique {                                                 // replace existing alert
+            earlier = niui.uniques[options.unique]
+            if earlier {
+                setElementClass(earlier.div, "d-none", true)                // hide fading alert immediately
+                earlier.div.close()
+            }
+            niui.uniques = niui.uniques || { }
+            niui.uniques[options.unique] = {
+                div: ocDiv
+                close: close
+            }
+            ocDiv.addEventListener("closed.bs.alert", function() {
+                niui.uniques[options.unique] = undefined
+            })
+        }
         
         if options.timeout > 0
             future(close, options.timeout)                                  // closes automatically
@@ -423,14 +442,14 @@ closure niuiBase(nicc, local niui) {
                 "]": "eventForward",                                        // next edit session
                 "F": "eventFindFiles"                                       // global find
             }, niui.navbar.activeObj())
-    })
+    }) 
 
     // niui.eventSaveAll
     //
     // Shift-S means save everything.
 
     niui.eventSaveAll = function(event) {
-        debuglog("save everything")
+        debuglog("save everything")                                         // ### needs to be implemented
     }
 
     // niui.openTerm
@@ -497,7 +516,7 @@ closure niuiBase(nicc, local niui) {
             niui.butrun.disabled = true
             niui.butpub.disabled = true
             niui.configbut.disabled = true
-            niui.configbut.textContent = "Configuration"
+            niui.configbut.textContent = "Stage"
             niui.buildStage = ""
         }
     }
@@ -540,6 +559,52 @@ closure niuiBase(nicc, local niui) {
         niui.project.publishProject(niui.buildStage, event.shiftKey)
     }
 
+    // model init
+    
+    App.model.add("project")
+    //
+    App.model.project.list = closure(local uuid, output) {
+        output = []
+        for uuid in niui.projects.resources()
+            output.push(merge(niui.projects.info(uuid), {
+                projID: uuid
+            }))
+        output
+    }
+    //
+    App.model.project.open = function(projID) {
+        if niui.activeProject
+            closeProject()
+        niui.openProject(projID)
+    }
+    //
+    App.model.project.add("active")
+    //
+    App.model.project.active.name = function() {
+        if niui.activeProject
+            niui.activeProject.name }
+    //
+    App.model.project.active.projID = function() {
+        niui.activeProject.projID }
+    //
+    App.model.project.active.close = function() {
+        closeProject() }
+    //
+    App.model.project.active.build = function(options, local stage) {
+        stage = options.stage
+        if !stage
+            stage = niui.buildStage
+        if !niui.activeProject || !stage
+            return (false)
+        niui.activeProject.run(stage, options.buildOnly) }
+    //
+    App.model.project.active.add("stage")
+    //
+    App.model.project.active.stage.current = function() {
+        niui.activeProject && niui.buildStage }
+    //
+    App.model.project.active.stage.list = function() {
+        niui.activeProject.config.stages() }
 
     // finish initialization
 

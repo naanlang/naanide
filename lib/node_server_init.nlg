@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2023 by Richard C. Zulch
+ * Copyright (c) 2020-2024 by Richard C. Zulch
  *
  */
 
@@ -14,14 +14,12 @@ loglevel(3);
 chns("Play");
 
 require("node_common_init.nlg");                                                // common for Naan node instances
-require("frameworks/running/debugnub.nlg", { in: "naanlib" }).DebugNub();       // debugger nub
-require("frameworks/running/taskexec.nlg", { in: "naanlib" }).TaskExecutor();   // task executor, used by GuiDebugger
 
 
 /*
  * versionCheck
  *
- *     Ensure that Node is at least as new as the specified version.
+ * Ensure that Node is at least as new as the specified version.
  *
  */
 
@@ -32,57 +30,92 @@ function versionCheck(minver, local rxver, curver) {
     minver[1] < curver[1] || minver[1] == curver[1] && (minver[2] < curver[2] || minver[2] == curver[2] && minver[3] <= curver[3])
 };
 
-cond (
-    if not versionCheck("14.14.0") {                                        // for fs.rm()
-        debuglog("NodeJS too old; version 14.14.0 required.")
-        js.r("process").exit(2)
-    }
-);
-
 
 /*
- * browserLaunch
+ * saveState
  *
- *     Launch the browser on our server, once it is open.
+ * Save our state soon. This saves in a future to avoid stack problems. Returns a nonce.
  *
  */
 
-closure browserLaunch(url, local open, result) {
-    open = js.r("open")
-    result = await(open(url, { app: {
-        name: [open.apps.chrome, open.apps.safari, open.apps.edge]
-    }}))
-    return (result)
+function saveState() {
+    future(function() {
+        js.t.Working()
+        js.save()
+    }, 0)
 };
 
 
 /*
- * open the server
+ * startup
+ *
+ * This is the normal NaanIDE startup code. The scenarios are as follows:
+ * 1. Start new server at available port and launch browser tab             // default behavior
+ * 2. Start new server with intialization file that launches browser
+ * 3. Start new server at fixed port and launch browser tab
+ * 4. Start new server at fixed port with initialization file
+ * 5. Connect to existing server at fixed port and evaluate remote expression, then quit
+ *
+ * This uses the Naan symbol NaanStartParams as:
+ *  {
+ *      naanpath:   <string>                    // path to the naan library
+ *      serverPort: <integer>                   // defined if the command line specified a port
+ *      guid:       <string>                    // server secret
+ *      cmd_mod:    <string>                    // name of a command to execute
+ *      cmd_path:   <string>                    // path to command's module
+ *      cmd_args:   [<string>]                  // arguments to the command
+ *  }
  *
  */
 
-if !integer(NaanServerPort)
-    NaanServerPort = 8008
-    apis = require("frameworks/node/apiserver.nlg", { in: "naanlib" });
-    api = apis.MakeAPI(NaanServerPort, {
-        relpath: "../www"
-        guid: require("frameworks/common").UUID()
-        statics: [
-            list("", NaanPath)
-        ]
-    }, function(err, port, server, local oururl, result) {
-        if err {
-            ErrorDebuglog("can't start", err)
-            js.r("process").exit(1)
-        } else {
-            require("frameworks/node/worker.nlg", { in: "naanlib" }).WorkerController(server)
-            oururl = "http://localhost:".concat(tostring(port), "/nide.html")
-            if server.guid
-                oururl = oururl.concat("?guid=", server.guid)
-            debuglog("server access:", oururl)
-            result = browserLaunch(oururl)
-            if result.0
-                ErrorDebuglog("can't launch browser:", ErrorString(result.0))
+closure startup(local error, api, exists, oururl) {
+    if !versionCheck("14.14.0") {                                           // for fs.rm()
+        debuglog("NaanIDE: NodeJS too old; version 14.14.0 required.")
+        js.g.process.exit(2)
     }
-});
-
+    if !dictionary(NaanStartParams) {
+        debuglog("NaanIDE: startup parameters missing.")
+        js.g.process.exit(3)
+    }
+    App.api = undefined
+    App.nidecon = require("nidecon").NideCon({
+        fixedPort: NaanStartParams.serverPort
+        guid: NaanStartParams.guid
+        statics: [
+            list("", NaanStartParams.naanpath)
+        ]
+    })
+    if NaanStartParams.cmd_mod {
+        `(error) = App.nidecon.runCommand(NaanStartParams.cmd_mod, NaanStartParams.cmd_path, NaanStartParams.cmd_args)
+        saveState().wait()                                                  // wait so we don't exit too soon
+        if error {
+            if error.memo != ""
+                ErrorDebuglog("NaanIDE: command failed", error)
+            if error.exit
+                js.g.process.exit(error.exit)                               // fatal error
+        }
+    }
+    else if js.expr
+        saveState()
+    else {
+        `(error, api, exists) = App.nidecon.startServer()
+        if exists {
+            `(error, oururl) = App.nidecon.connectServer()
+            if error {
+                ErrorDebuglog("NaanIDE: server at port ${NaanStartParams.serverPort} not responding", error)
+                js.g.process.exit(1)
+            }
+            debuglog("existing server access:", oururl)
+            return
+        } else if error {
+            ErrorDebuglog("NaanIDE: can't start server:", error)
+            js.g.process.exit(1)
+        }
+        debuglog("server access:", api.oururl)
+        Naan.runtimelib.curdriver().setOptions({prompt:true})
+        saveState()
+        `(error) = App.nidecon.launchBrowser()
+        if error
+            ErrorDebuglog("NaanIDE: can't launch browser:", error)
+    }
+}();

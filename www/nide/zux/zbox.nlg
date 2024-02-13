@@ -6,30 +6,9 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2021 by Richard C. Zulch
+ * Copyright (c) 2020-2024 by Richard C. Zulch
  *
  */
-
-
-/*
- * zboxDefOptions
- *
- * Create a new options dictionary based on the specified default options.
- *
- */
-
-function zboxDefOptions(options, defOptions, local keys, key) {
-    if dictionary(options) {
-        options = new(options)
-        keys = options.*
-        for key in defOptions
-            if !member(key, keys)
-                options[key] = defOptions[key]
-        options
-    }
-    else
-        options = defOptions
-};
 
 
 /*
@@ -75,6 +54,11 @@ function zboxDefOptions(options, defOptions, local keys, key) {
  *      forEachNode     - callback for each node in the listbox
  *      forEachLeafNode - callback for each leaf node in the listbox
  *
+ * Zbox column flags:
+ *      nogroup         - don't show hiearchy drop control in this column
+ *      noautosize      - this column does not participate in "auto" column resizing
+ *      maxSortLevel    - [agGrid fork] maximum level to apply sort in this column
+ *
  */
 
 closure zboxAbstract(div, options, local zabox) {
@@ -87,23 +71,12 @@ closure zboxAbstract(div, options, local zabox) {
     zabox.selcol = false
     zabox.needColResize = false
     zabox.updatePending = false
-    options = zboxDefOptions(options, {
+    options = merge({
         colSize: "fit"
         cellSelect: false
-    })
+    }, options)
     zabox.options = options
-
-    // columnIDs
-    //
-    // List our columnIDs
-
-    zabox.columnIDs = function columnIDs(local columnIds) {
-        columnIds = []
-        zabox.columnApi.getAllColumns().forEach(function(column) {
-            columnIds.push(column.colId)
-        })
-        columnIds
-    }
+    zabox.autoSizeColumnIds = []
 
     // cellChanged
     //
@@ -234,7 +207,7 @@ closure zboxAbstract(div, options, local zabox) {
         if zabox.ready && elemVisible(zabox.gridiv) {
             zabox.needColResize = false
             if options.colSize == "auto"
-                zabox.columnApi.autoSizeColumns(zabox.columnIDs())
+                zabox.columnApi.autoSizeColumns(zabox.autoSizeColumnIds)
             else if options.colSize == "fit"
                 zabox.api.sizeColumnsToFit()
         }
@@ -487,7 +460,7 @@ closure zboxAbstract(div, options, local zabox) {
         //
         // default options
         //
-        gridOptions = zboxDefOptions(gridops, {
+        gridOptions = merge({
             rowData: []
             onGridReady: zabox.gridReady
             onGridSizeChanged: zabox.gridSizeChanged
@@ -501,7 +474,7 @@ closure zboxAbstract(div, options, local zabox) {
             onCellDoubleClicked: zabox.doubleClick
             onCellEditingStarted: zabox.cellEditingStarted
             onCellEditingStopped: zabox.cellEditingStopped
-        })
+        }, gridops)
         //
         // import options
         //
@@ -515,6 +488,16 @@ closure zboxAbstract(div, options, local zabox) {
             gridOptions.domLayout = options.domLayout
         if options.rowClassRules
             gridOptions.rowClassRules = options.rowClassRules
+        //
+        // process per-column options
+        //
+        gridops.columnDefs.forEach(function(column, coldex) {
+            if !(column.colId || column.field)
+                debuglog("zboxAbstract column ${coldex}: colId or field required")
+            if !column.noautosize
+                zabox.autoSizeColumnIds.push(column.colId || column.field)
+            column.noautosize = undefined                                   // keep Grid from bitching
+        })
         //
         // build the grid
         //
@@ -546,18 +529,18 @@ closure zboxAbstract(div, options, local zabox) {
 
 closure zboxBasic(div, columns, options, local zbox) {
     zbox = zboxAbstract(div, options)
-    options = zboxDefOptions(options, {
+    options = merge({
         rowHeight: 24
-    })
+    }, options)
     zbox.options = options
     columns = new(columns)
-    columns.forEach(function(item, itemdex) {                               // add default column values here
-        item.resizable = true
-        if !item.cellStyle
-            item.cellStyle = { "text-align": "left" }
+    columns.forEach(function(column, coldex) {
+        column.resizable = true
+        if !column.cellStyle
+            column.cellStyle = { "text-align": "left" }
         if !options.cellSelect {
-            item.suppressNavigable = true
-            item.cellClass = "nide-no-border"
+            column.suppressNavigable = true
+            column.cellClass = "nide-no-border"
         }
     })
 
@@ -565,13 +548,13 @@ closure zboxBasic(div, columns, options, local zbox) {
     // set up the Grid control (list box)
     //
 
-    zbox.makeGrid({
+    zbox.makeGrid(merge({
         rowSelection: single
         rowHeight: options.rowHeight
         colResizeDefault: "shift"
         columnDefs: columns
         suppressColumnVirtualisation: true
-    })
+    }, options.gridOptions))
 
     // finis
     zbox
@@ -591,30 +574,31 @@ closure zboxBasic(div, columns, options, local zbox) {
 
 closure zboxHierarchy(div, columns, options, local zbox) {
     zbox = zboxAbstract(div, options)
-    options = zboxDefOptions(options, {
+    options = merge({
         rowSelection: "multiple"
         rowHeight: 24
         enableGroupEdit: true
-    })
+    }, options)
     zbox.options = options
     columns = new(columns)
-    columns.forEach(function(item, itemdex) {                               // add default column values here
-        if options.renderer && !item.cellRenderer {
-            item.cellRenderer = "agGroupCellRenderer"
-            item.cellRendererParams = {
+    columns.forEach(function(column, coldex) {
+        if options.renderer && !column.cellRenderer && !column.nogroup {
+            column.cellRenderer = "agGroupCellRenderer"
+            column.cellRendererParams = {
                 innerRenderer: function(params) {
                     options.renderer(params)                                // callback to generate html for each row
                 }
                 suppressCount: true
             }
         }
+        column.nogroup = undefined                                          // keep Grid from bitching
     })
 
     //
     // set up the Grid control (list box)
     //
 
-    zbox.makeGrid({
+    zbox.makeGrid(merge({
         columnDefs: columns
         rowSelection: options.rowSelection
         rowHeight: options.rowHeight
@@ -629,7 +613,7 @@ closure zboxHierarchy(div, columns, options, local zbox) {
             else
                 null
         }
-    })
+    }, options.gridOptions))
 
     // finis
 
@@ -645,7 +629,7 @@ closure zboxHierarchy(div, columns, options, local zbox) {
  */
 
 function zboxInit(local manifest) {
-    manifest = `(zboxDefOptions, zboxAbstract, zboxBasic, zboxHierarchy, zboxInit)
+    manifest = `(zboxAbstract, zboxBasic, zboxHierarchy, zboxInit)
 
     require("./zux.nlg")
     build(module.id, "zbox", function(modobj, compobj) {
