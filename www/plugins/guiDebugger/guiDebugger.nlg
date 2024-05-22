@@ -49,26 +49,24 @@ function escapeHTML(html) {
  *
  */
 
-closure gudeIdePlugin(niui, local gude) {
+closure gudeIdePlugin(niui, local gude, error, content, extra) {
     gude = new(object, this)
     gude.niui = niui
 
     // get resources and add us to debug page
 
-    niui.api.get("plugins/guiDebugger/guiDebugger.css", function(error, req, e) {
-        if !error && req.responseText.length > 0
-            niui.appendCss(req.responseText)
-        else
-            debuglog("get css failed", error, req.responseText.length, req.responseText)
-        niui.api.get("plugins/guiDebugger/guiDebugger.html", function(error, req, e) {
-            if !error && req.responseText.length > 0 {
-                gude.debcon = niui.navbar.objForIdent("debug")
-                gude.panel = DebugPanel(gude, gude.debcon, req.responseText)
-            }
-            else
-                debuglog("get html failed", error, req.responseText.length, req.responseText)
-        })
-    })
+    `(error, content, extra) = niui.api.get("plugins/guiDebugger/guiDebugger.css")
+    if !error && content.length > 0
+        niui.appendCss(content)
+    else
+        ErrorDebuglog("get css failed", error)
+    `(error, content, extra) = niui.api.get("plugins/guiDebugger/guiDebugger.html")
+    if !error && content.length > 0 {
+        gude.debcon = niui.navbar.objForIdent("debug")
+        gude.panel = DebugPanel(gude, gude.debcon, content)
+    }
+    else
+        ErrorDebuglog("get html failed")
 
     // finis
 

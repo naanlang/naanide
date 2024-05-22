@@ -243,7 +243,7 @@ closure AhYandex(logman, notify, local ahya) {
                 if !request.lines.find(function(line){
                     line.0 == stamp && line.1 == item.message
                 })
-                    request.lines.push(list(stamp, item.message))           // add only unique lines
+                request.lines.push(list(stamp, item.message))               // add only unique lines
             }
             child.parsed = true                                             // all child items processed
         }

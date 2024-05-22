@@ -43,7 +43,7 @@ closure logvIdePlugin(niui, local logv) {
     future(function(error, content) {
         `(error, content) = fetchFile("plugins/logViewer/logViewer.css")
         if content.length > 0
-            niui.appendCss(req.responseText)
+            niui.appendCss(content)
         `(error, content) = fetchFile("plugins/logViewer/logViewer.html")
         if content.length > 0 {
             niui.navbar.appendPage("logs", "Logs", content, logv)

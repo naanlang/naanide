@@ -65,9 +65,12 @@ closure NideCon(options, local nicon) {
         if !result.0 {
             open = result.1.default
             apps = result.1.apps
-            result = await(open(nicon.net.oururl, { app: {
-                name: [apps.chrome, apps.safari, apps.edge]
-            }}))
+            if js.g.process.platform == "linux"
+                result = await(open(nicon.net.oururl))
+            else
+                result = await(open(nicon.net.oururl, { app: {
+                    name: [apps.chrome, apps.safari, apps.edge]
+                }}))
         }
         return (result)
     }

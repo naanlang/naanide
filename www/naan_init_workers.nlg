@@ -11,6 +11,6 @@
  */
 
 loglevel(3);
-chns("Play");
+chns("Start");
 
 require("naan_init_common.nlg");                                            // initialization for all Naan instances

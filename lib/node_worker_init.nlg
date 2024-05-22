@@ -8,6 +8,6 @@
 
 
 loglevel(3);
-chns("Play");
+chns("Start");
 
 require("node_common_init.nlg");                                                // common for Naan node instances

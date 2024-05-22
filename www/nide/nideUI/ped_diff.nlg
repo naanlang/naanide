@@ -1022,11 +1022,11 @@ closure pdifTextEditor(div, owner, local edtext, observer, delayer) {
     //
     // Update the specified session from storage, if there are no unsaved changes.
     
-    edtext.updateSession = closure updateSession(sessionKey, lineno, local session, doneCount, errorRight) {
+    edtext.updateSession = closure updateSession(sessionKey, lineno, local session, waitCount, errorRight) {
         
         // recompute after operations are complete
         function doneRecomp() {
-            if --doneCount == 0 {
+            if --waitCount == 0 {
                 if errorRight {                                             // fill right with left, if no right text
                     if session.aceRightSession.getValue() == ""
                         setSessionTextRight(session, session.aceLeftSession.getValue(), session.storageHashLeft)
@@ -1038,9 +1038,8 @@ closure pdifTextEditor(div, owner, local edtext, observer, delayer) {
                     scrollToLeft(lineno) } }
 
         session = edtext.index[sessionKey]
-        doneCount = 0
+        waitCount = 2
         if session && !session.unsavedChangesLeft {
-            ++doneCount
             owner.docLoad(sessionKey, { }, function(error, content) {
                 edtext.crlfLeft = false
                 if !error {
@@ -1050,9 +1049,9 @@ closure pdifTextEditor(div, owner, local edtext, observer, delayer) {
                 updateAnnotations(session)
                 doneRecomp()
             })
-        }
+        } else
+            --waitCount
         if session && !session.unsavedChangesRight {
-            ++doneCount
             owner.docLoadRight(sessionKey, { }, function(error, content, local text) {
                 if error || !content.text
                     errorRight = true                                       // just put same text on both sides
@@ -1065,7 +1064,8 @@ closure pdifTextEditor(div, owner, local edtext, observer, delayer) {
                 updateAnnotations(session)
                 doneRecomp()
             })
-        }
+        } else
+            --waitCount
     }
 
     // sessionSave

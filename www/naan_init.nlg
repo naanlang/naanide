@@ -11,7 +11,7 @@
  */
 
 loglevel(3);
-chns("Play");
+chns("Start");
 
 defineExt("nlg", true);                                                     // our code extension
 require("naan_init_common.nlg");                                            // initialization for all Naan instances
@@ -54,7 +54,7 @@ function storeSecret(guid) {
 serverurl = js.w.location.protocol.concat("//", js.w.location.host);
 authState = { };
 
-function loadNide(local guid, baseurl, bapi, bide, bui) {
+function loadNide(local guid, baseurl, areq, bapi, bide, bui) {
     guid = xnew(js.w.URL, js.w.location.href).searchParams.get("guid")
     if guid {                                                               // remove the GUID from the visible URL
         storeSecret(guid)
@@ -64,7 +64,8 @@ function loadNide(local guid, baseurl, bapi, bide, bui) {
     }
     else
         guid = loadSecret()                                                 // see if we have stored the GUID
-    bapi = require("frameworks/client/apiclient.nlg").MakeNideAPIclient(serverurl, guid)
+    areq = require("frameworks/browser/https_request.nlg").HttpsApiRequest
+    bapi = require("frameworks/client/apiclient.nlg").NideAPIclient(serverurl, guid, areq)
     bide = require("nide/nideClient/nideClient.nlg").MakeNideController(bapi)
     bui = require("nide/nideUI/nideUI.nlg").MakeNideUI(bide)
     bide.setUI(bui)

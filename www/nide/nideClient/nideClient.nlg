@@ -1,6 +1,6 @@
 /*
  * nideClient.nlg
- * NaanIDE version 0.9.17+1
+ * NaanIDE version 0.9.18+1
  *
  *     Naan IDE controller for browsers.
  *
@@ -48,6 +48,7 @@
  */
 
 closure niccPrefs(nicc, dbname, local prefs, error, data) {
+    global()
     `(error, data) = require("frameworks/storage/dbt_pouch.nlg").PouchDB(dbname)
     if error {
         ErrorDebuglog("Can't access Nide local browser database", error)
@@ -78,31 +79,20 @@ closure niccPrefs(nicc, dbname, local prefs, error, data) {
 
     // default
     // Load default preferences
-    prefs.default = closure default(local pending) {
-        pending = new(nonce)
-        nicc.api.readFile("nide_options.cfg", function(error, req, event, local config) {
-            if error {
-                ErrorDebuglog("Can't read nide_options.cfg", error)
-                config = { } }
-            else {
-                if req.status == 200
-                    `(error, config) = JsonParse(req.responseText)
-                else
-                    error = Error(req.statusText)
-                if error {
-                    ErrorDebuglog("Can't decode nide_options.cfg", error)
-                    config = { }
-                } else
-                    config = new(config)
-            }
-            pending.signal(config)
+    prefs.default = closure default(local error, config, extra) {
+        `(error, config, extra) = nicc.api.readFile("nide_options.cfg", {
+            encoding: "json"
         })
-        pending.wait()
+        if error {
+            ErrorDebuglog("Can't read nide_options.cfg", error)
+            config = { } }
+        else
+            config = new(config)
     }
 
     // load
     // Load preferences from pouchDB
-    prefs.load = function load() {
+    prefs.load = function load(local key) {
         `(error, data) = nicc.dbtable.get("NidePreferences")
         if error {                                                          // missing preferences or other error
             if error.status != 404
@@ -121,26 +111,16 @@ closure niccPrefs(nicc, dbname, local prefs, error, data) {
     
     // loadplugins
     // Load listed plugins
-    prefs.loadplugins = function loadplugins(local folder, path, name) {
+    prefs.loadplugins = function loadplugins(local folder, path, error, config, extra, name) {
         folder = "plugins/"
         path = folder.concat("plugins.cfg")
-        pending = new(nonce)
-        nicc.api.readFile(path, function(error, req, event, local config) {
-            if error
-                ErrorDebuglog("Can't read ".concat(path), error)
-            else {
-                if req.status == 200
-                    `(error, config) = JsonParse(req.responseText)
-                else
-                    error = Error(req.statusText)
-                if error
-                    ErrorDebuglog("Can't decode ".concat(path), error)
-                else
-                    prefs.plugins = new(config)
-            }
-            pending.signal(config)
+        `(error, config, extra) = nicc.api.readFile(path, {
+            encoding: "json"
         })
-        pending.wait()
+        if error
+            ErrorDebuglog("Can't read plugins.cfg", error)
+        else
+            prefs.plugins = new(config)
         for name in prefs.plugins.load {
             path = folder.concat(name)
             try {
@@ -158,97 +138,6 @@ closure niccPrefs(nicc, dbname, local prefs, error, data) {
 
 
 /*
- * niccExecTrack
- *
- *     Track Naan execution instances by location. The data model is as follows:
- *  instance: {
- *      location: <parent>
- *          exec: <execution instance>
- *  }
- *
- */
-
-closure niccExecTrack(nicc, local xtrak) {
-    xtrak = new(object, this)
-    xtrak.instances = []
-    xtrak.watchers = []
-    
-    // notify
-    // Notify the watchers by calling a named procedure
-    
-    function notify(fname, exec, local watch) {
-        for watch in xtrak.watchers
-            watch[fname](exec)
-    }
-
-    // add
-    // Add an execution instance at the specified location.
-
-    xtrak.add = function add(location, exec, local instance) {
-        instance = new(nonce)
-        instance.location = location
-        instance.exec = exec
-        xtrak.instances.push(instance)
-        notify(execAdd, exec)
-    }
-
-    // delete
-    // Delete an execution instance.
-
-    xtrak.delete = function delete(exec) {
-        notify(execDelete, exec)
-        xtrak.instances.filter(function(item){
-            !(item.exec eq exec)
-        })
-    }
-
-    // update
-    // Notify watchers of an update on an execution instance.
-
-    xtrak.update = function update(exec) {
-        notify(execUpdate, exec)
-    }
-    
-    // enumlist
-    // Enumerate the list of execs for the specified location, or the locations list if false.
-    
-    xtrak.enumlist = function enumlist(location, local results) {
-        results = []
-        for instance in xtrak.instances {
-            if location {
-                if instance.location eq location
-                    results.push(instance.exec)
-            } else {
-                if results.indexOf(instance.location) < 0
-                    results.push(instance.location)
-            }
-        }
-        results
-    }
-
-    // watch
-    // Watch for changes on execution instance status.
-
-    xtrak.watch = function watch(watcher) {
-        if xtrak.watchers.indexOf(watcher) < 0
-            xtrak.watchers.push(watcher)
-    }
-
-    // unwatch
-    // Stop watching for changes on execution instance status.
-
-    xtrak.unwatch = function unwatch(watcher) {
-        xtrak.watchers.filter(function(item){
-            !(item eq watcher)
-        })
-    }
-    
-    // finis
-    xtrak
-};
-
-
-/*
  * niccTermControl
  *
  *     Control the IDE REPL window, including saving and restoring, closing at quit, etc.
@@ -256,7 +145,8 @@ closure niccExecTrack(nicc, local xtrak) {
  */
 
 closure niccTermControl(local newin, termState, winOpen) {
-    
+    global(window)
+
     // getTS
     //
     function getTS(local wfeatures) {
@@ -333,7 +223,7 @@ closure niccTermControl(local newin, termState, winOpen) {
  */
 
 closure niccController(api, local nicc, result, homeDir, pollint, version) {
-    global(window, document)
+    global(window, document, nideTerminals)
     nicc = new(object, this)
     nicc.alert = closure prealert(text, options) {
         future(function() { nicc.alert(text, options) }, 1000)              // reschedule alert if too early
@@ -347,7 +237,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     nicc.api = api
     nicc.prefs = niccPrefs(nicc, "Nide")
     nicc.uilist = []
-    nicc.psm = require("frameworks/client/psm_client.nlg").MakeClientPSM(nicc, "Nide")
+    nicc.psm = require("frameworks/client/psm_client.nlg").MakeClientPSM(api, "Nide")
     nicc.locate = nicc.psm.tracker()                                        // storage locations
     nicc.locate.open()
     nicc.track = ExecutorTracker()
@@ -356,7 +246,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     nicc.projman = require("frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
     nicc.projects = nicc.projman.tracker()
     nicc.projects.open()
-    nicc.sworker = require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.17+1", function() {
+    nicc.sworker = require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.18+1", function() {
         nicc.upgrade_sw = true
         nicc.checker.run(1)                                                 // run the update checker very soon
     })
@@ -377,30 +267,50 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
 
     // localWorker
     //
-    // Instantiate a local worker.
+    // Instantiate a worker in our local browser.
     //
-    function localWorker(track, name, workerID, options) {
-        if !options
-            options = {
-                startup: {
-                    initcmds: 'App.version = "0.9.17+1";;\n'
-                        'App.cache = "4df9223df9d8be2cedf82267601cee62";;\n'
-                        'Naan.module.requireQuery({ naanver: App.cache });;\n'
-                        'Naan.module.defineExt("nlg", true);;\n'
-                        'require("naan_init_workers.nlg");;\n'
-                }
+    function localWorker(track, name, options) {
+        options = merge({
+            startup: {
+                initcmds: 'App.version = "0.9.18+1";;\n'
+                    'App.cache = "4e80f750019afcb9638b0d8565a8bd4b";;\n'
+                    'Naan.module.requireQuery({ naanver: App.cache });;\n'
+                    'Naan.module.defineExt("nlg", true);;\n'
+                    'require("naan_init_workers.nlg");;\n'
             }
-        require("frameworks/browser/terminals.nlg").TermLocal(track, name, workerID, options)
+        }, options)
+        nideTerminals.TermLocal(track, name, options)
     }
 
     // hostWorker
     //
-    // Instantiate a host worker.
+    // Instantiate a worker in our host server.
     //
-    function hostWorker(track, name, workerID, options) {
-        if !options
-            options = { }
-        require("frameworks/browser/terminals.nlg").TermHost(track, nicc.api, name, workerID, options)
+    function hostWorker(track, name, options) {
+        nideTerminals.TermHost(track, nicc.api, name, options)
+    }
+
+    // registerRemote
+    //
+    // Register a remote server with our execution tracker so we can connect a terminal to it. This
+    // returns a remoteID for spawning terminals on this remote server. After registration, create a
+    // debug terminal using a call like the following:
+    //
+    //  nicc.track.spawn(remoteID,              // as returned by registerRemote
+    //          "NaanIDE Remote", {             // display name of terminal
+    //      workerID: "NideServer"              // for main thread; other strings for worker threads
+    //      type: "My Remotes"                  // display name of terminal group; e.g. URL
+    //  })
+    //
+    nicc.registerRemote = closure registerRemote(api) {
+
+        // called by nicc.track.spawn
+        function remoteWorker(track, name, options) {
+            nideTerminals.TermHost(track, api, name, options)
+        }
+
+        nicc.track.register(remoteWorker, api.url)                          // harmless to re-register
+        api.url
     }
 
     // nicc.getPrefs
@@ -530,7 +440,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     // disconnection.
     //
     pollint = 60000                                                         // default timeout 1 minute
-    version = "NaanIDE 0.9.17+1"
+    version = "NaanIDE 0.9.18+1"
     function statusPoll(timeoutms) {
         api.status(function (status) {
             if not status {
@@ -608,7 +518,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     addUI(function(local loading) {
         loading = window.localStorage.getItem("nide-loading")
         loading = loading.split("|")
-        if loading.0 == "0.9.17+1"
+        if loading.0 == "0.9.18+1"
             window.localStorage.removeItem("nide-loading")
         statusPoll(1)
     })
@@ -627,8 +537,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
  */
 
 function niccInit(local manifest, nideRunning) {
-
-    manifest = `(niccPrefs, niccExecTrack, niccTermControl, niccController, niccInit)
+    manifest = `(niccPrefs, niccTermControl, niccController, niccInit)
 
     Naan.module.build(module.id, "nideClient", function(modobj, compobj) {
         compobj.manifest = manifest
@@ -646,6 +555,7 @@ function niccInit(local manifest, nideRunning) {
     require("frameworks/storage/dbt_pouch.nlg")
     require("frameworks/project/projects.nlg")
     nideRunning = require("frameworks/running/executors.nlg")
+    nideTerminals = require("frameworks/browser/terminals.nlg")
     Naan.module.letimport(nideRunning.ExecutorTracker)
     Naan.module.letimport(nideRunning.ExecutorBase)
     require("frameworks/client/psm_client.nlg")

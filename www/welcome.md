@@ -1,16 +1,19 @@
 ## Welcome
 
-**NaanIDE**™ is an integrated development environment for Naan.
-**Naan**™ is an async-first software platform for rapid development.
+**NaanIDE**™ is an integrated development environment for Naan.  
+**NaaN**™ is a programmable software platform.
 
 ##### Features
-- Concurrent asynchronous execution without promises or async/await
-- Transparent interoperability with JavaScript libraries
-- Simple integration with worker threads
-- Persistent execution can save and restore running state of the software
-- Multiple paradigm with objects and both static and dynamic binding
-- Combines LISP elegance with Algol-style language syntax
+* Inherently concurrent, fiber-based execution model.
+* Interruptible foreground for long-duration batch operations.
+* Integrated worker and remote evaluation for true multiprocessing.
+* Multiple surface languages and dialects with decompilation on the fly.
+* LISP datatypes: symbols, immutable tuples, dictionaries, class-based objects.
+* Functions, closures, and macros with both lexical and dynamic variable binding.
+* Strict modularity enforced with namespaces and write barriers.
+* JavaScript datatypes and methods: string, regex, math, and numerics.
+* Save and restore the entire NaaN execution state.
 
 ##### Next Steps
-     Please see the Docs tab for more information.
-     Example projects are available.
+     Please visit [www.naanlang.org](https://www.naanlang.org) for tutorials, explanations, and how-to articles.  
+     Reference information is available under the **Docs** tab.

@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2019-2022 by Richard C. Zulch
+ * Copyright (c) 2019-2024 by Richard C. Zulch
  *
  */
 
@@ -234,12 +234,19 @@ closure MakeDebug(niui, local debug) {
     //
     //
     debug.terminalReady = function terminalReady(local m1, m2, m3, m4) {
-        m1 = niui.track.spawn("Local", "NaanIDE", "NaanIDE")
-        m2 = niui.track.spawn("Local", "Play", "NaanIDE-Play")
-        m3 = niui.track.spawn("Host", "NaanIDE Server", "NideServer", {
+        m1 = niui.track.spawn("Local", "NaanIDE", {
+            workerID: "NaanIDE"
+        })
+        m2 = niui.track.spawn("Local", "Play", {
+            workerID: "NaanIDE-Play"
+        })
+        m3 = niui.track.spawn("Host", "NaanIDE Server", {
+            workerID: "NideServer"
             dispatcher: require("frameworks/running/taskexec.nlg").TaskDispatcher
         })
-        m4 = niui.track.spawn("Host", "Play", "NaanIDE-Server-Play")
+        m4 = niui.track.spawn("Host", "Play", {
+            workerID: "NaanIDE-Server-Play"
+        })
 // ### AWS Lambda currently disabled
 //        m5 = niui.track.spawn("Lambda", false, "my lambda")
         App.nide.hostTerm = m3.1                                            // result tuple
@@ -254,7 +261,9 @@ closure MakeDebug(niui, local debug) {
         future(function adjustResize(){debug.debex.sizeToFit()}, 400)
         debug.debex.defSelect()
         App.clone = function() {
-            niui.track.spawn("Local", "NaanIDE Clone", "NaanIDE-Debug")
+            niui.track.spawn("Local", "NaanIDE Clone", {
+                workerID: "NaanIDE-Debug"
+            })
         }
     }
     
