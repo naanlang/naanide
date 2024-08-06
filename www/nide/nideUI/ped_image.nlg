@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2022 by Richard C. Zulch
+ * Copyright (c) 2020-2024 by Richard C. Zulch
  *
  */
 
@@ -39,6 +39,7 @@ closure peimImageEditor(div, owner, local edimage) {
         "cur":      "image/x-icon",
         "gif":      "image/gif",
         "ico":      "image/x-icon",
+        "img":      "image/jpeg",
         "jpeg":     "image/jpeg",
         "jpg":      "image/jpeg",
         "jfif":     "image/jpeg",
@@ -59,7 +60,7 @@ closure peimImageEditor(div, owner, local edimage) {
         dotdex = name.lastIndexOf(".")
         if dotdex >= 0 {
             extension = name.slice(dotdex+1)
-            edimage.extensions[extension]
+            edimage.extensions[extension.toLowerCase()]
         }
     }
     
@@ -74,7 +75,7 @@ closure peimImageEditor(div, owner, local edimage) {
         }
         imageURL = js.w.URL.createObjectURL(xnew(js.w.Blob,
             Array(xnew(js.w.Uint8Array, session.imageData)), { type: session.imageType }))
-        edimage.div.innerHTML = "<img class='nideImage_editor_img'"
+        edimage.div.innerHTML = "<img class='nideImage_editor_img h-100'"
             "src='data:image/png;base64, iVBORw0KGgoAAAANSUhEUgAAAAUA"
             "AAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO"
             "9TXL0Y4OHwAAAABJRU5ErkJggg==' alt='Red dot' />"
@@ -139,7 +140,7 @@ closure peimImageEditor(div, owner, local edimage) {
         if session && !session.imageData {
             owner.docLoad(sessionKey, { encoding: "binary" }, function(error, content) {
                 if !error {
-                    session.imageData = content.binary                      // ### must be base64
+                    session.imageData = content.binary || content.text
                     setImage(session) }
             })
         }

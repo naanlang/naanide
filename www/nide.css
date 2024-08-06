@@ -63,11 +63,6 @@ header > .navbar {
     color: #000000;
 }
 
-.NidePath {
-    font-size: 120%;
-    color: #000000;
-}
-
 .NideFound {
     background-color: #007733;
 }
@@ -107,16 +102,6 @@ header > .navbar {
     border-width: 0 0 1px 0;
     border-color: #4a4a4a;
     border-style: solid;
-}
-
-.NideAlertArea {
-     margin-top:90px;
-     padding-right:30px;
-     position: fixed;
-     top: 0;
-     left: 0;
-     z-index: 1000;
-     width:100%;
 }
 
 .filltop {
@@ -340,7 +325,9 @@ header > .navbar {
 }
 
 .nideImage_editor_img {
-    margin:auto;
+    margin: auto;
+    object-fit: scale-down;
+    background-color: #444;
 }
 
 .nideProject_Preview {
@@ -445,4 +432,56 @@ header > .navbar {
 
 .zux_table {
     --bs-table-bg: transparent;
+}
+
+
+/*
+ * logo
+ *
+ */
+
+.logo {
+    width: 80px;
+    height: 80px;
+    margin: 10px 10px 10px 10px;
+    background-image: url('exlib/images/NaanLogo.ico');
+    background-repeat: no-repeat;
+    background-size: contain;
+}
+
+div.logo a {
+    display: block;
+    height: 60px;
+    width: 80px;
+}
+
+
+/*
+ * alerts
+ *
+ */
+
+.alert {
+      overflow-wrap: break-word;
+}
+
+.NideAlertArea {
+     margin-top:90px;
+     padding-right:30px;
+     position: fixed;
+     top: 0;
+     left: 0;
+     z-index: 1000;
+     width:100%;
+}
+
+
+/*
+ * fobox
+ *
+ */
+
+.nideui-fb-path {
+    font-size: 120%;
+    color: #000000;
 }

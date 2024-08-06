@@ -8,8 +8,8 @@
  * Usage: naanide [options] idecon_debug.nlg
  *
  * Example:
- *     node bin/index.js --port 8009 examples/idecon_debug.nlg      # start a server on 8009
- *     node bin/index.js --port 8009 examples/idecon_debug.nlg      # connect to existing server
+ *     node bin/index.js --port 8009 idecon_debug                   # start a server on 8009
+ *     node bin/index.js idecon_debug                               # connect to existing server
  * 
  *
  * column positioning:                          //                          //                      !

@@ -163,7 +163,7 @@ var NaanLingoHighlightRules = function (options) {
             comments("no_regex"),
             {
                 token : "variable.other",
-                regex : "`(" + identifierRe +")(\\s*)",
+                regex : "`(" + identifierRe +")?(\\s*)",
             }, {
                 token: "string",
                 regex: "'(?=.)",
@@ -727,9 +727,8 @@ oop.inherits(Mode, TextMode);
 (function () {
     this.lineCommentStart = "//";
     this.blockComment = { start: "/*", end: "*/" };
-    this.$quotes = { '"': '"', "'": "'", "`": "`" };
+    this.$quotes = { '"': '"', "'": "'" };
     this.$pairQuotesAfter = {
-        "`": /\w/
     };
     this.getNextLineIndent = function (state, line, tab) {
         var indent = this.$getIndent(line);

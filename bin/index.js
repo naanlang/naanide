@@ -79,11 +79,11 @@ process.argv.every((val, index) => {
         process.exit(0);
     }
     if (val == "--version") {
-        console.log("0.9.18");
+        console.log("0.9.19");
         process.exit(0);
     }
     if (val == "--buildno") {
-        console.log("0.9.18+1");
+        console.log("0.9.19+1");
         process.exit(0);
     }
     if (val == "--") {
@@ -197,7 +197,7 @@ if (eval_text) {
 // Attempt to load our state, but leave statePath/stateKey set in any case.
 //
 function loadState() {
-    stateKey = "Zulch Laboratories, Inc.-0.9.18+1";
+    stateKey = "Zulch Laboratories, Inc.-0.9.19+1";
     statePath = jspath.join(os.homedir(), `.naanlang/session.state`);
     try {
         var sessions = fs.readFileSync(statePath);
@@ -278,6 +278,8 @@ function saveState() {
  *
  */
 
+if (!process.stdin.isTTY)
+    naanOptions.replDisable = true;                                         // REPL terminates immediately
 naanOptions.require = require;
 naanOptions.import = function(m) { return (import(m)); };
 loadState();

@@ -8,9 +8,9 @@
     <title>NaanIDE</title>
     <meta name="description" content="NaanIDE">
 
-    <link rel="stylesheet" href="exlib/bootstrap/bootstrap.min.css?naanver=4e80f750019afcb9638b0d8565a8bd4b">
-    <link rel="stylesheet" href="nide.css?naanver=4e80f750019afcb9638b0d8565a8bd4b">
-    <link rel="icon" href="exlib/images/Naan.ico?naanver=4e80f750019afcb9638b0d8565a8bd4b" sizes="256x256 128x128 32x32 16x16">
+    <link rel="stylesheet" href="exlib/bootstrap/bootstrap.min.css?naanver=7f006d2b13394cb360ccd3ce4b8c3063">
+    <link rel="stylesheet" href="nide.css?naanver=7f006d2b13394cb360ccd3ce4b8c3063">
+    <link rel="icon" href="exlib/images/Naan.ico?naanver=7f006d2b13394cb360ccd3ce4b8c3063" sizes="256x256 128x128 32x32 16x16">
 
 <!--[if lt IE 9]>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/html5shiv/3.7.3/html5shiv.js"></script>
@@ -23,9 +23,9 @@
     <header>
         <!-- Fixed navbar -->
         <nav class="navbar navbar-expand-md navbar-dark fixed-top bg-dark">
-            <a href="https://www.naanlang.org" target="_blank">
-                <img  id='NaanLogo' class="navbar-brand" src="exlib/images/NaanLogo.ico?naanver=4e80f750019afcb9638b0d8565a8bd4b" width="80" height="80" style="margin: -50px 10px -50px 10px">
-            </a>
+            <div class="logo">
+                <a href="https://www.naanlang.org" target="_blank"></a>
+            </div>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -205,8 +205,8 @@
                 <div class="col-auto" style="position:relative;width:100%;height:0px;margin:0;padding:0;cursor:ns-resize">
                     <div id='NideEditViewAdjuster' style="position:absolute;width:100%;height:6px;z-index:10;margin-top:-3px"></div>
                 </div>
-                <div id="NideEditArea" class="flex-grow-1" style="width:100%;position:relative;margin-top:2px">
-                    <div class="col-auto" style="height:100%;margin:0;padding:0">
+                <div id="NideEditArea" class="flex-grow-1 h-100" style="width:100%;position:relative;margin-top:2px">
+                    <div class="col-auto h-100" style="margin:0;padding:0">
                         <div id="NideProjectImageEditor" class="container h-100"></div>
                         <div id="NideProjectTextEditor" style="height:100%;margin:0;padding:0"></div>
                         <div id="NideProjectAltEditor" style="height:100%;margin:0;padding:0"></div>
@@ -282,7 +282,7 @@
                                 <button type="button" class="btn-sm" id="NideBrowseFolderUp">
                                     <span class="NideArrow">&uarr;</span>
                                 </button>
-                                <div id="NideBrowseFoboxPath" class="flex-grow-1 btn-sm NidePath" style="word-wrap: break-word;"></div>
+                                <div id="NideBrowseFoboxPath" class="flex-grow-1 btn-sm nideui-fb-path ms-2" style="word-wrap: break-word;"></div>
                                 <div id="NideBrowseSpinner" class="spinner-icon me-auto invisible"></div>
                             </div>
                             <div class="ag-theme-fresh" id="NideBrowseFobox" style="width:100%; height:100%;"></div>
@@ -454,25 +454,25 @@
      === scripts & extensions ===
      -->
 
-    <script src="exlib/ace/ace.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="exlib/ace/ext-modelist.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="exlib/ace/mode-naan_lingo.js?naanver=4e80f750019afcb9638b0d8565a8bd4b" type="text/javascript" charset="utf-8"></script>
-    <script src="exlib/diff-patch-match/diff_match_patch.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="exlib/hterm/hterm_all.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="exlib/jquery/jquery-3.3.1.slim.min.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="exlib/popper/popper.min.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="exlib/bootstrap/bootstrap.min.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="exlib/ag-grid/ag-grid.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="exlib/spark-md5/spark-md5.min.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="exlib/pouchdb/pouchdb.min.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="exlib/showdown/showdown.min.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
+    <script src="exlib/ace/ace.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="exlib/ace/ext-modelist.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="exlib/ace/mode-naan_lingo.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063" type="text/javascript" charset="utf-8"></script>
+    <script src="exlib/diff-patch-match/diff_match_patch.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="exlib/hterm/hterm_all.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="exlib/jquery/jquery-3.3.1.slim.min.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="exlib/popper/popper.min.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="exlib/bootstrap/bootstrap.min.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="exlib/ag-grid/ag-grid.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="exlib/spark-md5/spark-md5.min.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="exlib/pouchdb/pouchdb.min.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="exlib/showdown/showdown.min.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
 
     
-    <script src="lib/core/naanlib.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
+    <script src="lib/core/naanlib.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
 
-    <script src="lib/browser/require.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="naan_repl.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
-    <script src="env_web.js?naanver=4e80f750019afcb9638b0d8565a8bd4b"></script>
+    <script src="lib/browser/require.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="naan_repl.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
+    <script src="env_web.js?naanver=7f006d2b13394cb360ccd3ce4b8c3063"></script>
 
     <!-- No Javascript fallback -->
     <noscript><div id='NideRequired'  style="position:absolute;text-align:center;width:99%;top:50%">NaanIDE Requires JavaScript</div></noscript>
