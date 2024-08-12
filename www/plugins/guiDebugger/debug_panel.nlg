@@ -19,6 +19,7 @@
  */
 
 closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, updating, pending) {
+    global(document, window, zux)
     depan = new(object, this)
     depan.div = gude.debcon.regDebugger(depan)
     depan.div.innerHTML = html
@@ -277,7 +278,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     // focusSource
     // Focus the source display on the specified module, component, and line/column.
     //
-    function focusSource(modname, compname, location, local error, data) {
+    function focusSource(modname, compname, location, local error, data, item) {
         if modname != depan.editModname || compname != depan.editCompname {
             if modname && compname {
                 `(error, data) = depan.remote.compsources(modname, compname)

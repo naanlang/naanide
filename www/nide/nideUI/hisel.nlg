@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2018-2022 by Richard C. Zulch
+ * Copyright (c) 2018-2024 by Richard C. Zulch
  *
  */
 
@@ -19,6 +19,7 @@
  */
 
 closure makeHisel(divid, local hisel, columnDefs, rowData, delayer) {
+    global(document, window)
     hisel = new(object, this)
     hisel.divid = divid
 
@@ -154,7 +155,7 @@ closure makeHisel(divid, local hisel, columnDefs, rowData, delayer) {
     //
     // focusedCellData
     //
-    hisel.focusedCellData = function focusedCellData(local cell) {
+    hisel.focusedCellData = function focusedCellData(local cell, row) {
         cell = hisel.api.getFocusedCell()
         row = hisel.api.getDisplayedRowAtIndex(cell.rowIndex)
         row.data
@@ -175,7 +176,7 @@ closure makeHisel(divid, local hisel, columnDefs, rowData, delayer) {
     //
     // selectOnly
     //
-    hisel.selectOnly = function selectOnly(selRowNode, local nodes) {
+    hisel.selectOnly = function selectOnly(selRowNode, local nodes, row) {
         nodes = hisel.api.getSelectedNodes()
         for row in nodes
             if row != selRowNode
@@ -194,7 +195,7 @@ closure makeHisel(divid, local hisel, columnDefs, rowData, delayer) {
     //
     //     Update for a modified tree.
     //
-    hisel.updateTree = function updateTree(openpaths) {
+    hisel.updateTree = function updateTree(openpaths, local path) {
         delayer = { }
         if !openpaths
             openpaths = openPaths()                                      // save existing open folders

@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2022 by Richard C. Zulch
+ * Copyright (c) 2017-2024 by Richard C. Zulch
  *
  */
 
@@ -21,6 +21,7 @@
  */
 
 closure homeTabs(objs, local navbar, structure, item, tab) {
+    global(js, document, window)
     navbar = new(object, this)
 
     //
@@ -110,6 +111,7 @@ closure homeTabs(objs, local navbar, structure, item, tab) {
  *
  */
 closure homeMarkdown(home, niui, options local markd) {
+    global(js, document, window)
     markd = new(object, this)
     markd.div = document.getElementById(options.divid)
     markd.mdConverter = xnew(js.w.showdown.Converter)
@@ -168,6 +170,7 @@ closure homeMarkdown(home, niui, options local markd) {
  */
 
 closure homeSettings(home, niui, local hoset) {
+    global()
     hoset = new(object, this)
     
     hoset
@@ -182,6 +185,7 @@ closure homeSettings(home, niui, local hoset) {
  */
 
 closure projBox(home, niui, local prox, columnDefs) {
+    global(document, zux)
     prox = new(object, this)
     prox.gridiv = document.getElementById("NideHomeProjectsBox")
     prox.butadd = document.getElementById("NideHomeAddButton")
@@ -212,7 +216,7 @@ closure projBox(home, niui, local prox, columnDefs) {
             if (event.key == "Delete")
                 call(prox.butdelete.onclick)
         }
-        if key == "Enter"
+        if event.key == "Enter"
             event.preventDefault()
     }
     

@@ -26,6 +26,7 @@
  */
 
 closure peimImageEditor(div, owner, local edimage) {
+    global(js, document)
     edimage = new(object, this)
     edimage.div = div
     edimage.owner = owner                                                   // who to notify of events
@@ -68,7 +69,7 @@ closure peimImageEditor(div, owner, local edimage) {
     //
     // Set our current image to the specified base64 image, or false for none.
     //
-    function setImage(session, local imageURL) {
+    function setImage(session, local imageURL, image) {
         if !session {
             edimage.div.innerHTML = ""
             return

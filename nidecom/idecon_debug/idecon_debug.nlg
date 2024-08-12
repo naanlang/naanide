@@ -27,7 +27,7 @@
  */
 
 function startup(arglist, local error, exists, oururl) {
-    global()                                                                // detect mistaken global variables
+    global(App)                                                                // detect mistaken global variables
 
     // snippets
     // Display some helpful snippets to theuser

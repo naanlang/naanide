@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2021 by Richard C. Zulch
+ * Copyright (c) 2021-2024 by Richard C. Zulch
  *
  */
 
@@ -19,6 +19,7 @@
  */
     
 function setElementClass(elem, className, present) {
+    global()
     if present {
         if !elem.classList.contains(className)
             elem.classList.add(className)
@@ -35,6 +36,7 @@ function setElementClass(elem, className, present) {
  */
 
 function escapeHTML(html) {
+    global(document)
     document.createElement("div")
         .appendChild(document.createTextNode(html))
         .parentNode
@@ -50,6 +52,7 @@ function escapeHTML(html) {
  */
 
 closure gudeIdePlugin(niui, local gude, error, content, extra) {
+    global()
     gude = new(object, this)
     gude.niui = niui
 

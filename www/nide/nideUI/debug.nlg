@@ -20,6 +20,7 @@
  */
 
 closure debugExecs(niui, divid, delegate, local dexbox, columnDefs) {
+    global(zux)
     dexbox = new(object, this)
     dexbox.divid = divid
     dexbox.nextID = 1
@@ -178,6 +179,7 @@ closure debugExecs(niui, divid, delegate, local dexbox, columnDefs) {
  */
 
 closure MakeDebug(niui, local debug) {
+    global(App, document, window, zux)
     debug = new(object, this)
     debug.debex = debugExecs(niui, "NideDebugNav", debug)
     debug.debugBoxDiv = document.getElementById("NideDebugBox")

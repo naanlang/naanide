@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2023 by Richard C. Zulch
+ * Copyright (c) 2020-2024 by Richard C. Zulch
  *
  */
 
@@ -19,6 +19,7 @@
  */
 
 closure locaBox(niui, local locx, columnDefs) {
+    global(document, zux)
     locx = new(object, this)
     locx.butadd = document.getElementById("NideHomeLocAddButton")
     locx.butdelete = document.getElementById("NideHomeLocDeleteButton")
@@ -165,264 +166,262 @@ closure locaBox(niui, local locx, columnDefs) {
  *
  */
 
-closure locaModal(locate, title, resID, resource) {
-
-    closure lomoController(divid, local lomo) {
-        if !nonce(lomoDivs)
-            lomoDivs = new(nonce)
-        else if lomoDivs[divid] {
-            debuglog("reusing modal")
-            lomo = lomoDivs[divid]
-            lomo.setFormErrors()
-            lomo.updateControls(title, resource)
-            return (lomo)                                                   // this div already has one
-        }
-        lomo = new(object, this)
-        lomoDivs[divid] = lomo
-        lomo.divid = divid
-        lomo.div = jquery("#".concat(divid))
-        lomo.butsel = document.getElementById("NideLocationSave")
-        lomo.butclose = document.getElementById("NideLocationClose")
-        lomo.butcan = document.getElementById("NideLocationCancel")
-        lomo.prompt = document.getElementById("NideLocationTitle")
-        lomo.typeMenuButton = document.getElementById("NideTypeMenuButton")
+closure locaModal(locate, title, resID, resource, local lomo) {
+    global(lomoDivs, document, zux)
+    if !nonce(lomoDivs)
+        lomoDivs = new(nonce)
+    else if lomoDivs["NideLocationModal"] {
+        lomo = lomoDivs["NideLocationModal"]
+        init()
+        lomo.updateControls(title, resource)
+        lomo.setFormErrors()
+        lomo.show()
+        return (lomo)
+    }
+    lomo = new(object, this)
+    lomo.divid = "NideLocationModal"
+    lomoDivs[lomo.divid] = lomo
+    lomo.div = jquery("#".concat(lomo.divid))
+    lomo.butsel = document.getElementById("NideLocationSave")
+    lomo.butclose = document.getElementById("NideLocationClose")
+    lomo.butcan = document.getElementById("NideLocationCancel")
+    lomo.prompt = document.getElementById("NideLocationTitle")
+    lomo.typeMenuButton = document.getElementById("NideTypeMenuButton")
+    lomo.nametext = document.getElementById("NideLocName")
+    lomo.nametext.addEventListener("input", function() {
+        document.getElementById("NideLocNameError").innerHTML = "&nbsp;"
+        lomo.updateControls() })
+    addFieldListeners()
+    init()
+    updateControls(title, resource)
+    setFormErrors()
+    
+    // init
+    //
+    // Initialize the UI for a new location
+    //
+    function init() {
         lomo.typeMenuButton.innerHTML = "Type"
         lomo.psmTypeLabel = "Select Type"
-        lomo.nametext = document.getElementById("NideLocName")
-        lomo.nametext.addEventListener("input", function() {
-            document.getElementById("NideLocNameError").innerHTML = "&nbsp;"
-            lomo.updateControls() })
-        addFieldListeners()
-        updateControls(title, resource)
-        setFormErrors()                                                     // clear any errors
-        
-        // initialize menu
+    }
+    
+    // initialize menu
 
-        lomo.types = locate.classIDs()
-        lomo.typeMenu = zux.MenuDropdown(locate.labels(), {
-                menudiv: "NideTypeMenu"
-                refel: lomo.typeMenuButton
-            }, function(event, itemdex, itemdiv) {
-                lomo.psmType = lomo.types[itemdex]
-                lomo.psmTypeLabel = locate.className(lomo.psmType)
-                lomo.typeMenuButton.innerHTML = lomo.psmTypeLabel
-                setFormType(lomo.psmType)
-                setFormErrors()                                         // clear any errors
-                updateControls()
-                if lomo.nametext.value == ""
-                    lomo.nametext.focus()
-        })
-
-        // addFieldListeners
-        //
-        // Add listeners for each input field.
-        
-        function addFieldListeners() {
-            closure addFieldListener(id, local textel, errorel) {
-                textel = document.getElementById(id.concat("text"))
-                errorel = document.getElementById(id.concat("error"))
-                textel.addEventListener("input", function() {
-                    errorel.innerHTML = "&nbsp;"
-                    lomo.updateControls()
-                })
-            }
-            addFieldListener("NideLoc1")
-            addFieldListener("NideLoc2")
-            addFieldListener("NideLoc3")
-            addFieldListener("NideLoc4")
-            addFieldListener("NideLoc5")
-        }
-        
-        // setFormType
-        //
-        // Set up the text entry forms for the specified fields.
-        
-        function setFormType(psmType, local fields) {
-            fields = locate.uifields(psmType)
-            function setfield(id, field, local fieldiv, label, textel) {
-                fieldiv = document.getElementById(id)
-                label = document.getElementById(id.concat("Label"))
-                textel = document.getElementById(id.concat("text"))
-                if string(field.label) {
-                    label.innerHTML = field.label
-                    if field.placeholder
-                        textel.placeholder = field.placeholder
-                    textel.value = ""
-                    fieldiv.style.display = "" }
-                else
-                    fieldiv.style.display = "none"
-            }
-            setfield("NideLoc1", fields.0)
-            setfield("NideLoc2", fields.1)
-            setfield("NideLoc3", fields.2)
-            setfield("NideLoc4", fields.3)
-            setfield("NideLoc5", fields.4)
-        }
-        
-        // getFormData
-        //
-        // Get a dictionary of form values from our input elements.
-        
-        function getFormData(psmType, local fields, dict) {
-            fields = locate.uifields(psmType)
-            dict = { }
-            function recordfield(id, field, local textel) {
-                textel = document.getElementById(id.concat("text"))
-                if string(field.label)
-                    dict[field.key] = textel.value
-            }
-            recordfield("NideLoc1", fields.0)
-            recordfield("NideLoc2", fields.1)
-            recordfield("NideLoc3", fields.2)
-            recordfield("NideLoc4", fields.3)
-            recordfield("NideLoc5", fields.4)
-            dict
-        }
-                
-        // setFormData
-        //
-        // Set our input elements from a dictionary of form values.
-        
-        function setFormData(dict, local fields) {
-            debuglog("setFormData")
-            lomo.psmType = dict.classID
+    lomo.types = locate.classIDs()
+    lomo.typeMenu = zux.MenuDropdown(locate.labels(), {
+            menudiv: "NideTypeMenu"
+            refel: lomo.typeMenuButton
+        }, function(event, itemdex, itemdiv) {
+            lomo.psmType = lomo.types[itemdex]
             lomo.psmTypeLabel = locate.className(lomo.psmType)
-            setFormType(lomo.psmType)
-            if string(dict.label)
-                lomo.nametext.value = dict.label
-            fields = locate.uifields(dict.classID)
-            function setfield(id, field, local textel) {
-                textel = document.getElementById(id.concat("text"))
-                if string(field.label) && string(dict[field.key])
-                    textel.value = dict[field.key]
-            }
-            setfield("NideLoc1", fields.0)
-            setfield("NideLoc2", fields.1)
-            setfield("NideLoc3", fields.2)
-            setfield("NideLoc4", fields.3)
-            setfield("NideLoc5", fields.4)
-        }
-
-        // setFormErrors
-        //
-        // Given a dictionary of field keys and error strings, set these in the UI.
-        
-        lomo.setFormErrors = function setFormErrors(psmType, errors, local fields) {
-            debuglog("setFormErrors", psmType)
-            fields = locate.uifields(psmType)
-            function seterror(id, field, local errorel) {
-                errorel = document.getElementById(id.concat("error"))
-                if string(errors[field.key]) {
-                    errorel.innerHTML = errors[field.key] }
-                else
-                    errorel.innerHTML = "&nbsp;"
-            }
-            seterror("NideLoc1", fields.0)
-            seterror("NideLoc2", fields.1)
-            seterror("NideLoc3", fields.2)
-            seterror("NideLoc4", fields.3)
-            seterror("NideLoc5", fields.4)
-            if errors.label
-                document.getElementById("NideLocNameError").innerHTML = errors.label
-        }
-
-        // update controls for current selection, etc.
-
-        lomo.updateControls = function updateControls(title, resource) {
-            if title
-                lomo.prompt.innerHTML = title
-            if resource
-                setFormData(resource)
-            if lomo.nametext.value == ""
-                lomo.butsel.disabled = true
-            else
-                lomo.butsel.disabled = !lomo.psmType
             lomo.typeMenuButton.innerHTML = lomo.psmTypeLabel
-        }
-        
-        // response to OK button
+            setFormType(lomo.psmType)
+            setFormErrors()
+            updateControls()
+            if lomo.nametext.value == ""
+                lomo.nametext.focus()
+    })
 
-        lomo.butsel.onclick = function (local dict, errors) {
-            dict = getFormData(lomo.psmType)
-            dict.label = lomo.nametext.value
-            if resID
-                errors = locate.updateResource(resID, dict)
+    // addFieldListeners
+    //
+    // Add listeners for each input field.
+    
+    function addFieldListeners() {
+        closure addFieldListener(id, local textel, errorel) {
+            textel = document.getElementById(id.concat("text"))
+            errorel = document.getElementById(id.concat("error"))
+            textel.addEventListener("input", function() {
+                errorel.innerHTML = "&nbsp;"
+                lomo.updateControls()
+            })
+        }
+        addFieldListener("NideLoc1")
+        addFieldListener("NideLoc2")
+        addFieldListener("NideLoc3")
+        addFieldListener("NideLoc4")
+        addFieldListener("NideLoc5")
+    }
+    
+    // setFormType
+    //
+    // Set up the text entry forms for the specified fields.
+    
+    function setFormType(psmType, local fields) {
+        fields = locate.uifields(psmType)
+        function setfield(id, field, local fieldiv, label, textel) {
+            fieldiv = document.getElementById(id)
+            label = document.getElementById(id.concat("Label"))
+            textel = document.getElementById(id.concat("text"))
+            if string(field.label) {
+                label.innerHTML = field.label
+                if field.placeholder
+                    textel.placeholder = field.placeholder
+                textel.value = ""
+                fieldiv.style.display = "" }
             else
-                errors = locate.addResource(lomo.psmType, dict)
-            debuglog("onclick errors", errors)
-            if errors.0
-                setFormErrors(lomo.psmType, errors.0)
-            else
-                lomo.complete(true)
+                fieldiv.style.display = "none"
         }
-
-        // response to Cancel button
-        lomo.butcan.onclick = function () {
-            lomo.complete(false)
-        }
-        
-        // response to Close button
-        lomo.butclose.onclick = function () {
-            lomo.complete(false)
-        }
-
-        // modal was shown
-        lomo.div.on("shown.bs.modal", function () {
-            debuglog("shown.bs.modal")
-            if !lomo.psmType
-                lomo.typeMenu.show()
-        })
+        setfield("NideLoc1", fields.0)
+        setfield("NideLoc2", fields.1)
+        setfield("NideLoc3", fields.2)
+        setfield("NideLoc4", fields.3)
+        setfield("NideLoc5", fields.4)
+    }
     
-        // modal will be hidden - must return true to actually hide
-        lomo.div.on("hide.bs.modal", function (event) {
-            debuglog("hide.bs.modal")
-            lomo.complete(false)
-            true
-        })
+    // getFormData
+    //
+    // Get a dictionary of form values from our input elements.
     
-        // setOptions
-        //
-        //     Set the options for a specific use of the dialog.
-    
-        lomo.setOptions = function setOptions(options) {
-            lomo.notified = false
-            lomo.options = options
-            if options.prompt
-                lomo.prompt.innerHTML = options.prompt
+    function getFormData(psmType, local fields, dict) {
+        fields = locate.uifields(psmType)
+        dict = { }
+        function recordfield(id, field, local textel) {
+            textel = document.getElementById(id.concat("text"))
+            if string(field.label)
+                dict[field.key] = textel.value
         }
-        
-        // show
-        //
-        //     Show the modal window.
-        
-        lomo.show = function show() {
-            if !lomo.active {
-                lomo.div.modal("show")
-                lomo.active = true }
-        }
-        
-        // complete
-        //
-        //     Complete the location operation and close the window.
-        
-        lomo.complete = function complete(save) {
-            if lomo.active {
-                lomo.active = false
-                lomo.div.modal("hide") }
-            if save || resource {                                           // reset form data on save or canceled edit
-                lomo.psmType = false                                        // (preserve on cancel)
-                lomo.nametext.value = ""
-                setFormType(false)
-                setFormErrors()
-                updateControls()
-            }
-        }
+        recordfield("NideLoc1", fields.0)
+        recordfield("NideLoc2", fields.1)
+        recordfield("NideLoc3", fields.2)
+        recordfield("NideLoc4", fields.3)
+        recordfield("NideLoc5", fields.4)
+        dict
+    }
             
-        // finis
-        lomo
+    // setFormData
+    //
+    // Set our input elements from a dictionary of form values.
+    
+    function setFormData(dict, local fields) {
+        lomo.psmType = dict.classID
+        lomo.psmTypeLabel = locate.className(lomo.psmType)
+        setFormType(lomo.psmType)
+        if string(dict.label)
+            lomo.nametext.value = dict.label
+        fields = locate.uifields(dict.classID)
+        function setfield(id, field, local textel) {
+            textel = document.getElementById(id.concat("text"))
+            if string(field.label) && string(dict[field.key])
+                textel.value = dict[field.key]
+        }
+        setfield("NideLoc1", fields.0)
+        setfield("NideLoc2", fields.1)
+        setfield("NideLoc3", fields.2)
+        setfield("NideLoc4", fields.3)
+        setfield("NideLoc5", fields.4)
     }
 
-    lomo = lomoController("NideLocationModal")
+    // setFormErrors
+    //
+    // Given a dictionary of field keys and error strings, set these in the UI.
+    
+    lomo.setFormErrors = function setFormErrors(psmType, errors, local fields) {
+        fields = locate.uifields(psmType)
+        function seterror(id, field, local errorel) {
+            errorel = document.getElementById(id.concat("error"))
+            if string(errors[field.key]) {
+                errorel.innerHTML = errors[field.key] }
+            else
+                errorel.innerHTML = "&nbsp;"
+        }
+        seterror("NideLoc1", fields.0)
+        seterror("NideLoc2", fields.1)
+        seterror("NideLoc3", fields.2)
+        seterror("NideLoc4", fields.3)
+        seterror("NideLoc5", fields.4)
+        if errors.label
+            document.getElementById("NideLocNameError").innerHTML = errors.label
+    }
+
+    // update controls for current selection, etc.
+
+    lomo.updateControls = function updateControls(title, resource) {
+        if title
+            lomo.prompt.innerHTML = title
+        if resource
+            setFormData(resource)
+        if lomo.nametext.value == ""
+            lomo.butsel.disabled = true
+        else
+            lomo.butsel.disabled = !lomo.psmType
+        lomo.typeMenuButton.innerHTML = lomo.psmTypeLabel
+    }
+    
+    // response to OK button
+
+    lomo.butsel.onclick = function (local dict, errors) {
+        dict = getFormData(lomo.psmType)
+        dict.label = lomo.nametext.value
+        if resID
+            errors = locate.updateResource(resID, dict)
+        else
+            errors = locate.addResource(lomo.psmType, dict)
+        if errors.0
+            setFormErrors(lomo.psmType, errors.0)
+        else
+            lomo.complete(true)
+    }
+
+    // response to Cancel button
+    lomo.butcan.onclick = function () {
+        lomo.complete(false)
+    }
+    
+    // response to Close button
+    lomo.butclose.onclick = function () {
+        lomo.complete(false)
+    }
+
+    // modal was shown
+    lomo.div.on("shown.bs.modal", function () {
+        if !lomo.psmType
+            lomo.typeMenu.show()
+    })
+
+    // modal will be hidden - must return true to actually hide
+    lomo.div.on("hide.bs.modal", function (event) {
+        lomo.complete(false)
+        true
+    })
+
+    // setOptions
+    //
+    //     Set the options for a specific use of the dialog.
+
+    lomo.setOptions = function setOptions(options) {
+        lomo.notified = false
+        lomo.options = options
+        if options.prompt
+            lomo.prompt.innerHTML = options.prompt
+    }
+    
+    // show
+    //
+    //     Show the modal window.
+    
+    lomo.show = function show() {
+        if !lomo.active {
+            lomo.div.modal("show")
+            lomo.active = true }
+    }
+    
+    // complete
+    //
+    //     Complete the location operation and close the window.
+    
+    lomo.complete = function complete(save) {
+        if lomo.active {
+            lomo.active = false
+            lomo.div.modal("hide") }
+        if save || resource {                                               // reset form data on save or canceled edit
+            lomo.psmType = false                                            // (preserve on cancel)
+            lomo.nametext.value = ""
+            setFormType(false)
+            setFormErrors()
+            updateControls()
+        }
+    }
+        
     lomo.show()
 
     // finis

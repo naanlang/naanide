@@ -19,6 +19,7 @@
  */
 
 closure foboxUI(niui, divid, local fobox, columnDefs, rowData, gridOptions) {
+    global(foboxDivs, jspath, document, window, zux)
     if !nonce(foboxDivs)
         foboxDivs = new(nonce)
     else if fobox = foboxDivs[divid] {                                      // this div already has one

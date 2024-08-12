@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2019-2022 by Richard C. Zulch
+ * Copyright (c) 2019-2024 by Richard C. Zulch
  *
  */
 
@@ -19,6 +19,7 @@
  */
 
 closure peprProjectEditor(div, project, local pepr) {
+    global(App, document, zux)
     pepr = new(object, this)
     pepr.div = div
     pepr.projInfoDiv = document.getElementById("nideProjEdProjInfo")

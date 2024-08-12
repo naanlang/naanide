@@ -20,7 +20,7 @@
  */
 
 closure Workspace(config, local myws) {
-    global()
+    global(App)
     myws = new(object, this)                                                // create object; methods below
     myws.config = new(config)                                               // make our own copy so we can change it
 

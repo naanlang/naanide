@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2022 by Richard C. Zulch
+ * Copyright (c) 2017-2024 by Richard C. Zulch
  *
  */
 
@@ -19,6 +19,7 @@
  */
 
 closure getproUI(niui, divid, local getpro, columnDefs, rowData, gridOptions) {
+    global(getproDivs, document, window)
     if !nonce(getproDivs)
         getproDivs = new(nonce)
     else if getproDivs[divid]
@@ -204,6 +205,7 @@ closure getproUI(niui, divid, local getpro, columnDefs, rowData, gridOptions) {
  */
 
 closure existingProjectDialog(niui, doneCB, local fobox, modaldiv, pagediv) {
+    global()
     modaldiv = jquery("#NideBrowseModal")
     pagediv = jquery("#NideBrowsePage")
     pagediv.removeClass("NideModalHidden")
@@ -228,6 +230,7 @@ closure existingProjectDialog(niui, doneCB, local fobox, modaldiv, pagediv) {
  */
  
 closure newProjectDialog(niui, doneCB, local getpro, fobox, modaldiv, newdiv, savediv, state) {
+    global()
     modaldiv = jquery("#NideBrowseModal")
     getpro = getproUI(niui, "NideProjectTybox")
     fobox = foboxUI(niui, "NideBrowseFobox")

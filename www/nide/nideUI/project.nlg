@@ -21,6 +21,7 @@
  */
 
 closure projectBoxTab(objs, local navbar, structure, tab) {
+    global(document)
     navbar = new(object, this)
 
     //
@@ -49,7 +50,7 @@ closure projectBoxTab(objs, local navbar, structure, tab) {
     }
 
     // identItem(ident) - get item for ident, else false
-    navbar.identItem = function identItem(ident) {
+    navbar.identItem = function identItem(ident, local item) {
         for item in navbar.items
             if item.ident == ident
                 return (item)
@@ -65,7 +66,7 @@ closure projectBoxTab(objs, local navbar, structure, tab) {
     }
 
     // selectPage(ident) - select only the specified page
-    navbar.selectPage = function selectPage(ident) {
+    navbar.selectPage = function selectPage(ident, local item) {
         if disabled(ident)
             return
         navbar.active = false

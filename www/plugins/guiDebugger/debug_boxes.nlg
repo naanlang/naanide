@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2021 by Richard C. Zulch
+ * Copyright (c) 2021-2024 by Richard C. Zulch
  *
  */
  
@@ -18,7 +18,8 @@
  *
  */
 
-function colorExpression(element, local colorLUTkeys, colorLUT, output) {
+function colorExpression(element, local colorLUTkeys, colorLUT, output, symclass, valclass) {
+    global()
     colorLUTkeys = {
         string:         "gude-color-key"
         integer:        "gude-color-key"
@@ -68,6 +69,7 @@ function colorExpression(element, local colorLUTkeys, colorLUT, output) {
  */
 
 closure panelModComp(divid, delegate, local mocobox, columnDefs) {
+    global(zux)
     mocobox = new(object, this)
     mocobox.divid = divid
 
@@ -188,6 +190,7 @@ closure panelModComp(divid, delegate, local mocobox, columnDefs) {
  */
 
 closure panelBreakBox(divid, delegate, local brox, columnDefs) {
+    global(zux)
     brox = new(object, this)
     brox.divid = divid
 
@@ -297,7 +300,8 @@ closure panelBreakBox(divid, delegate, local brox, columnDefs) {
  *
  */
 
-closure panelWatchBox(divid, delegate, local watox, columnDefs) {
+closure panelWatchBox(divid, delegate, local watox, nextID, columnDefs) {
+    global(zux)
     watox = new(object, this)
     watox.divid = divid
     nextID = 1
@@ -517,6 +521,7 @@ closure panelWatchBox(divid, delegate, local watox, columnDefs) {
  */
 
 closure panelScopeBox(divid, delegate, local scox, nextID, columnDefs) {
+    global(zux)
     scox = new(object, this)
     scox.divid = divid
     nextID = 1
@@ -704,6 +709,7 @@ closure panelScopeBox(divid, delegate, local scox, nextID, columnDefs) {
  */
 
 closure panelCallBox(divid, delegate, local cabox, columnDefs) {
+    global(zux)
     cabox = new(object, this)
     cabox.divid = divid
 
@@ -839,6 +845,14 @@ closure panelFutureBox(divid, delegate, local futox, columnDefs) {
     ]
 
     // innerCellRenderer
+    //
+    // ### Oneoff bug in 0.9.19+1: future below found to be:
+    //  {
+    //      start: [Array ".", "futureslist", "start"]
+    //      count: [Array ".", "futureslist", "count"]
+    //      [...]
+    //  }
+    //  this caused exception in dtFormatter.format below with "invalid time value"
     //
     function innerCellRenderer(params, local future, delayms, delays, delaystr) {
         future = params.data.future

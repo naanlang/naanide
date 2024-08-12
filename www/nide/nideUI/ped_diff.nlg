@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2022 by Richard C. Zulch
+ * Copyright (c) 2020-2024 by Richard C. Zulch
  *
  */
 
@@ -36,6 +36,7 @@
  */
 
 closure pdifTextEditor(div, owner, local edtext, observer, delayer) {
+    global(js, document, window)
     edtext = new(object, this)
     edtext.owner = owner                                                    // who to notify of events
     edtext.mdContainer = div.cloneNode(true)
@@ -345,7 +346,6 @@ closure pdifTextEditor(div, owner, local edtext, observer, delayer) {
             if !current
                 current = item
             else if item.left.startLine <= current.left.endLine || item.right.startLine <= current.right.endLine {
-                ++grouped
                 current = new(current)
                 current.left.startLine = min(item.left.startLine, current.left.startLine)
                 current.right.startLine = min(item.right.startLine, current.right.startLine)
@@ -1107,7 +1107,7 @@ closure pdifTextEditor(div, owner, local edtext, observer, delayer) {
     //
     // Clean up the sessions by ensuring they are each still in the tree.
     
-    edtext.cleanup = function(local sessionKey) {
+    edtext.cleanup = function(local sessionKey, session) {
         for sessionKey in edtext.index {
             if !owner.docTest(sessionKey) {
                 edtext.reset(sessionKey) }
@@ -1151,7 +1151,7 @@ closure pdifTextEditor(div, owner, local edtext, observer, delayer) {
     //
     // Return a count of the total unsaved sessions.
     
-    edtext.unsavedCount = function unsavedCount(local count, sessionKey) {
+    edtext.unsavedCount = function unsavedCount(local count, sessionKey, session) {
         count = 0
         for sessionKey in edtext.index {
             session = edtext.index[sessionKey]

@@ -67,6 +67,7 @@ function initToolTips(element, local tooltipTriggerList) {
  */
 
 closure makeNavBar(objs, local navbar, structure, item) {
+    global(document)
     navbar = new(object, this)
     navbar.tabs = new(nonce)                                                // goes away with UI
     for item in objs
@@ -192,6 +193,7 @@ closure makeNavBar(objs, local navbar, structure, item) {
  */
 
 closure niuiBase(nicc, local niui) {
+    global(App, js, document, window, zux)
     niui = new(object, this)
     niui.api = nicc.api
     niui.psm = nicc.psm
@@ -627,7 +629,7 @@ closure niuiBase(nicc, local niui) {
 
 function niuiInit(local manifest, nidecommon, nidebrowser) {
 
-    manifest = `(setElementClass, escapeHTML, initToolTips, makeNavBar, niuiBase, niuiInit)
+    manifest = `(setElementClass, escapeHTML, initToolTips, firstClass, makeNavBar, niuiBase, niuiInit)
 
     if !js.w
         throw("module nideUI can only be used in a browser")

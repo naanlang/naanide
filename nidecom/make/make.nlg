@@ -29,7 +29,7 @@
  */
 
 closure Make(projects, local maker) {
-    global()
+    global(App)
     maker = new(object, this)                                               // create object; methods below
 
     // buildProjectInTab
