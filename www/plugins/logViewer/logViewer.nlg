@@ -29,7 +29,7 @@ closure logvIdePlugin(niui, local logv) {
     closure fetchFile(path, respType, local fetchpath) {
         if !respType
             respType = `text
-        fetchpath = js.w.location.origin.concat("/", path, requireQuery())
+        fetchpath = niui.api.url.concat(path, requireQuery())
         await(js.w.fetch(fetchpath).then(function(response) {
             if response.ok
                 response[respType]()

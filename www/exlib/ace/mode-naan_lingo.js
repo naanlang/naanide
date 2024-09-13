@@ -134,7 +134,7 @@ var NaanLingoHighlightRules = function (options) {
             "Error|isFinite|isNaN|js|$|Naan|App|" +
             "this|self|deref|escape|exception|interrupt|window|document", // Pseudo
         "keyword": "tuple|symbol|integer|float|string|array|dictionary|object|xobject|namespace|nonce|" +
-            "weakmap|textstream|builtin|Dialect|" +
+            "weakmap|textstream|builtin|Dialect|name|" +
             "break|case|catch|continue|default|delete|loop|else|finally|for|lambda|function|closure|macro|" +
             "numeric|driver|identity|" +
             "if|in|of|new|return|switch|throw|try|typeof|let|var|while|with|" +
@@ -146,7 +146,7 @@ var NaanLingoHighlightRules = function (options) {
             "car|cdr|caar|cadr|cdar|cddr|caaar|caadr|cadar|caddr|cdaar|cdadr|cddar|cdddr|" +
             "caaaar|caaadr|caadar|caaddr|cadaar|cadadr|caddar|cadddr|cdaaar|cdaadr|cdadar|cdaddr|cddaar|cddadr|cdddar|cddddr|" +
             "first|second|third|rest|rrest|rrrest|ffirst|fffirst|fsecond|fthird|" +
-            "debugger|debuglog|atom|cons|empty|list|member|push|pop|reverse",
+            "debugger|debuglog|atom|cons|empty|list|member|push|pop|reverse|future",
         "constant.language.boolean": "true|false"
     }, "identifier");
     var kwBeforeRe = "case|do|else|finally|in|instanceof|return|throw|try|typeof|yield|void";

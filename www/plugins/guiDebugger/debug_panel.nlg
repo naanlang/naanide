@@ -562,7 +562,7 @@ function debInit(local manifest) {
     Naan.module.build(module.id, "debug_panel", function(modobj, compobj) {
         compobj.manifest = manifest
         modobj.exports.DebugPanel = DebugPanel
-        letimport(require("frameworks/running/debugcom.nlg"))
+        letimport(require("naanlib:frameworks/running/debugcom.nlg"))
         require("./debug_boxes.nlg")
         zux = require("nide/zux/zux.nlg")
         if debugLeftPct eq `debugLeftPct

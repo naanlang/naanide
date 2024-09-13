@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2022 by Richard C. Zulch
+ * Copyright (c) 2022-2024 by Richard C. Zulch
  *
  */
 
@@ -27,10 +27,10 @@ closure ndocIdePlugin(niui, local nidoc) {
     // fetchFile
     //
     
-    closure fetchFile(path, respType, local fetchpath) {
+    nidoc.fetchFile = closure fetchFile(path, respType, local fetchpath) {
         if !respType
             respType = `text
-        fetchpath = js.w.location.origin.concat("/", path, requireQuery())
+        fetchpath = niui.api.url.concat(path, requireQuery())
         await(js.w.fetch(fetchpath).then(function(response) {
             if response.ok
                 response[respType]()

@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2019-2022 by Richard C. Zulch
+ * Copyright (c) 2019-2024 by Richard C. Zulch
  *
  */
 
@@ -89,7 +89,21 @@ exports.NaanControllerWebWorker = function NaanControllerWebWorker() {
         targetListener = proc;
         return (proc);
     };
-    
+
+    this.DispatchMessage = function DispatchMessage(data) {
+        postMessage({                                                       // target is sending a message
+            id: "targetsend",
+            data: data
+        });
+        return (data);
+    };
+
+    var targetReceiver;
+    targSelf.OnReceive = function OnReceive(proc) {
+        targetReceiver = proc;
+        return (proc);
+    };
+
     targSelf.ReplyDebugger = function ReplyDebugger(data) {
         postMessage({                                                       // target is sending debug data
             id: "debugout",
@@ -148,6 +162,11 @@ exports.NaanControllerWebWorker = function NaanControllerWebWorker() {
         {
             if (debugListener)
                 debugListener(msg.data);                                    // target received a message
+        }
+        else if (msg.id == "targetreceive")
+        {
+            if (targetReceiver)
+                targetReceiver(msg.data);
         }
     };
     

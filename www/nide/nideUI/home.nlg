@@ -142,7 +142,7 @@ closure homeMarkdown(home, niui, options local markd) {
         if !active || markd.html
             return
         future(function(){
-            fetchpath = js.w.location.origin.concat(options.filepath, requireQuery())
+            fetchpath = niui.api.url.concat(options.filepath, requireQuery())
             `(error, content) = await(js.w.fetch(fetchpath).then(function(response) {
                 if response.ok
                     response.text()
@@ -385,12 +385,12 @@ closure makeHome(niui, local home) {
     home.browseModal = document.getElementById("NideBrowseModal")
     home.welcome = homeMarkdown(home, niui, {
         divid:          "NidePH_Welcome"
-        filepath:       "/welcome.md"
+        filepath:       "welcome.md"
         placeholder:    "Welcome to Naan!"
     })
     home.about = homeMarkdown(home, niui, {
         divid:          "NidePH_About"
-        filepath:       "/about.md"
+        filepath:       "about.md"
         placeholder:    "About NaanIDE"
     })
     home.settings = homeSettings(home, niui)

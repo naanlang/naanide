@@ -54,18 +54,21 @@ function storeSecret(guid) {
 serverurl = js.w.location.protocol.concat("//", js.w.location.host);
 authState = { };
 
-function loadNide(local guid, baseurl, areq, bapi, bide, bui) {
+function loadNide(local hostpath, baseurl, guid, areq, bapi, bide, bui) {
+    hostpath = js.w.location.origin.concat(js.r("path").dirname(js.w.location.pathname))
+    if hostpath.slice(-1) != "/"
+        hostpath = hostpath.concat("/")                                     // must end in "/"
+    baseurl = js.w.location.href.split(RegExp("[?#]"))[0]                   // URL without variables or hashes
     guid = xnew(js.w.URL, js.w.location.href).searchParams.get("guid")
     if guid {                                                               // remove the GUID from the visible URL
         storeSecret(guid)
         authState.guid = guid
-        baseurl = js.w.location.href.replace(RegExp("[?].*$"), "")
         js.w.history.replaceState(authState, "", baseurl)
     }
     else
         guid = loadSecret()                                                 // see if we have stored the GUID
     areq = require("frameworks/browser/https_request.nlg").HttpsApiRequest
-    bapi = require("frameworks/client/apiclient.nlg").NideAPIclient(serverurl, guid, areq)
+    bapi = require("frameworks/client/apiclient.nlg").NideAPIclient(hostpath, guid, areq)
     bide = require("nide/nideClient/nideClient.nlg").MakeNideController(bapi)
     bui = require("nide/nideUI/nideUI.nlg").MakeNideUI(bide)
     bide.setUI(bui)

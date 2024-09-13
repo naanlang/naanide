@@ -4,7 +4,7 @@ NaanIDE
 NaanIDE is an Integrated Development Environment for the Naan software platform.
 
 #### Release:
-     **Naanide for NPM** version **0.9.20+1**  
+     **Naanide for NPM** version **0.9.21+1**  
      Copyright (c) 2024 Zulch Laboratories, Inc.
 
 #### Features

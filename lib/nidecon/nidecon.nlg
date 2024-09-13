@@ -137,11 +137,13 @@ closure NideCon(options, local nicon) {
     //      guid:       <string>                // server secret that clients must provide
     //      fixedPort:  <integer>               // specific server listener port to use, or
     //      basePort:   <integer>               // base port to hunt for free port
+    //      gateway:    <string>                // API Gateway handler component path
     //  }
     //
     // If not specified above, following are used from .naanlang/naanlangrc file:
     //      ideserver.guid      <string>        // guid
     //      ideserver.baseport  <integer>       // base port for finding open port
+    //      ideserver.gateway   <string>        // API Gateway handler component path
     //
     nicon.startServer = closure startServer(local config, error, port) {
         config = {
@@ -149,6 +151,7 @@ closure NideCon(options, local nicon) {
             relpath: "../www"
             statics: options.statics || undefined
             guid: nicon.net.guid
+            gateway: options.gateway || nicon.rc.ideserver.gateway || undefined
         }
         if options.fixedPort
             config.fixedPort = options.fixedPort

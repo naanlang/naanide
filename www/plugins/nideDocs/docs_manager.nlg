@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2022 by Richard C. Zulch
+ * Copyright (c) 2022-2024 by Richard C. Zulch
  *
  */
 
@@ -23,22 +23,6 @@ closure DocManager(nidoc, local docman) {
     docman.mdConverter = xnew(js.w.showdown.Converter)
     docman.mdConverter.setFlavor("github")
     docman.mdConverter.setOption("openLinksInNewWindow", true)
-
-    //
-    // fetchFile
-    //
-    
-    closure fetchFile(path, respType, local fetchpath) {
-        if !respType
-            respType = `text
-        fetchpath = js.w.location.origin.concat("/", path, requireQuery())
-        await(js.w.fetch(fetchpath).then(function(response) {
-            if response.ok
-                response[respType]()
-            else
-                Promise.reject(response.status)
-        }))
-    }
     
     //
     // initialize
@@ -57,7 +41,7 @@ closure DocManager(nidoc, local docman) {
             docman.cache.wait()                                             // wait for TOC fetch in progress
         else {
             docman.cache = new(nonce)                                       // fetch the TOC
-            `(error, content) = fetchFile("plugins/nideDocs/docfiles/doctoc.json", `json)
+            `(error, content) = nidoc.fetchFile("plugins/nideDocs/docfiles/doctoc.json", `json)
             content = new(content)
             for language in content.languages                               // compute fullpaths in TOC
                 function fullpaths(folder, parpath, local child) {
@@ -106,7 +90,7 @@ closure DocManager(nidoc, local docman) {
         doc = docman.cache[fullpath]
         if !doc {
             docman.cache[fullpath] = new(nonce)
-            `(error, text) = fetchFile("plugins/nideDocs/docfiles/".concat(language, "/", fullpath))
+            `(error, text) = nidoc.fetchFile("plugins/nideDocs/docfiles/".concat(language, "/", fullpath))
             if text
                 html = docman.mdConverter.makeHtml(text)
             doc = {
