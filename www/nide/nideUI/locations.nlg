@@ -172,7 +172,7 @@ closure locaModal(locate, title, resID, resource, local lomo) {
         lomoDivs = new(nonce)
     else if lomoDivs["NideLocationModal"] {
         lomo = lomoDivs["NideLocationModal"]
-        init()
+        lomo.init(resID)
         lomo.updateControls(title, resource)
         lomo.setFormErrors()
         lomo.show()
@@ -192,18 +192,9 @@ closure locaModal(locate, title, resID, resource, local lomo) {
         document.getElementById("NideLocNameError").innerHTML = "&nbsp;"
         lomo.updateControls() })
     addFieldListeners()
-    init()
+    init(resID)
     updateControls(title, resource)
     setFormErrors()
-    
-    // init
-    //
-    // Initialize the UI for a new location
-    //
-    function init() {
-        lomo.typeMenuButton.innerHTML = "Type"
-        lomo.psmTypeLabel = "Select Type"
-    }
     
     // initialize menu
 
@@ -309,6 +300,16 @@ closure locaModal(locate, title, resID, resource, local lomo) {
         setfield("NideLoc3", fields.2)
         setfield("NideLoc4", fields.3)
         setfield("NideLoc5", fields.4)
+    }
+    
+    // init
+    //
+    // Initialize for a new location
+    //
+    lomo.init = function init(resid) {
+        resID = resid
+        lomo.typeMenuButton.innerHTML = "Type"
+        lomo.psmTypeLabel = "Select Type"
     }
 
     // setFormErrors
