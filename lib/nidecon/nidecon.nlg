@@ -156,7 +156,7 @@ closure NideCon(options, local nicon) {
         if options.fixedPort
             config.fixedPort = options.fixedPort
         else
-            config.basePort = options.basePort || nicon.rc.ideserver.baseport || nicon.defPort
+            config.basePort = options.basePort || toint(nicon.rc.ideserver.baseport) || nicon.defPort
         nicon.api = apiServerMod.APIServer(config)
         `(error, port) = nicon.api.open()
         if error

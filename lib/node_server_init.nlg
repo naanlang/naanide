@@ -78,6 +78,7 @@ closure startup(local error, api, exists, oururl) {
         js.g.process.exit(3)
     }
     App.api = undefined
+    App.naanpath = NaanStartParams.naanpath
     App.nidecon = require("nidecon").NideCon({
         fixedPort: NaanStartParams.serverPort
         guid: NaanStartParams.guid
