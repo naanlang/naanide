@@ -648,10 +648,10 @@ function niuiInit(local manifest, nidecommon, nidebrowser) {
         module.reload = niuiReload
     })
 
-    nidecommon = require("frameworks/common/watching.nlg")
+    nidecommon = require("naanlib:frameworks/common/watching.nlg")
     Naan.module.letimport(nidecommon.Watchable)
     Naan.module.letimport(nidecommon.UUID)
-    nidebrowser = require("frameworks/browser")
+    nidebrowser = require("naanlib:frameworks/browser")
     Naan.module.letimport(nidebrowser.Platform)
 
     zux = require("nide/zux/zux.nlg")

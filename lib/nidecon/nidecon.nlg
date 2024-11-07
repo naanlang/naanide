@@ -148,7 +148,7 @@ closure NideCon(options, local nicon) {
     nicon.startServer = closure startServer(local config, error, port) {
         config = {
             name: "NaanIDEServer"
-            relpath: "../www"
+            relpath: "www"
             statics: options.statics || undefined
             guid: nicon.net.guid
             gateway: options.gateway || nicon.rc.ideserver.gateway || undefined
@@ -328,8 +328,8 @@ function niconInit(local manifest) {
         compobj.manifest = manifest
         modobj.exports.NideCon = NideCon
     })
-    apiServerMod = require("frameworks/node/apiserver.nlg", { in: "naanlib" })
-    nodeMod = require("frameworks/node", { in: "naanlib" })
-    commonMod = require("frameworks/common", { in: "naanlib" })
-    relayMod = require("frameworks/client/relaycon.nlg", { in: "naanlib" })
+    apiServerMod = require("naanlib:frameworks/node/apiserver.nlg")
+    nodeMod = require("naanlib:frameworks/node")
+    commonMod = require("naanlib:frameworks/common")
+    relayMod = require("naanlib:frameworks/client/relaycon.nlg")
 } ();

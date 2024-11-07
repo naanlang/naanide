@@ -800,13 +800,14 @@ closure panelFutureBox(divid, delegate, local futox, columnDefs) {
             if future.execute
                 record.items = [{
                     proc: future.execute
+                    execloc: future.execloc
                     wait: false
                 }]
             if future.waiting {
                 if !record.items
                     record.items = []
-                record.items = record.items.concat(future.waiting.map(function(item) {
-                    { proc: item, wait: true }
+                record.items = record.items.concat(future.waiting.map(function(item, index) {
+                    { proc: item, wait: true, contID: future.continuations[index] }
                 }))
             }
             content.push({
@@ -876,7 +877,7 @@ closure panelFutureBox(divid, delegate, local futox, columnDefs) {
     // rowClick
     //
     function rowClick(params) {
-        delegate.futoxSelect(params.node.data)
+        delegate.futoxSelect(params.node.data, params.rowIndex)
     }
 
     futox.box = zux.BoxHierarchy(divid, columnDefs, {

@@ -14,7 +14,7 @@
 "use strict";
 
 /*
- * imports
+ * imports & environment
  *
  */
 
@@ -23,6 +23,7 @@ var fs = require("fs");
 var os = require("os");
 var naanOptions = {};
 var naanpath = jspath.resolve(require.resolve('@naanlang/naan'), '../../../');
+var rootpath = jspath.join(__dirname, "/..");
 var envpath = jspath.resolve(naanpath, 'lib/env_node.js');
 var NaanNodeREPL = require(envpath);
 var naanrepl;
@@ -38,13 +39,17 @@ var start_params = {
     naanpath: naanpath.replace(/\\/g, "\\\\"),
     guid: process.env.NAANIDE_SERVER_GUID
 };
+
 var cmd_text = ""
-    + "Naan.module.defineLoc('naanlib', '" + naanpath.replace(/\\/g, "\\\\") + "');;"
-    + "Naan.module.nodeparse('node_server_init.nlg');;\n";
+    + `App.naanpath = '${ naanpath.replace(/\\/g, "\\\\") }';;`             // path/to/our naan library
+    + `App.rootpath = '${ rootpath.replace(/\\/g, "\\\\") }';;`             // path/to/our package.json
+    + "Naan.module.defineLoc('naanlib', App.naanpath);;"                    // defines "naanlib:" prefix for require
+    + "Naan.module.nodeparse('lib/node_server_init.nlg');;\n";              // Naan initialization
 
 var server_port;
 var cmd_mod;
 var eval_text;
+var list_commands;
 var do_interactive;
 
 process.argv.every((val, index) => {
@@ -60,6 +65,10 @@ process.argv.every((val, index) => {
         eval_text = 1;
         return (true);
     }
+    if (val == "--list") {
+        list_commands = true;
+        return (true);
+    }
     if (eval_text == 1 && val.substring(0,1) == "-")
         return (false);
     if (val == "-h" || val == "--help") {
@@ -68,6 +77,7 @@ process.argv.every((val, index) => {
             "Options:\n" +
             "  --port <port>        use the specified port\n" +
             "  -e <expression>      evaluate an expression\n" +
+            "  --list               list available commands\n" +
             "  --version            print the NaanIDE version\n" +
             "  --buildno            print the version and build\n" +
             "  -h, --help           print this usage information\n" +
@@ -79,16 +89,12 @@ process.argv.every((val, index) => {
         process.exit(0);
     }
     if (val == "--version") {
-        console.log("0.9.24");
+        console.log("0.9.25");
         process.exit(0);
     }
     if (val == "--buildno") {
-        console.log("0.9.24+1");
+        console.log("0.9.25+1");
         process.exit(0);
-    }
-    if (val == "--") {
-        extra_args = true;
-        return (false);
     }
     if (val.substring(0,1) == "-") {
         console.log("naanide: bad option: " + val);
@@ -106,13 +112,9 @@ process.argv.every((val, index) => {
         eval_text = val + '\n';
         return (true);
     }
-    if (!cmd_mod) {
-        cmd_mod = val;
-        start_params.cmd_args = process.argv.slice(index+1);
-        return (true);
-    }
-    // ignore cmd_mod arguments
-    return (true);
+    cmd_mod = val;
+    start_params.cmd_args = process.argv.slice(index+1);
+    return (false);
 });
 
 if (server_port == "-") {
@@ -124,10 +126,18 @@ if (server_port > 0)
 else if (process.env.NAANIDE_SERVER_PORT)
     start_params.serverPort = process.env.NAANIDE_SERVER_PORT;
 
+if (list_commands) {
+    var files1 = fs.readdirSync(jspath.join(__dirname, "../nidecom"));
+    var files2 = fs.readdirSync(jspath.join(os.homedir(), ".naanlang/nidecom"));
+    console.log("naanide: commands:", files1.concat(files2).join(", "));
+    process.exit(0);
+}
+
 if (eval_text == 1) {
     console.log("naanide: -e requires an argument");
     process.exit(9);
 }
+
 if (cmd_mod) {
     var path = jspath.resolve(__dirname, "../nidecom", cmd_mod);
     if (fs.existsSync(path))
@@ -158,12 +168,13 @@ if (eval_text) {
         "           } else\n" +
 
         "           {\n" +
-        "               if input.tokenlast().atom == `;;\n" +
-        "                   eval(expr)\n" +
+        "               $(evalactive(expr))\n" +
+        "               if input.tokenlast().atom == `;; || $ === Naan.local.mu\n" +
+        "                   { }\n" +
         "               else if input.tokenlast().atom == `;>\n" +
-        "                   printline(eval(expr))\n" +
+        "                   printline($)\n" +
         "               else\n" +
-        "                   printline(Dialect.print(eval(expr)))\n" +
+        "                   printline(Dialect.print($))\n" +
         "           }\n" +
 
         "       }\n" +
@@ -197,7 +208,7 @@ if (eval_text) {
 // Attempt to load our state, but leave statePath/stateKey set in any case.
 //
 function loadState() {
-    stateKey = "Zulch Laboratories, Inc.-0.9.24+1";
+    stateKey = "Zulch Laboratories, Inc.-0.9.25+1";
     statePath = jspath.join(os.homedir(), `.naanlang/session.state`);
     try {
         var sessions = fs.readFileSync(statePath);
@@ -284,7 +295,7 @@ naanOptions.require = require;
 naanOptions.import = function(m) { return (import(m)); };
 loadState();
 var naanrepl = new NaanNodeREPL(naanOptions);
-naanrepl.setDirectory(jspath.join(__dirname, "../lib/"));
+naanrepl.setDirectory(rootpath);
 naanrepl.setGlobal("save", saveState);                                      // set js.save
 if (eval_text)
     naanrepl.setGlobal("expr", eval_text + "\n");                           // set js.expr

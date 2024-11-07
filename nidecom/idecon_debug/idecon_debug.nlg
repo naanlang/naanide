@@ -42,7 +42,7 @@ function startup(arglist, local error, exists, oururl) {
         printline("    `(error, context) = App.nidecon.remote(tabID)            // make remote evaluation context")
         printline("    context.evalq(js.w.alert('hello world'))                 // evaluate literal expression")
         printline("    context.call(test, tabID)                                // send function test to remote and call it")
-        printline("        function test(x) { js.w.alert('you are $${x}') }     // example function for sending")
+        printline("        function test(x) { js.w.alert('you are $${x}') }      // example function for sending")
         printline("    context.evalq(App.model.project.list())                  // list known projects in browser tab")
         printline("    context.evalq(js.w.close())                              // close browser tab")
     }

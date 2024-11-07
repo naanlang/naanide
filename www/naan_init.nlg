@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2023 by Richard C. Zulch
+ * Copyright (c) 2017-2024 by Richard C. Zulch
  *
  */
 
@@ -14,7 +14,18 @@ loglevel(3);
 chns("Start");
 
 defineExt("nlg", true);                                                     // our code extension
-require("naan_init_common.nlg");                                            // initialization for all Naan instances
+
+
+/*
+ * Debugging & Tools
+ *
+ */
+
+if !module.owner.list.running.components.debugnub {
+    require("naanlib:frameworks/common/repltools.nlg").ImportReplTools()
+    require("naanlib:frameworks/running/debugnub.nlg").DebugNub()
+    require("naanlib:frameworks/running/taskexec.nlg").TaskExecutor()
+};
 
 
 /*
@@ -67,8 +78,8 @@ function loadNide(local hostpath, baseurl, guid, areq, bapi, bide, bui) {
     }
     else
         guid = loadSecret()                                                 // see if we have stored the GUID
-    areq = require("frameworks/browser/https_request.nlg").HttpsApiRequest
-    bapi = require("frameworks/client/apiclient.nlg").NideAPIclient(hostpath, guid, areq)
+    areq = require("naanlib:frameworks/browser/https_request.nlg").HttpsApiRequest
+    bapi = require("naanlib:frameworks/client/apiclient.nlg").NideAPIclient(hostpath, guid, areq)
     bide = require("nide/nideClient/nideClient.nlg").MakeNideController(bapi)
     bui = require("nide/nideUI/nideUI.nlg").MakeNideUI(bide)
     bide.setUI(bui)

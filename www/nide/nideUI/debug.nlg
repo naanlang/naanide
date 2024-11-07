@@ -244,7 +244,7 @@ closure MakeDebug(niui, local debug) {
         })
         m3 = niui.track.spawn("Host", "NaanIDE Server", {
             workerID: "NideServer"
-            dispatcher: require("frameworks/running/taskexec.nlg").TaskDispatcher
+            dispatcher: require("naanlib:frameworks/running/taskexec.nlg").TaskDispatcher
         })
         m4 = niui.track.spawn("Host", "Play", {
             workerID: "NaanIDE-Server-Play"
@@ -353,7 +353,7 @@ function debugInit(local manifest) {
         modobj.exports.MakeDebug = MakeDebug
     })
 
-    nideClient_terminals = require("frameworks/browser/terminals.nlg")
+    nideClient_terminals = require("naanlib:frameworks/browser/terminals.nlg")
     if debugLeftPct eq `debugLeftPct
         debugLeftPct = 15
 } ();

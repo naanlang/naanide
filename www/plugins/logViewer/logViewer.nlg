@@ -85,7 +85,7 @@ function logvIdeInit(local manifest) {
             App.nide.addUI(logvIdePlugin)
         }
         module.postload = logvPostload
-        require("frameworks/common").LiveImport()
+        require("naanlib:frameworks/common").LiveImport()
         require("./logs_manager.nlg")
         zux = require("nide/zux/zux.nlg")
         logvPostload()

@@ -146,7 +146,7 @@ var NaanLingoHighlightRules = function (options) {
             "car|cdr|caar|cadr|cdar|cddr|caaar|caadr|cadar|caddr|cdaar|cdadr|cddar|cdddr|" +
             "caaaar|caaadr|caadar|caaddr|cadaar|cadadr|caddar|cadddr|cdaaar|cdaadr|cdadar|cdaddr|cddaar|cddadr|cdddar|cddddr|" +
             "first|second|third|rest|rrest|rrrest|ffirst|fffirst|fsecond|fthird|" +
-            "debugger|debuglog|atom|cons|empty|list|member|push|pop|reverse|future",
+            "procedure|debugger|debuglog|atom|cons|empty|list|member|push|pop|reverse|future",
         "constant.language.boolean": "true|false"
     }, "identifier");
     var kwBeforeRe = "case|do|else|finally|in|instanceof|return|throw|try|typeof|yield|void";

@@ -125,10 +125,6 @@ exports.NaanTerminal = function() {
         instance.Detach(termSelf);
     });
  
-    window.addEventListener("unload", function (e) {
-        instance.Detach(termSelf);
-    });
- 
     window.addEventListener("beforeunload", function (e) {                  // only event fired on page reload
     });
 

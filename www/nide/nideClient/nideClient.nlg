@@ -1,6 +1,6 @@
 /*
  * nideClient.nlg
- * NaanIDE version 0.9.24+1
+ * NaanIDE version 0.9.25+1
  *
  *     Naan IDE controller for browsers.
  *
@@ -49,7 +49,7 @@
 
 closure niccPrefs(nicc, dbname, local prefs, error, data) {
     global()
-    `(error, data) = require("frameworks/storage/dbt_pouch.nlg").PouchDB(dbname)
+    `(error, data) = require("naanlib:frameworks/storage/dbt_pouch.nlg").PouchDB(dbname)
     if error {
         ErrorDebuglog("Can't access Nide local browser database", error)
         return (false)
@@ -237,16 +237,16 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     nicc.api = api
     nicc.prefs = niccPrefs(nicc, "Nide")
     nicc.uilist = []
-    nicc.psm = require("frameworks/client/psm_client.nlg").MakeClientPSM(api, "Nide")
+    nicc.psm = require("naanlib:frameworks/client/psm_client.nlg").MakeClientPSM(api, "Nide")
     nicc.locate = nicc.psm.tracker()                                        // storage locations
     nicc.locate.open()
     nicc.track = ExecutorTracker()
     nicc.track.register(localWorker, "Local")
     nicc.track.register(hostWorker, "Host")
-    nicc.projman = require("frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
+    nicc.projman = require("naanlib:frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
     nicc.projects = nicc.projman.tracker()
     nicc.projects.open()
-    nicc.sworker = require("frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.24+1", function() {
+    nicc.sworker = require("naanlib:frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.25+1", function() {
         nicc.upgrade_sw = true
         nicc.checker.run(1)                                                 // run the update checker very soon
     })
@@ -272,11 +272,15 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     function localWorker(track, name, options) {
         options = merge({
             startup: {
-                initcmds: 'App.version = "0.9.24+1";;\n'
-                    'App.cache = "3f50f8cb87efda3eaa667353672cc225";;\n'
+                initcmds: 'App.version = "0.9.25+1";;\n'
+                    'App.cache = "7ef5b2826f3771beb813e2c028f98b41";;\n'
                     'Naan.module.requireQuery({ naanver: App.cache });;\n'
                     'Naan.module.defineExt("nlg", true);;\n'
-                    'require("naan_init_workers.nlg");;\n'
+                    'if !module.owner.list.running.components.debugnub {\n'
+                    '   require("naanlib:frameworks/common/repltools.nlg").ImportReplTools()\n'
+                    '   require("naanlib:frameworks/running/debugnub.nlg").DebugNub()\n'
+                    '   require("naanlib:frameworks/running/taskexec.nlg").TaskExecutor()\n'
+                    '};;\n'
             }
         }, options)
         nideTerminals.TermLocal(track, name, options)
@@ -440,7 +444,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     // disconnection.
     //
     pollint = 60000                                                         // default timeout 1 minute
-    version = "NaanIDE 0.9.24+1"
+    version = "NaanIDE 0.9.25+1"
     function statusPoll(timeoutms) {
         api.status(function (status) {
             if not status {
@@ -518,7 +522,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     addUI(function(local loading) {
         loading = window.localStorage.getItem("nide-loading")
         loading = loading.split("|")
-        if loading.0 == "0.9.24+1"
+        if loading.0 == "0.9.25+1"
             window.localStorage.removeItem("nide-loading")
         statusPoll(1)
     })
@@ -552,11 +556,11 @@ function niccInit(local manifest, nideRunning) {
 
     App.model = require("model.nlg").NideModel()
     require("../common").LiveImport()
-    require("frameworks/storage/dbt_pouch.nlg")
-    require("frameworks/project/projects.nlg")
-    nideRunning = require("frameworks/running/executors.nlg")
-    nideTerminals = require("frameworks/browser/terminals.nlg")
+    require("naanlib:frameworks/storage/dbt_pouch.nlg")
+    require("naanlib:frameworks/project/projects.nlg")
+    nideRunning = require("naanlib:frameworks/running/executors.nlg")
+    nideTerminals = require("naanlib:frameworks/browser/terminals.nlg")
     Naan.module.letimport(nideRunning.ExecutorTracker)
     Naan.module.letimport(nideRunning.ExecutorBase)
-    require("frameworks/client/psm_client.nlg")
+    require("naanlib:frameworks/client/psm_client.nlg")
 } ();

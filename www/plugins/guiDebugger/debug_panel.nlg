@@ -109,6 +109,19 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
         depan.messageText.innerHTML = html
     }
     
+    // setCurContID
+    // Set our current continuationID, and keep it valid in the remote, or clear with false.
+    //
+    function setCurContID(contID) {
+        if contID == depan.curContID
+            return
+        if depan.curContID
+            depan.remote.usingContID(depan.curContID, -1)
+        depan.curContID = contID
+        if contID
+            depan.remote.usingContID(contID, 1)
+    }
+    
     // guttermousedown
     // Called when the user is clicking the gutter for a breakpoint.
     //
@@ -142,6 +155,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     })
     
     // mocoSelect
+    // A row in the module/component listbox has been selected.
     //
     depan.mocoSelect = function mocoSelect(item) {
         if item.name && item.parent.id
@@ -149,7 +163,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     }
     
     // caboxSelect
-    // A row in the stackframe listbox has been expanded.
+    // A row in the stackframe listbox has been selected.
     //
     depan.caboxSelect = function caboxSelect(item, fdex) {
         frameUpdates(fdex)
@@ -160,7 +174,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     //
     depan.scoxExpand = function scoxExpand(element, content, local error, data) {
         element.visible = true
-        `(error, data) = depan.remote.scopeinfo(depan.curFramedex, content)
+        `(error, data) = depan.remote.scopeinfo(depan.curFramedex, content, depan.curContID)
         if !error
             depan.scopeBox.resetContents(data)
     }
@@ -170,11 +184,37 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     //
     depan.scoxCollapse = function scoxCollapse(element, content, local error, data) {
         element.visible = undefined
-        `(error, data) = depan.remote.scopeinfo(depan.curFramedex, content)
+        `(error, data) = depan.remote.scopeinfo(depan.curFramedex, content, depan.curContID)
         if !error
             depan.scopeBox.resetContents(data)
     }
-    
+        
+    // futoxSelect
+    // A row in the futures listbox has been selected.
+    //
+    depan.futoxSelect = function futoxSelect(item, fdex, local xloc, error, data) {
+        setCurContID(item.future.contID)
+        if !item.future.contID {
+            fetchUpdates()                                                  // reset to normal content
+            xloc = item.future.execloc
+            if xloc
+                focusSource(xloc.modname, xloc.compname, xloc.first)
+            return
+        }
+        `(error, data) = depan.remote.modcomp()
+        if !error {
+            depan.mocoBox.resetContents(data)
+            `(error, data) = depan.remote.breakList()
+        }
+        if !error {
+            depan.breakBox.resetContents(data)
+            `(error, data) = depan.remote.callStack(depan.curContID)
+            if !error
+                depan.callBox.resetContents(data)
+        }
+        frameUpdates(0)
+    }
+
     // broxDoubleClick
     // A row in the breakpoint listbox was double-clicked.
     //
@@ -191,7 +231,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
             depan.remote.watchWrite(watchdex, text)
         else
             depan.remote.watchDelete(watchdex)
-        `(error, data) = depan.remote.watchInfo(depan.watchContent, depan.curFramedex)
+        `(error, data) = depan.remote.watchInfo(depan.watchContent, depan.curFramedex, depan.curContID)
         if !error
             depan.watchBox.resetContents(data)
     }
@@ -202,7 +242,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     depan.watoxExpand = function watoxExpand(element, content, local error, data) {
         element.visible = true
         depan.watchContent = content
-        `(error, data) = depan.remote.watchInfo(content, depan.curFramedex)
+        `(error, data) = depan.remote.watchInfo(content, depan.curFramedex, depan.curContID)
         if !error
             depan.watchBox.resetContents(data)
     }
@@ -213,7 +253,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     depan.watoxCollapse = function watoxCollapse(element, content, local error, data) {
         element.visible = undefined
         depan.watchContent = content
-        `(error, data) = depan.remote.watchInfo(content, depan.curFramedex)
+        `(error, data) = depan.remote.watchInfo(content, depan.curFramedex, depan.curContID)
         if !error
             depan.watchBox.resetContents(data)
     }
@@ -366,6 +406,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
         if !depan.running {                                                 // stop any delay and run now
             delayer.cancel()
             delayer = false
+            setCurContID()                                                  // reset continuation focus
             setControlsRunState()
         }
         else if delayer
@@ -433,7 +474,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
         if !error {
             depan.breakBox.resetContents(data)
             if stopped {
-                `(error, data) = depan.remote.callStack()
+                `(error, data) = depan.remote.callStack(depan.curContID)
                 if !error
                     depan.callBox.resetContents(data)
             }
@@ -445,19 +486,19 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     // frameUpdates
     // Update for frame change.
     closure frameUpdates(fdex, local error, data, frameInfo) {
-        if depan.running {
+        if !depan.curContID && depan.running {
             // ### clear variables, etc.
             depan.curFramedex = false
         }
         else {
             depan.curFramedex = fdex
-            `(error, data) = depan.remote.scopeinfo(fdex, { })
+            `(error, data) = depan.remote.scopeinfo(fdex, { }, depan.curContID)
             if !error
                 depan.scopeBox.resetContents(data)
-            `(error, frameInfo) = depan.remote.frameinfo(fdex)
+            `(error, frameInfo) = depan.remote.frameinfo(fdex, depan.curContID)
             if frameInfo
                 focusSource(frameInfo.modname, frameInfo.compname, frameInfo.first)
-            `(error, data) = depan.remote.watchInfo(depan.watchContent, depan.curFramedex)
+            `(error, data) = depan.remote.watchInfo(depan.watchContent, depan.curFramedex, depan.curContID)
             if !error
                 depan.watchBox.resetContents(data)
         }

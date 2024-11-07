@@ -13,7 +13,21 @@
 loglevel(3);
 chns("Start");
 
-require("node_common_init.nlg");                                                // common for Naan node instances
+
+/*
+ * Debugging & Tools
+ *
+ */
+
+if !module.owner.list.running.components.debugnub {
+    require("naanlib:frameworks/common/repltools.nlg").ImportReplTools()
+    require("naanlib:frameworks/running/debugnub.nlg").DebugNub()
+    require("naanlib:frameworks/running/taskexec.nlg").TaskExecutor()
+};
+
+App.shell = require("naanlib:frameworks/node/shell.nlg").ShellConnect({
+    cwd: js.d
+})
 
 
 /*
@@ -79,7 +93,7 @@ closure startup(local error, api, exists, oururl) {
     }
     App.api = undefined
     App.naanpath = NaanStartParams.naanpath
-    App.nidecon = require("nidecon").NideCon({
+    App.nidecon = require("lib/nidecon").NideCon({
         fixedPort: NaanStartParams.serverPort
         guid: NaanStartParams.guid
         statics: [
