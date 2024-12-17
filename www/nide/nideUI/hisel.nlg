@@ -81,6 +81,7 @@ closure makeHisel(divid, local hisel, columnDefs, rowData, delayer) {
         enableGroupEdit: true,
         rowClass: "ag-row-even",                                            // remove zebra striping
         suppressHorizontalScroll: true,
+        suppressScrollOnNewData: true,
         getNodeChildDetails: function(node) {
             if node.children && !node.error
                 return ({
@@ -190,17 +191,43 @@ closure makeHisel(divid, local hisel, columnDefs, rowData, delayer) {
     hisel.sizeToFit = function sizeToFit() {
         hisel.api.sizeColumnsToFit()
     }
+
+    // scrollTop
+    //
+    // Get the rowNode at the top of the view.
     
+    hisel.scrollTop = function scrollTop(local topindex) {
+        topindex = hisel.api.getModel().getRowIndexAtPixel(hisel.api.gridPanel.eBodyViewport.scrollTop)
+        if topindex >= 0
+            hisel.api.getDisplayedRowAtIndex(topindex)
+    }
+
+    // setPathVisible
+    //
+    // Set row visible by index. The optional position can be "top" / "middle" / "bottom".
+    
+    hisel.setPathVisible = function setPathVisible(path, position, local rowindex) {
+        hisel.api.forEachNode(function(rowNode) {
+            if rowNode.data.path == path
+                rowindex = rowNode.rowIndex
+        })
+        if rowindex {
+            hisel.api.ensureIndexVisible(rowindex, position)
+            true
+        }
+    }
+
     // updateTree
     //
     //     Update for a modified tree.
     //
-    hisel.updateTree = function updateTree(openpaths, local path) {
+    hisel.updateTree = function updateTree(viewstate, local path) {
         delayer = { }
-        if !openpaths
-            openpaths = openPaths()                                      // save existing open folders
+        if !viewstate
+            viewstate = viewState()                                         // save open/scroll state
+        hisel.topPath = viewstate.top
         hisel.openIndex = { }
-        for path in openpaths
+        for path in viewstate.open
             hisel.openIndex[path] = true
         hisel.fm.waitFileList(function(error, nodes, local tree) {
             nodes = hisel.fm.fileList()
@@ -210,6 +237,9 @@ closure makeHisel(divid, local hisel, columnDefs, rowData, delayer) {
             else
                 tree = []
             hisel.api.setRowData(tree)
+            if hisel.topPath
+                hisel.setPathVisible(hisel.topPath, "top")
+            hisel.topPath = undefined
             hisel.openIndex = undefined
             hisel.pathIndex = undefined
             setHeaderText()
@@ -253,14 +283,14 @@ closure makeHisel(divid, local hisel, columnDefs, rowData, delayer) {
     // setTree
     //
     //     Set the specified file manager as the new content.
-    hisel.setTree = function setTree(fm, delegate, openpaths) {
+    hisel.setTree = function setTree(fm, delegate, viewstate) {
         if hisel.fm
             hisel.fm.unWatch(updateOnChange)
         if fm {
             hisel.fm = fm
             hisel.fm.watch(updateOnChange)
             hisel.delegate = delegate
-            updateTree(openpaths)
+            updateTree(viewstate)
         } else
             hisel.api.setRowData([])
     }
@@ -275,21 +305,26 @@ closure makeHisel(divid, local hisel, columnDefs, rowData, delayer) {
         })
     }
 
-    // openPaths
+    // viewState
     //
-    //     Return an array of relpaths that are expanded. The path of the root is "".
+    //     Return a dictionary of viewState that can be restored when the tree is set. The open array
+    // is an array of relpaths that are expanded. The path of the root is "". The top is the relpath
+    // at the scroll top.
     
-    hisel.openPaths = function openPaths(local pathlist) {
-        pathlist = []
+    hisel.viewState = function viewState(local output, topNode) {
+        output = {
+            open: []
+        }
+        topNode = hisel.scrollTop()
         hisel.api.forEachNode(function(rowNode, index, local path) {
-            if rowNode.data.children && rowNode.expanded {
-                path = rowNode.data.path
-                if !path
-                    path = ""
-                pathlist.push(path)
+            if topNode == rowNode
+                output.top = rowNode.data.path || ""
+            else if rowNode.data.children && rowNode.expanded {
+                path = rowNode.data.path || ""
+                output.open.push(path)
             }
         })
-        pathlist
+        output
     }
 
     //

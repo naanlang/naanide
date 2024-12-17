@@ -35,6 +35,7 @@
  *      rowClassRules   - dictionary of rules and tests
  *
  * Functionality:
+ *      setRowVisible   - set the row to be visible at position
  *      selectDown      - select the next row down until the bottom
  *      selectOnly      - select only the specified row
  *      addRow          - add a row of data
@@ -47,6 +48,7 @@
  *      setEmpty        - clear the content of the listbox
  *
  * Queries:
+ *      scrollTop       - return the row at the view top
  *      selRow          - return the currently selected row or false
  *      selCol          - return the currently selected column or false
  *      focusedCellData - return data for selected cell
@@ -338,6 +340,31 @@ closure zboxAbstract(div, options, local zabox) {
     //
     zabox.sizeToFit = function sizeToFit() {
         zabox.api.sizeColumnsToFit()
+    }
+
+    // scrollTop
+    //
+    // Get the rowNode at the top of the view.
+    
+    zabox.scrollTop = function scrollTop(local topindex) {
+        topindex = zabox.api.getModel().getRowIndexAtPixel(zabox.api.gridPanel.eBodyViewport.scrollTop)
+        if topindex >= 0
+            zabox.api.getDisplayedRowAtIndex(topindex)
+    }
+
+    // setRowVisible
+    //
+    // Set row visible by index. The optional position can be "top" / "middle" / "bottom".
+    
+    zabox.setRowVisible = function setRowVisible(rowDatum, position, local rowindex) {
+        zabox.api.forEachNode(function(rowNode, index) {
+            if rowNode == rowDatum
+                rowindex = index
+        })
+        if rowindex {
+            zabox.api.ensureIndexVisible(rowindex, position)
+            true
+        }
     }
 
     // setRowData

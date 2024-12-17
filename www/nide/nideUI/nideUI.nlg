@@ -451,7 +451,7 @@ closure niuiBase(nicc, local niui) {
     // Shift-S means save everything.
 
     niui.eventSaveAll = function(event) {
-        debuglog("save everything")                                         // ### needs to be implemented
+        debuglog("we should save everything")                               // ### needs to be implemented
     }
 
     // niui.openTerm

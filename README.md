@@ -4,7 +4,7 @@ NaanIDE
 NaanIDE is an Integrated Development Environment for the Naan software platform.
 
 #### Release:
-     **Naanide for NPM** version **0.9.25+1**  
+     **Naanide for NPM** version **0.9.26+1**  
      Copyright (c) 2024 Zulch Laboratories, Inc.
 
 #### Features
@@ -37,6 +37,7 @@ With no arguments`naanide` starts a new local server at an available port and la
 
     --port <port>               override the IP port
     -e <expression>             evaluate an expression
+    --list                      list available commands
     --version                   print NaaN version
     --buildno                   print NaaN version with build number
     -h, --help                  print usage information
@@ -47,6 +48,7 @@ NaanIDE is scriptable, so the server and each browser tab can be controlled from
 
 	naanide workspace Backend WebApp    # openthe Backend and WebApp projects
 	naanide make naan.dev naanide.dev   # build the dev stage of the naan and naanide projects
+	naanide --list                      # list available commands
 
 NaanIDE manages ports and link security automatically for simple cases, but it is fully configurable using files, environmental variables, and command line arguments. Please see the **Docs** tab in the IDE for advanced configuration and customization.
 

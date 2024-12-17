@@ -405,11 +405,21 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
         updateDiffEdit()
         project.diffMode = project.activeEditor.enableDiffView(project.diffMode)
     })
+    
+    // saveState
+
+    project.saveState = function saveState() {
+        if project.current {
+            project.persist.viewstate = project.hisel.viewState()
+            project.current.config.update()
+        }
+    }
 
     // saveAll
     // eventSave
 
     window.addEventListener("NaanSave", function saveAll(event) {
+        saveState()
         project.textEditor.saveAll()
         project.imageEditor.saveAll()
         project.projEditor.saveAll()
@@ -733,7 +743,8 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
         project.sessionList = []
         project.stage = niui.buildStage
         project.hisel.setHeaderText("Loading...")
-        project.hisel.setTree(project.current.fm, project)
+        project.persist = project.current.config.persist()
+        project.hisel.setTree(project.current.fm, project, project.persist.viewstate)
         editorCleanup()
         project.fm.watch(function (classID, changelist, local node, store) {
             if changelist.deleted.length > 0
@@ -751,6 +762,7 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
     
     project.closeProject = function closeProject() {
         if project.current {
+            saveState()
             project.imageEditor.reset()
             project.textEditor.saveAll()
             project.textEditor.reset()
