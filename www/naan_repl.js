@@ -624,6 +624,7 @@ exports.NaanREPL = function(replDiv, readyCallback) {
      */
     
    function writeDebug(text, level) {
+        text = text.replaceAll("\n", "\r\n");
         if (level >= 5)
             replSelf.WriteLn(text, replSelf.Cyan);                          // cyan for builtin logging
         else if (level >= 4)

@@ -92,6 +92,7 @@ exports.NaanTerminal = function() {
     //
 
     function debugWrite(text, level) {
+        text = text.replaceAll("\n", "\r\n");
         if (level >= 5)
             repl.WriteLn(text, repl.Cyan);                                  // cyan for builtin logging
         else if (level >= 4)

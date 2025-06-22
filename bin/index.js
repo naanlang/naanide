@@ -7,7 +7,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2021-2024 by Richard C. Zulch
+ * Copyright (c) 2021-2025 by Richard C. Zulch
  *
  */
 
@@ -89,11 +89,11 @@ process.argv.every((val, index) => {
         process.exit(0);
     }
     if (val == "--version") {
-        console.log("0.9.26");
+        console.log("0.9.27");
         process.exit(0);
     }
     if (val == "--buildno") {
-        console.log("0.9.26+1");
+        console.log("0.9.27+1");
         process.exit(0);
     }
     if (val.substring(0,1) == "-") {
@@ -154,6 +154,7 @@ if (cmd_mod) {
 }
 
 if (eval_text) {
+    naanOptions.replDisable = true;
     naanOptions.noWelcome = true;
     naanOptions.cmd = "Naan.runtimelib.curdriver().setOptions({prompt:false});;\n";
     cmd_text = cmd_text.concat("\n" +
@@ -208,7 +209,7 @@ if (eval_text) {
 // Attempt to load our state, but leave statePath/stateKey set in any case.
 //
 function loadState() {
-    stateKey = "Zulch Laboratories, Inc.-0.9.26+1";
+    stateKey = "Zulch Laboratories, Inc.-0.9.27+1";
     statePath = jspath.join(os.homedir(), `.naanlang/session.state`);
     try {
         var sessions = fs.readFileSync(statePath);
@@ -300,5 +301,5 @@ naanrepl.setGlobal("save", saveState);                                      // s
 if (eval_text)
     naanrepl.setGlobal("expr", eval_text + "\n");                           // set js.expr
 
-cmd_text = "NaanStartParams = " + JSON.stringify(start_params) + ";;" + cmd_text;
+cmd_text = "chns('Start');; NaanStartParams = " + JSON.stringify(start_params) + ";;" + cmd_text;
 naanrepl.textCommand(cmd_text);

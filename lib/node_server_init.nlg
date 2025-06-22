@@ -6,12 +6,11 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2024 by Richard C. Zulch
+ * Copyright (c) 2020-2025 by Richard C. Zulch
  *
  */
 
 loglevel(3);
-chns("Start");
 
 
 /*
@@ -83,8 +82,8 @@ function saveState() {
  */
 
 closure startup(local error, api, exists, oururl) {
-    if !versionCheck("14.14.0") {                                           // for fs.rm()
-        debuglog("NaanIDE: NodeJS too old; version 14.14.0 required.")
+    if !versionCheck("16.20.2") {
+        debuglog("NaanIDE: NodeJS too old; version 16.20.2 required.")
         js.g.process.exit(2)
     }
     if !dictionary(NaanStartParams) {
@@ -111,7 +110,7 @@ closure startup(local error, api, exists, oururl) {
         }
     }
     else if js.expr
-        saveState()
+        saveState().wait()
     else {
         `(error, api, exists) = App.nidecon.startServer()
         if exists {
