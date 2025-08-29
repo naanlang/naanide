@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2024 by Richard C. Zulch
+ * Copyright (c) 2024-2025 by Richard C. Zulch
  *
  */
 
@@ -23,28 +23,14 @@ closure logvIdePlugin(niui, local logv) {
     logv.niui = niui
     App.logViewer = logv
     logv.logman = LogsManager(logv)
-
-    // fetchFile
-    //
-    closure fetchFile(path, respType, local fetchpath) {
-        if !respType
-            respType = `text
-        fetchpath = niui.api.url.concat(path, requireQuery())
-        await(js.w.fetch(fetchpath).then(function(response) {
-            if response.ok
-                response[respType]()
-            else
-                Promise.reject(response.status)
-        }))
-    }
     
     // App our UI to navbar
     //
-    future(function(error, content) {
-        `(error, content) = fetchFile("plugins/logViewer/logViewer.css")
+    future(function(local error, content, extra) {
+        `(error, content, extra) = niui.api.get("plugins/logViewer/logViewer.css")
         if content.length > 0
             niui.appendCss(content)
-        `(error, content) = fetchFile("plugins/logViewer/logViewer.html")
+        `(error, content, extra) = niui.api.get("plugins/logViewer/logViewer.html")
         if content.length > 0 {
             niui.navbar.appendPage("logs", "Logs", content, logv)
             logv.logman.reload()

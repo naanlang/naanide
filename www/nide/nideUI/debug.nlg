@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2019-2024 by Richard C. Zulch
+ * Copyright (c) 2019-2025 by Richard C. Zulch
  *
  */
 
@@ -276,6 +276,8 @@ closure MakeDebug(niui, local debug) {
     //
     debug.regDebugger = function regDebugger(guidb) {
         debug.guidb = guidb
+        if debug.connection && debug.exec
+            future(function() { execSelect(debug.exec) }, 10)               // reselect with debugger active
         debug.debuggerDiv
     }
     

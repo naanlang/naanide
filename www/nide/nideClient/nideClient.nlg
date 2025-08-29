@@ -1,12 +1,12 @@
 /*
  * nideClient.nlg
- * NaanIDE version 0.9.27+1
+ * NaanIDE version 0.10.0+1
  *
  *     Naan IDE controller for browsers.
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2024 by Richard C. Zulch
+ * Copyright (c) 2017-2025 by Richard C. Zulch
  *
  */
 
@@ -216,13 +216,14 @@ closure niccTermControl(local newin, termState, winOpen) {
 
 
 /*
- * niccController
+ * NideController
  *
  *     Make an NaanIDE object. This does not perform any UI operations.
  *
  */
 
-closure niccController(api, local nicc, result, homeDir, pollint, version) {
+closure NideController(api, appSession,
+    local nicc, result, homeDir, pollint, version) {
     global(App, js, document, window, nideTerminals)
     nicc = new(object, this)
     nicc.alert = closure prealert(text, options) {
@@ -246,7 +247,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     nicc.projman = require("naanlib:frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
     nicc.projects = nicc.projman.tracker()
     nicc.projects.open()
-    nicc.sworker = require("naanlib:frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.9.27+1", function() {
+    nicc.sworker = require("naanlib:frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.10.0+1", function() {
         nicc.upgrade_sw = true
         nicc.checker.run(1)                                                 // run the update checker very soon
     })
@@ -272,8 +273,8 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     function localWorker(track, name, options) {
         options = merge({
             startup: {
-                initcmds: 'App.version = "0.9.27+1";;\n'
-                    'App.cache = "9c4c2f0110d4d0795ab13826933ffe75";;\n'
+                initcmds: 'App.version = "0.10.0+1";;\n'
+                    'App.cache = "2e46ccd2b869d0f77178122555bb994a";;\n'
                     'Naan.module.requireQuery({ naanver: App.cache });;\n'
                     'Naan.module.defineExt("nlg", true);;\n'
                     'if !module.owner.list.running.components.debugnub {\n'
@@ -315,6 +316,24 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
 
         nicc.track.register(remoteWorker, api.url)                          // harmless to re-register
         api.url
+    }
+
+    // sessionLoad
+    //
+    // Load session data under the specified key, or return false.
+    //
+    nicc.sessionLoad = function sessionLoad(key) {
+        appSession[key]
+    }
+
+    // sessionStore
+    //
+    // Store session data under the specified key. Any data stored here should be retrieved only with
+    // sessionLoad to avoid "leaking" between sessions.
+    //
+    nicc.sessionStore = function sessionStore(key, data) {
+        appSession[key] = data
+        appSession.saveSession()
     }
 
     // nicc.getPrefs
@@ -431,11 +450,13 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
             niccTermControl()
     },10)
     nicc.checker = future(function() {                                      // check hourly - 3,600,000 msec
-        if nicc.upgrade_sw || appUpdateCheck() {
-            nicc.upalert = nicc.alert("<b>NaanIDE Upgrade Available</b><br>please reload page for version ".concat(nicc.upgrade_nextversion),
-                { class: "alert-primary", unique: "app-upgrade" })
+        loop {
+            if nicc.upgrade_sw || appUpdateCheck() {
+                nicc.upalert = nicc.alert("<b>NaanIDE Upgrade Available</b><br>please reload page for version ".concat(nicc.upgrade_nextversion),
+                    { class: "alert-primary", unique: "app-upgrade" })
+            }
+            sleep(3600000)
         }
-        nicc.checker.run(3600000)
     }, 3600000)
 
     // status polling
@@ -444,7 +465,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     // disconnection.
     //
     pollint = 60000                                                         // default timeout 1 minute
-    version = "NaanIDE 0.9.27+1"
+    version = "NaanIDE 0.10.0+1"
     function statusPoll(timeoutms) {
         api.status(function (status) {
             if not status {
@@ -522,7 +543,7 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
     addUI(function(local loading) {
         loading = window.localStorage.getItem("nide-loading")
         loading = loading.split("|")
-        if loading.0 == "0.9.27+1"
+        if loading.0 == "0.10.0+1"
             window.localStorage.removeItem("nide-loading")
         statusPoll(1)
     })
@@ -541,11 +562,11 @@ closure niccController(api, local nicc, result, homeDir, pollint, version) {
  */
 
 function niccInit(local manifest, nideRunning) {
-    manifest = `(niccPrefs, niccTermControl, niccController, niccInit)
+    manifest = `(niccPrefs, niccTermControl, NideController, niccInit)
 
     Naan.module.build(module.id, "nideClient", function(modobj, compobj) {
         compobj.manifest = manifest
-        modobj.exports.MakeNideController = niccController
+        modobj.exports.NideController = NideController
         function niccReload() {
             jspath = js.r("path")
             window = js.w

@@ -89,11 +89,11 @@ process.argv.every((val, index) => {
         process.exit(0);
     }
     if (val == "--version") {
-        console.log("0.9.27");
+        console.log("0.10.0");
         process.exit(0);
     }
     if (val == "--buildno") {
-        console.log("0.9.27+1");
+        console.log("0.10.0+1");
         process.exit(0);
     }
     if (val.substring(0,1) == "-") {
@@ -209,7 +209,7 @@ if (eval_text) {
 // Attempt to load our state, but leave statePath/stateKey set in any case.
 //
 function loadState() {
-    stateKey = "Zulch Laboratories, Inc.-0.9.27+1";
+    stateKey = "Zulch Laboratories, Inc.-0.10.0+1";
     statePath = jspath.join(os.homedir(), `.naanlang/session.state`);
     try {
         var sessions = fs.readFileSync(statePath);
@@ -280,6 +280,19 @@ function saveState() {
 
 
 /*
+ * versionCheck
+ *
+ */
+
+function versionCheck(minver) {
+    var rxver = /([0-9]+)[.]([0-9]+)[.]([0-9]+)/;
+    minver = minver.match(rxver).map(function(x){ return(Number.parseInt(x)) });
+    var curver = process.version.match(rxver).map(function(x){ return(Number.parseInt(x)) });
+    return (minver[1] < curver[1] || minver[1] == curver[1] && (minver[2] < curver[2] || minver[2] == curver[2] && minver[3] <= curver[3]));
+}
+
+
+/*
  * Execute Naan
  *
  * This defines the Naan symbol NaanStartParams as:
@@ -290,6 +303,10 @@ function saveState() {
  *
  */
 
+if (!versionCheck("v20.10.0")) {
+    console.log(`naan: nodejs ${ process.version } too old, requires v20.10.0 or newer`);
+    process.exit(1);
+}
 if (!process.stdin.isTTY)
     naanOptions.replDisable = true;                                         // REPL terminates immediately
 naanOptions.require = require;

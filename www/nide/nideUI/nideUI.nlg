@@ -481,11 +481,14 @@ closure niuiBase(nicc, local niui) {
         if !error
             `(error, info) = project.load()
         if !error {
+            nicc.sessionStore(`openProject, projID)
             niui.setProject(project)
             niui.navbar.setEnable("project", true)
             niui.navbar.selectPage("project")
-        } else
+        } else {
+            nicc.sessionStore(`openProject, undefined)
             niui.alert("<b>Project Load Failed</b><br><br>".concat(ErrorString(error)), { class: "alert-danger" })
+        }
         progress.done()
         list(error, project)
     }
@@ -590,6 +593,7 @@ closure niuiBase(nicc, local niui) {
         niui.activeProject.projID }
     //
     App.model.project.active.close = function() {
+        nicc.sessionStore(`openProject, undefined)
         closeProject() }
     //
     App.model.project.active.build = function(options, local stage) {
@@ -613,7 +617,13 @@ closure niuiBase(nicc, local niui) {
     if not mangled()
         jquery("#NideMessage").html("<font color=#ee2200><strong>Confidential - not for distribution")
 
-    niui.navbar.selectPage("home")
+    let (projID) {
+        projID = nicc.sessionLoad(`openProject)
+        if projID
+            openProject(projID)
+        else
+            niui.navbar.selectPage("home")
+    }()
     js.t.Working()                                                          // note that the app is alive
 
     niui

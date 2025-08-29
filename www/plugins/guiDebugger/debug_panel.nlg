@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2021-2024 by Richard C. Zulch
+ * Copyright (c) 2021-2025 by Richard C. Zulch
  *
  */
 
@@ -258,16 +258,6 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
             depan.watchBox.resetContents(data)
     }
 
-    // scheduleFutureRefresh
-    // Schedule a future refresh
-    //
-    closure schedule(interval) {
-        if depan.executor {
-            futuresUpdate()
-            futup = future(function futuresRefresh(){ schedule(interval) }, interval)
-        }
-    }
-
     // attach
     // Our GUI is now connected to an instance.
     //
@@ -279,7 +269,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
         future(function() {                                                 // don't delay the caller
             depan.remote = depan.commander.remote()
             updateControls()
-            schedule(5000)
+            doFutures(5000)
         }).run()
     }
 
@@ -289,12 +279,11 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     depan.detach = function detach(executor) {
         if depan.commander
             depan.commander.detach()
+        doFutures()
         depan.commander = false
         depan.executor = false
         depan.remote = false
         depan.running = true                                                // an assumption
-        futup.cancel()
-        futup = false
         depan.mocoBox.resetContents()
         depan.watchBox.resetContents()
         depan.breakBox.resetContents()
@@ -512,6 +501,36 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
         `(error, data) = depan.remote.futureslist()
         if data
             depan.futureBox.resetContents(data)
+    }
+
+    // doFutures
+    // Update futures for the current remote now, and then the specified interval. If no interval
+    // then cancel updating.
+    closure doFutures(interval, local running) {
+        if futup {                                                          // cancel updating in other closure
+            assign(futup.running, false)
+            futup.cancel()                                                  // don't run if still pending
+            futup.delay.signal()                                            // don't delay further
+            futup.updating.wait()                                           // wait for pending update
+            futup = false
+        }
+        if !interval
+            return
+        running = true
+        futup = future(function futuresUpdater() {                          // periodic updates
+            while running {
+                futup.updating.reset()                                      // cancel will have to wait
+                futuresUpdate()
+                futup.updating.signal()                                     // cancel may proceed
+                if !running
+                    break
+                futup.delay = future(function futuresUpdateDelay() { }, interval)
+                futup.delay.wait()                                          // delay for next update
+            }
+        }, 0)
+        futup.running = `running
+        futup.updating = new(nonce)
+        futup.updating.signal()
     }
 
     //

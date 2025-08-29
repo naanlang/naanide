@@ -5,7 +5,7 @@ About NaanIDE
 ##### Release:
      **NaaN**™ and **NaanIDE**™ by Richard C. Zulch  
      Copyright (c) 2025 Zulch Laboratories, Inc.  
-     Version 0.9.27+1 — published under the [MIT License](https://mit-license.org/)
+     Version 0.10.0+1 — published under the [MIT License](https://mit-license.org/)
 
 ##### Contact:
      Please visit [www.naanlang.org](https://www.naanlang.org) for tutorials, explanations, and how-to articles.  

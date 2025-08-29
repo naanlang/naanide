@@ -514,7 +514,7 @@ exports.NaanControllerWeb = function() {
         statedoc.curversion = kStateCurrentVersion;
         statedoc.firstver = kStateFirstVersion;
         statedoc.licensee = "MIT-License";
-        statedoc.verstring = "0.9.27+1";
+        statedoc.verstring = "0.10.0+1";
         statedoc.date = new Date().toISOString();
         statedoc.prefs = prefs;
         statedoc.naan = naanlib.saveState(false);                           // true to optimize, which is a bit slower
@@ -532,7 +532,7 @@ exports.NaanControllerWeb = function() {
             || statedoc.firstver > kStateCurrentVersion
             || statedoc.curversion < kStateFirstVersion
             || statedoc.licensee != "MIT-License"
-            || statedoc.verstring != "0.9.27+1"
+            || statedoc.verstring != "0.10.0+1"
             || !(naanstate = statedoc.naan))
         {
             localStorage.removeItem("NaanState_Nide");
@@ -550,7 +550,7 @@ exports.NaanControllerWeb = function() {
             localStorage.removeItem("NaanState_Nide");
             return (false);
         }
-        if (querystrings["nosave"])
+        if ("nosave" in querystrings)
             return (false);
         var statedoc = makeState();
         var statestr = JSON.stringify(statedoc);
@@ -591,7 +591,7 @@ exports.NaanControllerWeb = function() {
                     op: "VsiteOpen",
                     name: vsiteName,
                     naancont: contSelf,
-                    title: vsiteName + " 0.9.27+1"
+                    title: vsiteName + " 0.10.0+1"
                 });
             }
         } catch (e) {
@@ -605,7 +605,7 @@ exports.NaanControllerWeb = function() {
                     op: "VsiteClose",
                     name: vsiteName,
                     naancont: contSelf,
-                    title: vsiteName + " 0.9.27+1"
+                    title: vsiteName + " 0.10.0+1"
                 });
                 termTextOut("\x1b[90m\x1b[3m".concat("\nwindow closed", "\x1b[0m\n"));
             }
@@ -621,7 +621,7 @@ exports.NaanControllerWeb = function() {
                     op: "VsiteVisibilityChange",
                     name: vsiteName,
                     naancont: contSelf,
-                    title: vsiteName + " 0.9.27+1",
+                    title: vsiteName + " 0.10.0+1",
                     hidden: window.document.visibilityState == "hidden",
                     window: window
                 });
@@ -631,19 +631,19 @@ exports.NaanControllerWeb = function() {
     }
 
     /*jshint sub:true */
-    if (querystrings["restart"] || !loadLocal())
+    if ("restart" in querystrings || !loadLocal())
     {                                                                       // don't load state or can't load state
         var loading = localStorage.getItem("nide-loading");
         if (!loading) {
             var msg = '<span style="color:#00aa33">caching</span>';
             window.document.getElementById("NideStatus").innerHTML = msg;
-            localStorage.setItem("nide-loading", "0.9.27+1".concat("|", msg));
+            localStorage.setItem("nide-loading", "0.10.0+1".concat("|", msg));
         }
         naanlib.banner();
         var hostpath = window.location.origin.concat(naanlib.js.r("path").dirname(window.location.pathname));
         naanlib.start({
-            cmd: 'App.version = "0.9.27+1";;\r\n'
-                + 'App.cache = "9c4c2f0110d4d0795ab13826933ffe75";;\r\n'
+            cmd: 'App.version = "0.10.0+1";;\r\n'
+                + 'App.cache = "2e46ccd2b869d0f77178122555bb994a";;\r\n'
                 + 'Naan.module.requireQuery({ naanver: App.cache });;\r\n'
                 + 'Naan.module.webparse("naan_init.nlg", "' + hostpath + '", { naanver: App.cache });;\r\n'
         });
