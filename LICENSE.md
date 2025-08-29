@@ -1,4 +1,4 @@
-**Naanide for NPM** version **0.10.0+1** is released under the MIT License:
+**Naanide for NPM** version **0.10.1+1** is released under the MIT License:
 
 Copyright (c) 2025 Zulch Laboratories, Inc.
 
