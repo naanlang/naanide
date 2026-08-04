@@ -7,7 +7,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2023-2024 by Richard C. Zulch
+ * Copyright (c) 2023-2026 by Richard C. Zulch
  *
  */
 
@@ -61,9 +61,9 @@ closure Workspace(config, local myws) {
             // value. The procedure definition is identical to whether local or remote.
             //
             closure openByName(name, local project) {
-                for project in App.model.project.list()
+                for project in App.uimodel.project.list()
                     if project.name == name {
-                        App.model.project.open(project.projID)
+                        App.uimodel.project.open(project.projID)
                         return (list(false, project))
                     }
                 list(Error("project not found:", name))
@@ -101,7 +101,7 @@ closure Workspace(config, local myws) {
         //
         `(error, oururl, exists) = App.nidecon.getServer()
         if error
-            return (list(Error("orkspace:", error, { exit: 101 })))
+            return (list(Error("Workspace:", error, { exit: 101 })))
 
         /*
          * when the server just opened and diconnected browser tabs are sitting around,
@@ -121,7 +121,7 @@ closure Workspace(config, local myws) {
         for tabID in App.nidecon.clients() {
             `(error, context) = App.nidecon.remote(tabID)
             if !error
-                `(error, name) = context.evalq(App.model.project.active.name())
+                `(error, name) = context.evalq(App.uimodel.project.active.name())
             if !error
                 existing.push({
                     id: tabID

@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2024 by Richard C. Zulch
+ * Copyright (c) 2020-2026 by Richard C. Zulch
  *
  */
 
@@ -58,19 +58,24 @@ closure NideCon(options, local nicon) {
     //
     // Launch the browser on our API server, after it is open.
     //
-    nicon.launchBrowser = closure launchBrowser(local result, open, apps) {
+    nicon.launchBrowser = closure launchBrowser(
+        local platform, result, open, apps, nu, execFile) {
         if connect()
             return
-        result = await(js.i("open"))
-        if !result.0 {
-            open = result.1.default
-            apps = result.1.apps
-            if js.g.process.platform == "linux"
-                result = await(open(nicon.net.oururl))
-            else
+        platform = js.g.process.platform
+        if platform == "darwin" || platform == "win32" {                    // supported by npm open library
+            result = await(js.i("open"))
+            if !result.0 {
+                open = result.1.default
+                apps = result.1.apps
                 result = await(open(nicon.net.oururl, { app: {
                     name: [apps.chrome, apps.safari, apps.edge]
                 }}))
+            }
+        } else {                                                            // linux/android/etc.
+            nu = js.r("node:util")
+            execFile = nu.promisify(js.r("node:child_process").execFile)
+            result = await(execFile("xdg-open", [nicon.net.oururl]))
         }
         return (result)
     }
@@ -162,6 +167,8 @@ closure NideCon(options, local nicon) {
         if error
             list(error, false, error.code == "EADDRINUSE")
         else {
+//            nicon.api.workco.spawn("NideServer", "NaanIDE Server")
+//            nicon.api.workco.spawn("NaanIDE-Server-Play", "Play")
             processNetOptions(options, port)                                // port may have been updated
             savedGUID = config.guid
             list(false, nicon.api)
@@ -243,8 +250,10 @@ closure NideCon(options, local nicon) {
         if !error {
             nicon.relays.push(relaycon)
             `(error, context) = relaycon.context()
-            if context && destID == "server"
-                nicon.serverRemote = context
+            if context {
+                if destID == "server"
+                    nicon.serverRemote = context
+            }
         }
         list(error, context)
     }

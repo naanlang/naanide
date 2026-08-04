@@ -1,0 +1,207 @@
+/*
+ * naan_repl.nlg
+ *
+ * Object wrapper for NaanREPL
+ *
+ * column positioning:                          //                          //                      !
+ *
+ * Copyright (c) 2026 by Richard C. Zulch
+ *
+ */
+
+
+/*
+ * NaanREPL
+ *
+ * A NaaN wrapper for the NaanREPL web terminal.
+ *
+ */
+
+closure NaanREPL(replDiv, notify, local narp, repl, pending) {
+    narp = new(object, NaanREPL)
+    pending = new(nonce)
+    repl = xnew(window.Naanlang.NaanREPL, replDiv, function(repl) {
+        pending.signal()
+        notify.replReady()
+    })
+
+    // VT100 attributes
+    narp.Clear      = "\x1b[0m"                                             // all attributes off
+    narp.Bold       = "\x1b[1m"                                             // heavy
+    narp.BoldOff    = "\x1b[21m"                                            // heavy off
+    narp.Under      = "\x1b[4m"                                             // underline
+    narp.UnderOff   = "\x1b[24m"                                            // underline off
+    narp.Blink      = "\x1b[5m"                                             // blink
+    narp.BlinkOff   = "\x1b[25m"                                            // blink off
+ 
+    // VT100 foreground colors
+    narp.Red        = "\x1b[31m"                                            // red
+    narp.Green      = "\x1b[32m"                                            // green
+    narp.Yellow     = "\x1b[33m"                                            // yellow
+    narp.Blue       = "\x1b[34m"                                            // blue
+    narp.Magenta    = "\x1b[35m"                                            // magenta
+    narp.Cyan       = "\x1b[36m"                                            // cyan
+    narp.White      = "\x1b[37m"                                            // white
+    narp.DefColor   = "\x1b[39m"                                            // default color
+    narp.LtGray     = "\x1b[90m"                                            // light grey
+    narp.LtRed      = "\x1b[91m"                                            // light red
+    narp.LtGreen    = "\x1b[92m"                                            // light green
+    narp.LtYellow   = "\x1b[93m"                                            // light yellow
+    narp.LtBlue     = "\x1b[94m"                                            // light blue
+    narp.LtMagenta  = "\x1b[95m"                                            // light magenta
+    narp.LtCyan     = "\x1b[96m"                                            // light cyan
+    narp.LtWhite    = "\x1b[97m"                                            // light white
+
+    // jsAcquire
+    //
+    // Return the JavaScript REPL for direct use with the interpreter.
+    //
+    narp.jsAcquire = function jsAcquire() {
+        repl
+    }
+    
+    // jsRelease
+    //
+    // Release the interpreter after jsAquire.
+    //
+    narp.jsRelease = function jsRelease() {
+        repl.On("interrupt", function(repl, code) {
+            notify.replInterrupt(code)
+        })
+    
+        repl.On("return", function(repl) {
+            notify.replReturn()
+        })
+    
+        repl.OnResize(function(width, height) {
+            notify.replResize(width, height)
+        })
+
+        repl.OnRaw()
+    }
+
+    // WaitReady
+    //
+    // Wait the caller until the terminal is ready.
+    //
+    narp.WaitReady = function WaitReady() {
+        pending.wait()
+    }
+
+    // SetRawMode
+    //
+    // Set raw character mode.
+    //
+    narp.SetRawMode = function SetRawMode(on) {
+        if on
+            repl.OnRaw(function(str, source) {
+                notify.replRaw(str, source)
+            })
+        else
+            repl.OnRaw()
+    }
+
+    // SetNotify
+    //
+    // Set the notifications sink.
+    //
+    narp.SetNotify = function SetNotify(obj) {
+        notify = obj
+    }
+
+    // Write
+    //
+    narp.Write = function Write(text, color) {
+        repl.Write(text, color || "")
+    }
+         
+    // WriteLn
+    //
+    narp.WriteLn = function WriteLn(text, color) {
+        repl.WriteLn(text, color || "")
+    }
+
+    // OnMessage
+    //
+    narp.OnMessage = function OnMessage(msg) {
+        repl.OnMessage(msg)
+    }
+
+    // Avail
+    //
+    narp.Avail = function Avail() {
+        repl.Avail()
+    }
+ 
+    // TakeText
+    //
+    narp.TakeText = function TakeText() {
+        repl.TakeText()
+    }
+    
+    // Focus
+    //
+    narp.Focus = function Focus() {
+        repl.Focus()
+    }
+    
+    // EchoSet
+    //
+    narp.EchoSet = function EchoSet(enable) {
+        repl.EchoSet(enable)
+    }
+
+    // PutKey
+    //
+    narp.PutKey = function PutKey(str) {
+        repl.PutKey(str)
+    }
+
+    // Sane
+    //
+    narp.Sane = function Sane() {
+        repl.Sane()
+    }
+    
+    // Reset
+    //
+    narp.Reset = function Reset() {
+        repl.Reset()
+    }
+    
+    // StateSave
+    //
+    narp.StateSave = function StateSave() {
+        repl.StateSave()
+    }
+    
+    // StateLoad
+    //
+    narp.StateLoad = function StateLoad(rstate) {
+        repl.StateLoad(rstate)
+    }
+    
+    jsRelease()
+
+    // finis
+    narp
+};
+
+
+/*
+ * narpInit
+ *
+ *     Initialize the component.
+ *
+ */
+
+function narpInit(local manifest) {
+
+    manifest = `(NaanREPL, narpInit)
+
+    Naan.module.build(module.id, "naan_repl", function(modobj, compobj) {
+        require("nide/nideUI/nideUI.nlg")
+        compobj.manifest = manifest
+        modobj.exports.NaanREPL = NaanREPL
+    })
+} ();

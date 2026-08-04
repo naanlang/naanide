@@ -204,6 +204,7 @@ closure niuiBase(nicc, local niui) {
     niui.track = nicc.track
     niui.getPrefs = nicc.getPrefs
     niui.putPrefs = nicc.putPrefs
+    niui.loadInstances = nicc.loadInstances
     niui.progMap = new(weakmap)
     niui.watchable = Watchable()
 
@@ -565,10 +566,11 @@ closure niuiBase(nicc, local niui) {
     }
 
     // model init
-    
-    App.model.add("project")
+
+    App.uimodel = require("naanlib:frameworks/service/model.nlg").ServiceModel()
+    App.uimodel.add("project")
     //
-    App.model.project.list = closure(local uuid, output) {
+    App.uimodel.project.list = closure(local uuid, output) {
         output = []
         for uuid in niui.projects.resources()
             output.push(merge(niui.projects.info(uuid), {
@@ -577,26 +579,26 @@ closure niuiBase(nicc, local niui) {
         output
     }
     //
-    App.model.project.open = function(projID) {
+    App.uimodel.project.open = function(projID) {
         if niui.activeProject
             closeProject()
         niui.openProject(projID)
     }
     //
-    App.model.project.add("active")
+    App.uimodel.project.add("active")
     //
-    App.model.project.active.name = function() {
+    App.uimodel.project.active.name = function() {
         if niui.activeProject
             niui.activeProject.name }
     //
-    App.model.project.active.projID = function() {
+    App.uimodel.project.active.projID = function() {
         niui.activeProject.projID }
     //
-    App.model.project.active.close = function() {
+    App.uimodel.project.active.close = function() {
         nicc.sessionStore(`openProject, undefined)
         closeProject() }
     //
-    App.model.project.active.build = function(options, local stage) {
+    App.uimodel.project.active.build = function(options, local stage) {
         stage = options.stage
         if !stage
             stage = niui.buildStage
@@ -604,12 +606,12 @@ closure niuiBase(nicc, local niui) {
             return (false)
         niui.activeProject.run(stage, options.buildOnly) }
     //
-    App.model.project.active.add("stage")
+    App.uimodel.project.active.add("stage")
     //
-    App.model.project.active.stage.current = function() {
+    App.uimodel.project.active.stage.current = function() {
         niui.activeProject && niui.buildStage }
     //
-    App.model.project.active.stage.list = function() {
+    App.uimodel.project.active.stage.list = function() {
         niui.activeProject.config.stages() }
 
     // finish initialization

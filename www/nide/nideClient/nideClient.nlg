@@ -1,12 +1,12 @@
 /*
  * nideClient.nlg
- * NaanIDE version 0.10.1+1
+ * NaanIDE version 0.15.0+1
  *
  *     Naan IDE controller for browsers.
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2025 by Richard C. Zulch
+ * Copyright (c) 2017-2026 by Richard C. Zulch
  *
  */
 
@@ -224,12 +224,13 @@ closure niccTermControl(local newin, termState, winOpen) {
 
 closure NideController(api, appSession,
     local nicc, result, homeDir, pollint, version) {
-    global(App, js, document, window, nideTerminals)
+    global(App, js, document, window, nideRunning, nideTerminals)
     nicc = new(object, this)
     nicc.alert = closure prealert(text, options) {
         future(function() { nicc.alert(text, options) }, 1000)              // reschedule alert if too early
     }
     App.nide = nicc
+    App.model = require("naanlib:frameworks/service/model.nlg").ServiceModel()
     nicc.statusEl = document.getElementById("NideStatus")
     nicc.hostpath = window.location.origin.concat(js.r("path").dirname(window.location.pathname))
     if nicc.hostpath.slice(-1) != "/"
@@ -242,12 +243,10 @@ closure NideController(api, appSession,
     nicc.locate = nicc.psm.tracker()                                        // storage locations
     nicc.locate.open()
     nicc.track = ExecutorTracker()
-    nicc.track.register(localWorker, "Local")
-    nicc.track.register(hostWorker, "Host")
     nicc.projman = require("naanlib:frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
     nicc.projects = nicc.projman.tracker()
     nicc.projects.open()
-    nicc.sworker = require("naanlib:frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.10.1+1", function() {
+    nicc.sworker = require("naanlib:frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.15.0+1", function() {
         nicc.upgrade_sw = true
         nicc.checker.run(1)                                                 // run the update checker very soon
     })
@@ -265,16 +264,26 @@ closure NideController(api, appSession,
             homeDir = ""
         setDefault("NodeFS", "Host", homeDir)
     }
+    nideRunning.RemoteResponder(App.imp.us.instanceID, {                    // make our browser remotable
+        name: "NaanIDE"
+        type: "Web Remote"
+    })
 
     // localWorker
     //
-    // Instantiate a worker in our local browser.
+    // Instantiate a web worker in our local browser.
     //
-    function localWorker(track, name, options) {
+    nicc.track.register("Local", function localWorker(track, name, options) {
         options = merge({
             startup: {
-                initcmds: 'App.version = "0.10.1+1";;\n'
-                    'App.cache = "addac21fe7e7867d2a0b7ba02f863e26";;\n'
+                initcmds: 'App.version = "0.15.0+1";;\n'
+                    'App.cache = "ffb60d8cfda18ac9da683d25a42f1af5";;\n'
+                    'App.mainInstanceID = "${App.imp.us.instanceID}";;\n'
+                    'App.imp = require("naanlib:frameworks/service/imp.nlg").Imp({\n'
+                    '   name: "${name}"\n'
+                    '   type: "web-worker"\n'
+                    '});;\n'
+                    'require("naanlib:frameworks/service/nubweb.nlg").WebWorkerNub(App.imp);;\n'
                     'Naan.module.requireQuery({ naanver: App.cache });;\n'
                     'Naan.module.defineExt("nlg", true);;\n'
                     'if !module.owner.list.running.components.debugnub {\n'
@@ -285,15 +294,15 @@ closure NideController(api, appSession,
             }
         }, options)
         nideTerminals.TermLocal(track, name, options)
-    }
+    })
 
     // hostWorker
     //
     // Instantiate a worker in our host server.
     //
-    function hostWorker(track, name, options) {
-        nideTerminals.TermHost(track, nicc.api, name, options)
-    }
+    nicc.track.register("Host", function hostWorker(track, name, options) {
+        nideTerminals.TermHost(track, name, options)
+    })
 
     // registerRemote
     //
@@ -308,15 +317,42 @@ closure NideController(api, appSession,
     //  })
     //
     nicc.registerRemote = closure registerRemote(api) {
-
-        // called by nicc.track.spawn
-        function remoteWorker(track, name, options) {
-            nideTerminals.TermHost(track, api, name, options)
-        }
-
-        nicc.track.register(remoteWorker, api.url)                          // harmless to re-register
+        nicc.track.register(api.url, function remoteWorker(track, name, options) {
+            nideTerminals.TermHost(track, name, options)
+        })
         api.url
     }
+
+    // loadInstances
+    //
+    // Load our standard execution instances.
+    //
+    nicc.loadInstances = function loadInstances(local error, m1, m2, m3, m4) {
+        `(error, m1) = nicc.track.spawn("Local", "NaanIDE", {
+            workerID: "NaanIDE"
+        })
+        if error
+            ErrorDebuglog("can't spawn NaanIDE", error)
+
+        `(error, m2) = nicc.track.spawn("Local", "Play", {
+            workerID: "Webworker-Play"
+        })
+        if error
+            ErrorDebuglog("can't spawn Local Play", error)
+
+        `(error, m3) = nicc.track.spawn("Host", "NaanIDE Server", {
+            workerID: "NideServer"
+        })
+        if error
+            ErrorDebuglog("can't spawn NaanIDE Server", error)
+
+        App.nide.hostTerm = m3.1                                            // result tuple
+        `(error, m4) = nicc.track.spawn("Host", "Play", {
+            workerID: "Nodeworker-Play"
+        })
+        if error
+            ErrorDebuglog("can't spawn Host Play", error)
+   }
 
     // sessionLoad
     //
@@ -328,10 +364,12 @@ closure NideController(api, appSession,
 
     // sessionStore
     //
-    // Store session data under the specified key. Any data stored here should be retrieved only with
-    // sessionLoad to avoid "leaking" between sessions.
+    // Store session data under the specified key. Note that data that should not be shared among
+    // sessions should be in appSession.inst and not the top level.
     //
     nicc.sessionStore = function sessionStore(key, data) {
+        if key.tostring == ".inst"
+            throw("sessionStore: '.inst' is not a valid key")               // protect us
         appSession[key] = data
         appSession.saveSession()
     }
@@ -465,7 +503,7 @@ closure NideController(api, appSession,
     // disconnection.
     //
     pollint = 60000                                                         // default timeout 1 minute
-    version = "NaanIDE 0.10.1+1"
+    version = "NaanIDE 0.15.0+1"
     function statusPoll(timeoutms) {
         api.status(function (status) {
             if not status {
@@ -543,7 +581,7 @@ closure NideController(api, appSession,
     addUI(function(local loading) {
         loading = window.localStorage.getItem("nide-loading")
         loading = loading.split("|")
-        if loading.0 == "0.10.1+1"
+        if loading.0 == "0.15.0+1"
             window.localStorage.removeItem("nide-loading")
         statusPoll(1)
     })
@@ -561,7 +599,7 @@ closure NideController(api, appSession,
  *
  */
 
-function niccInit(local manifest, nideRunning) {
+function niccInit(local manifest) {
     manifest = `(niccPrefs, niccTermControl, NideController, niccInit)
 
     Naan.module.build(module.id, "nideClient", function(modobj, compobj) {
@@ -575,11 +613,10 @@ function niccInit(local manifest, nideRunning) {
         module.reload = niccReload
     })
 
-    App.model = require("model.nlg").NideModel()
     require("../common").LiveImport()
     require("naanlib:frameworks/storage/dbt_pouch.nlg")
     require("naanlib:frameworks/project/projects.nlg")
-    nideRunning = require("naanlib:frameworks/running/executors.nlg")
+    nideRunning = require("naanlib:frameworks/running/remote_res.nlg")
     nideTerminals = require("naanlib:frameworks/browser/terminals.nlg")
     Naan.module.letimport(nideRunning.ExecutorTracker)
     Naan.module.letimport(nideRunning.ExecutorBase)
