@@ -7,7 +7,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2024 by Richard C. Zulch
+ * Copyright (c) 2024-2026 by Richard C. Zulch
  *
  */
 
@@ -44,7 +44,7 @@ closure Make(projects, local maker) {
         // value. The procedure definition is identical to whether local or remote.
         //
         closure buildByName(name, options, local project) {
-            project = App.model.project.active
+            project = App.uimodel.project.active
             if project.name() == name
                 project.build(options)
             else
@@ -75,7 +75,7 @@ closure Make(projects, local maker) {
         for tabID in App.nidecon.clients() {
             `(error, context) = App.nidecon.remote(tabID)
             if !error
-                `(error, name) = context.evalq(App.model.project.active.name())
+                `(error, name) = context.evalq(App.uimodel.project.active.name())
             if !error
                 existing.push({
                     id: tabID

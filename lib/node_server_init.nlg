@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2020-2025 by Richard C. Zulch
+ * Copyright (c) 2020-2026 by Richard C. Zulch
  *
  */
 
@@ -21,7 +21,7 @@ loglevel(3);
 if !module.owner.list.running.components.debugnub {
     require("naanlib:frameworks/common/repltools.nlg").ImportReplTools()
     require("naanlib:frameworks/running/debugnub.nlg").DebugNub()
-    require("naanlib:frameworks/running/taskexec.nlg").TaskExecutor()
+    // require("naanlib:frameworks/running/taskexec.nlg").TaskExecutor()
 };
 
 App.shell = require("naanlib:frameworks/node/shell.nlg").ShellConnect({
@@ -90,6 +90,21 @@ closure startup(local error, api, exists, oururl) {
         debuglog("NaanIDE: startup parameters missing.")
         js.g.process.exit(3)
     }
+
+    App.imp = require("naanlib:frameworks/service/imp.nlg").Imp({
+        name: "NaanIDE Server"
+        type: "Server IMP"
+    })
+    require("naanlib:frameworks/running/remote_res.nlg")
+        .RemoteResponder(App.imp.us.instanceID, {                           // make our server remotable
+        name: "NaanIDE Server"
+        type: "Node Remote"
+    })
+    require("naanlib:frameworks/node/worker.nlg").CurBot({
+        name: "NaanIDE Server"
+        type: "NaaN Server"
+    })
+
     App.api = undefined
     App.naanpath = NaanStartParams.naanpath
     App.nidecon = require("lib/nidecon").NideCon({

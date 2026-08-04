@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2025 by Richard C. Zulch
+ * Copyright (c) 2017-2026 by Richard C. Zulch
  *
  */
 
@@ -63,7 +63,7 @@ function storeSecret(guid) {
  *
  *     Persistent access for session data without leakage. This ensures that any data element stored
  * with sessionSave is only saved in the current session and does not "leak" into the saved state
- * for all sessions.
+ * for all sessions. The '.inst' field of the appSession is cleared on duplicates.
  *
  */
 
@@ -87,10 +87,16 @@ function loadSession(local key, data) {
         for `(key, data) in new(js.w.JSON.parse(js.w.sessionStorage.getItem("Nide_Session")))
             appSession[key] = data
         appSession.saveSession = saveSession
-        dupeSessionCheck()
+        if !appSession.\.inst
+            appSession.\.inst = { }                                         // default session
+        if appSession._duplicate_reload {
+            appSession.\.inst = { }                                         // clear just .inst
+            appSession._duplicate_reload = undefined
+            saveSession()
+        } else
+            dupeSessionCheck()
     } catch {
         ErrorDebuglog("loadSession exception", exception)
-        false
     }
 };
 
@@ -100,9 +106,10 @@ function loadSession(local key, data) {
  *
  *     Check for a duplicate session with another tab, which is annoying. This uses a broadcast
  * channel to see if an existing tab is using our prospective new instanceID. If so then we clear
- * the instanceID from our session storage and reload. We have to reload the page because we don't
- * know how long it will take for all the responders to broadcast back to us. Could easily be a
- * second with Chrome due to throttling, but definitely slower than our first use of the id.
+ * .inst from our session storage and reload. We have to reload the page because we don't how long
+ * it's been since we started, because we don't know how long it will take for all the responders
+ * to broadcast back to us. Could easily be a second with Chrome due to throttling, but definitely
+ * slower than our first use of the id.
  *
  */
 
@@ -111,22 +118,23 @@ function dupeSessionCheck() {
         bcSession = xnew(js.w.BroadcastChannel, "NaanIDE-instanceID-check")
         bcSession.addEventListener("message", function(event, local msg) {
             msg = new(event.data)
-            if msg.op == "check" && msg.id == appSession.instanceID
+            if msg.op == "check" && msg.id == appSession.\.inst.instanceID {
                 bcSession.postMessage({                                     // we were duplicated
                     op: "duplicate"
-                    id: appSession.instanceID
+                    id: appSession.\.inst.instanceID
                 })
-            else if msg.op == "duplicate" && msg.id == appSession.instanceID {
-                appSession.instanceID = undefined
+            } else if msg.op == "duplicate" && msg.id == appSession.\.inst.instanceID {
+                appSession._duplicate_reload = true
                 saveSession()
+                jsdebugger()
                 js.w.location.reload()
             }
         })
     }
-    if appSession.instanceID
+    if appSession.\.inst.instanceID
         bcSession.postMessage({
             op: "check"
-            id: appSession.instanceID
+            id: appSession.\.inst.instanceID
         })
 };
 
@@ -155,12 +163,20 @@ function loadNide(local hostpath, baseurl, guid, bapi, bide, bui) {
     else
         guid = loadSecret()                                                 // see if we have stored the GUID
     loadSession()
-    bapi = require("naanlib:frameworks/client/apiclient.nlg").APIClient({
+    App.imp = require("naanlib:frameworks/service/imp.nlg").Imp({
+        name: "NaanIDE"
+        type: "Client IMP"
+        instanceID: appSession.\.inst.instanceID
+        meta: {
+            host: baseurl
+        } } )
+    appSession.\.inst.instanceID = App.imp.us.instanceID
+    bapi = require("naanlib:frameworks/client/apiclient.nlg").APIClient(App.imp, {
         url: hostpath
         guid: guid
-        instanceID: appSession.instanceID
+        instanceID: appSession.\.inst.clientInstanceID
     })
-    appSession.instanceID = bapi.instanceID
+    appSession.\.inst.clientInstanceID = bapi.instanceID
     bide = require("nide/nideClient/nideClient.nlg").NideController(bapi, appSession)
     bui = require("nide/nideUI/nideUI.nlg").MakeNideUI(bide)
     bide.setUI(bui)

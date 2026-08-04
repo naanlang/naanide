@@ -190,10 +190,7 @@ closure MakeDebug(niui, local debug) {
     debug.targetName = document.getElementById("NideTargetName")
     debug.targetPerf = document.getElementById("NideTargetPerformance")
     debug.butPopup = document.getElementById("NideTermPopup")
-    debug.repl = xnew(window.Naanlang.NaanREPL, debug.replDiv, function(repl) {
-        debug.terminalReady()
-        document.activeElement.blur()
-    })
+    debug.repl = NaanREPL(debug.replDiv, debug)
 
     // focus on terminal when we become active (visible)
     debug.navtab = function navtab(active, ident) {
@@ -232,26 +229,11 @@ closure MakeDebug(niui, local debug) {
     })
 
     //
-    // terminalReady
+    // replReady
     //
-    //
-    debug.terminalReady = function terminalReady(local m1, m2, m3, m4) {
-        m1 = niui.track.spawn("Local", "NaanIDE", {
-            workerID: "NaanIDE"
-        })
-        m2 = niui.track.spawn("Local", "Play", {
-            workerID: "NaanIDE-Play"
-        })
-        m3 = niui.track.spawn("Host", "NaanIDE Server", {
-            workerID: "NideServer"
-            dispatcher: require("naanlib:frameworks/running/taskexec.nlg").TaskDispatcher
-        })
-        m4 = niui.track.spawn("Host", "Play", {
-            workerID: "NaanIDE-Server-Play"
-        })
-// ### AWS Lambda currently disabled
-//        m5 = niui.track.spawn("Lambda", false, "my lambda")
-        App.nide.hostTerm = m3.1                                            // result tuple
+
+    debug.replReady = function replReady() {
+        niui.loadInstances()
         debug.debex.resetContents()
         niui.track.watch(closure watch(changes) {
             if changes.added || changes.deleted || changes.updated
@@ -267,6 +249,7 @@ closure MakeDebug(niui, local debug) {
                 workerID: "NaanIDE-Debug"
             })
         }
+        document.activeElement.blur()
     }
     
     // regDebugger
@@ -279,6 +262,17 @@ closure MakeDebug(niui, local debug) {
         if debug.connection && debug.exec
             future(function() { execSelect(debug.exec) }, 10)               // reselect with debugger active
         debug.debuggerDiv
+    }
+    
+    // termStatus
+    //
+    // Got a status report from an execution instance.
+    //
+    debug.execStatus = function execStatus(instance, status) {
+        if status.sample {
+            debug.targetPerf.textContent = "cpu: ".concat(status.sample.cpu, " peak: ", status.sample.peak, " avg: ", status.sample.average)
+        } else
+            debuglog("non-status message in status channel", instance.name, status, status.*)
     }
     
     //
@@ -296,12 +290,7 @@ closure MakeDebug(niui, local debug) {
         debug.exec = instance
         debug.targetName.textContent = instance.type.concat(" : ", instance.name)
         debug.targetPerf.textContent = ""
-        debug.connection = instance.termAttach(debug.repl, debug.guidb, function attach(instance, status) {
-            if status.sample {
-                debug.targetPerf.textContent = "cpu: ".concat(status.sample.cpu, " peak: ", status.sample.peak, " avg: ", status.sample.average)
-            } else
-                debuglog("non-status message in status channel", instance.name, status, status.*)
-        })
+        debug.connection = instance.termAttach(debug.repl, debug.guidb, debug)
         if debug.connection.popup
             debug.butPopup.disabled = false
         debug.connection.termActive(true)                                   // we have to be active
@@ -333,6 +322,7 @@ closure MakeDebug(niui, local debug) {
     //
 
     debug.widthAdjuster.setProportion(debugLeftPct)
+    debug.repl.WaitReady()
 
     debug
 };
@@ -351,6 +341,7 @@ function debugInit(local manifest) {
 
     Naan.module.build(module.id, "debug", function(modobj, compobj) {
         require("nide/nideUI/nideUI.nlg")
+        require("nide/nideUI/naan_repl.nlg")
         compobj.manifest = manifest
         modobj.exports.MakeDebug = MakeDebug
     })

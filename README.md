@@ -4,8 +4,8 @@ NaanIDE
 NaanIDE is an Integrated Development Environment for the NaaN software platform.
 
 #### Release:
-     **Naanide for NPM** version **0.10.1+1**  
-     Copyright (c) 2025 Zulch Laboratories, Inc.
+     **Naanide for NPM** version **0.5.1+1**  
+     Copyright (c) 2021-2026 Zulch Laboratories, Inc.
 
 #### Features
 
@@ -115,7 +115,7 @@ You can also write your own automation scripts. The following are quick "one lin
 
     # list currently open projects in browser tabs:
     naanide -e 'body (for id in App.nidecon.clients() \
-        printline(App.nidecon.remote(id).1.evalq(App.model.project.active.name()).1));;'
+        printline(App.nidecon.remote(id).1.evalq(App.uimodel.project.active.name()).1));;'
     naanide
     naanlib
 

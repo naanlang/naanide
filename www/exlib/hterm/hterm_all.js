@@ -10225,7 +10225,15 @@ hterm.ScrollPort.prototype.decorate = function(div, callback) {
 
   // Insert Iframe content asynchronously in FF.  Otherwise when the frame's
   // load event fires in FF it clears out the content of the iframe.
-  if ('mozInnerScreenX' in window) { // detect a FF only property
+  //
+  // 20260804 Rcz: this Mozilla-specific fix is obsolete and causes mayhem. If
+  // the onLoad() call is delayed then the deferred notifications from setprofile
+  // will crash on the scrollport screen_ being undefined. And that is why you
+  // see that this patch is disabled. According to Gemini Firefox had a problem
+  // with late iframe load calls years ago, and that was what they were trying
+  // to fix here. But not needed in the present day.
+  //
+  if (false && 'mozInnerScreenX' in window) { // detect a FF only property
     this.iframe_.addEventListener('load', () => onLoad());
   } else {
     onLoad();
