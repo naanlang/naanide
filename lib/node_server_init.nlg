@@ -21,7 +21,6 @@ loglevel(3);
 if !module.owner.list.running.components.debugnub {
     require("naanlib:frameworks/common/repltools.nlg").ImportReplTools()
     require("naanlib:frameworks/running/debugnub.nlg").DebugNub()
-    // require("naanlib:frameworks/running/taskexec.nlg").TaskExecutor()
 };
 
 App.shell = require("naanlib:frameworks/node/shell.nlg").ShellConnect({
@@ -100,7 +99,7 @@ closure startup(local error, api, exists, oururl) {
         name: "NaanIDE Server"
         type: "Node Remote"
     })
-    require("naanlib:frameworks/node/worker.nlg").CurBot({
+    App.exec = require("naanlib:frameworks/node/worker.nlg").CurBot({
         name: "NaanIDE Server"
         type: "NaaN Server"
     })

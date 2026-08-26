@@ -58,13 +58,13 @@ function escapeHTML(html) {
 /*
  * initToolTips
  *
- *     Initialize tooltips within an element and its children.
+ *     Initialize tooltips within an element and its children, and return the tooltipList.
  *
  */
 
 function initToolTips(element, local tooltipTriggerList) {
     tooltipTriggerList = Array.from(element.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    niui.tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
         js.w.bootstrap.Tooltip.getOrCreateInstance(tooltipTriggerEl)
     })
 };

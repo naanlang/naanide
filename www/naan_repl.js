@@ -5,7 +5,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2021 by Richard C. Zulch
+ * Copyright (c) 2017-2026 by Richard C. Zulch
  *
  */
 
@@ -819,7 +819,7 @@ exports.NaanREPL = function(replDiv, readyCallback) {
      */
 
     this.StateLoad = function StateLoad(rstate) {
-        if (!rstate || !rstate.readline || !rstate.buffer)
+        if (!rstate || !rstate.readline || !rstate.buffer && rstate.buffer != "")
             return (false);
         this.Reset();
         line.StateLoad(rstate.readline);

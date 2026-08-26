@@ -20,22 +20,24 @@ chns("Start");
  *
  */
 
-if !module.owner.list.running.components.debugnub {
-    require("naanlib:frameworks/common/repltools.nlg").ImportReplTools()
-    require("naanlib:frameworks/running/debugnub.nlg").DebugNub()
-    // require("naanlib:frameworks/running/taskexec.nlg").TaskExecutor()
-};
-
-App.shell = require("naanlib:frameworks/node/shell.nlg").ShellConnect({
-    cwd: js.d
-})
-
-App.mainInstanceID = js.t.metadata().mainInstanceID;
-App.imp = require("naanlib:frameworks/service/imp.nlg").Imp({
-    name: js.t.metadata().name
-    type: "node-worker"
-});
-require("naanlib:frameworks/service/nubnode.nlg").NodeWorkerNub(App.imp, {
-    name: App.imp.us.name
-});
-
+function init(local metadata) {
+    sprint()                                                                // no interruptions
+    if !module.owner.list.running.components.debugnub {
+        require("naanlib:frameworks/common/repltools.nlg").ImportReplTools()
+        require("naanlib:frameworks/running/debugnub.nlg").DebugNub()
+    }
+    App.shell = require("naanlib:frameworks/node/shell.nlg").ShellConnect({
+        cwd: js.d
+    })
+    metadata = new(js.t.metadata())
+    App.mainInstanceID = metadata.mainInstanceID
+    App.imp = require("naanlib:frameworks/service/imp.nlg").Imp({
+        name: metadata.name
+        type: "node-worker"
+    })
+    require("naanlib:frameworks/service/nubnode.nlg").NodeWorkerNub(App.imp, {
+        name: App.imp.us.name
+    })
+    if metadata.maintext
+        textparse(metadata.maintext)
+}();

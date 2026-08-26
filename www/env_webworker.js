@@ -17,7 +17,7 @@
  */
 
 importScripts(
-        "lib/core/naanlib.js?naanver=0.15.0+1"
+        "lib/core/naanlib.js?naanver=0.17.0+1"
 
 );
 
@@ -71,7 +71,7 @@ exports.NaanControllerWebWorker = function NaanControllerWebWorker() {
                 text: text
             });
     });
-        
+
     setInterval(function() {
         var samples = naanlib.status(1);
         if (samples.length > 0)
@@ -84,33 +84,9 @@ exports.NaanControllerWebWorker = function NaanControllerWebWorker() {
             });
     }, 1000);
 
-    targSelf.ReplyMessage = function ReplyMessage(data) {
-        postMessage({                                                       // target is sending a message
-            scope: "naan-env-web",
-            id: "targetout",
-            data: data
-        });
-        return (data);
-    };
-
     var targetListener;
     targSelf.OnMessage = function OnMessage(proc) {
         targetListener = proc;
-        return (proc);
-    };
-
-    this.DispatchMessage = function DispatchMessage(data) {
-        postMessage({                                                       // target is sending a message
-            scope: "naan-env-web",
-            id: "targetsend",
-            data: data
-        });
-        return (data);
-    };
-
-    var targetReceiver;
-    targSelf.OnReceive = function OnReceive(proc) {
-        targetReceiver = proc;
         return (proc);
     };
 
@@ -163,7 +139,6 @@ exports.NaanControllerWebWorker = function NaanControllerWebWorker() {
         else if (msg.id == "start")
         {                                                                   // start execution with optional state
             targSelf.workerID = msg.workerID;
-            targSelf.workerGUID = msg.workerGUID;
             workerMetadata = msg.metadata || { };
             naanlib.banner();
             naanlib.start({
@@ -182,11 +157,6 @@ exports.NaanControllerWebWorker = function NaanControllerWebWorker() {
         {
             if (debugListener)
                 debugListener(msg.data);                                    // target received a message
-        }
-        else if (msg.id == "targetreceive")
-        {
-            if (targetReceiver)
-                targetReceiver(msg.data);
         }
         else if (msg.id == "attached")
             targSelf.ioctl_event("term-attach", msg.guid);

@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2019-2025 by Richard C. Zulch
+ * Copyright (c) 2019-2026 by Richard C. Zulch
  *
  */
 
@@ -24,13 +24,16 @@ closure debugExecs(niui, divid, delegate, local dexbox, columnDefs) {
     dexbox = new(object, this)
     dexbox.divid = divid
     dexbox.nextID = 1
+    dexbox.exmap = new(weakmap)
+    dexbox.idmap = { }
 
-    // resetMap
-    // Reset the execution item / ID map.
+    // gcMap
+    // GC the execution item / ID map.
     //
-    function resetMap() {
-        dexbox.exmap = new(weakmap)
-        dexbox.idmap = { }
+    function gcMap(local id) {
+        for id in dexbox.idmap
+            if !dexbox.exmap[id]
+                dexbox.idmap[id] = undefined
     }
     
     // ex2box
@@ -60,7 +63,7 @@ closure debugExecs(niui, divid, delegate, local dexbox, columnDefs) {
     //     Reset the contents of the tree.
     //
     dexbox.resetContents = function resetContents(local execlist, exec, types, data, type, content) {
-        resetMap()
+        // gcMap -- for some reason this hangs everything, even though the function completes; bad juju
         execlist = niui.track.enumlist()
         types = {}
         for exec in execlist {
@@ -89,10 +92,10 @@ closure debugExecs(niui, divid, delegate, local dexbox, columnDefs) {
     //
     //     Select an instance.
     
-    dexbox.selectExec = function selectExec(exec, local id, found) {
+    dexbox.selectExec = closure selectExec(exec, local id, found) {
         id = ex2box(exec)
         dexbox.box.forEachLeafNode(function(rowNode, index) {
-            if rowNode.data.id  == id
+            if rowNode.data.id == id
                 found = rowNode
         })
         if found && delegate.execSelect(box2ex(found.data.id))
@@ -198,6 +201,10 @@ closure MakeDebug(niui, local debug) {
         if debug.connection
             debug.connection.termActive(active)
         debug.guidb.navtab(active)
+        if !debug.seldef {                                                  // box wants selection when visible
+            debug.debex.defSelect()
+            debug.seldef = true
+        }
     }
 
     //
@@ -239,16 +246,11 @@ closure MakeDebug(niui, local debug) {
             if changes.added || changes.deleted || changes.updated
                 future(debug.debex.resetContents, 0)
             else if changes.attention
-                future(function(){ debug.debex.selectExec(changes.attention.0) }, 10)
+                future(function(){ debug.debex.selectExec(changes.attention.0) }, 100)
                 
         })
         future(function adjustResize(){debug.debex.sizeToFit()}, 400)
         debug.debex.defSelect()
-        App.clone = function() {
-            niui.track.spawn("Local", "NaanIDE Clone", {
-                workerID: "NaanIDE-Debug"
-            })
-        }
         document.activeElement.blur()
     }
     
@@ -264,7 +266,7 @@ closure MakeDebug(niui, local debug) {
         debug.debuggerDiv
     }
     
-    // termStatus
+    // execStatus
     //
     // Got a status report from an execution instance.
     //

@@ -1,6 +1,6 @@
 /*
  * nideClient.nlg
- * NaanIDE version 0.15.0+1
+ * NaanIDE version 0.17.0+1
  *
  *     Naan IDE controller for browsers.
  *
@@ -246,7 +246,7 @@ closure NideController(api, appSession,
     nicc.projman = require("naanlib:frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
     nicc.projects = nicc.projman.tracker()
     nicc.projects.open()
-    nicc.sworker = require("naanlib:frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.15.0+1", function() {
+    nicc.sworker = require("naanlib:frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.17.0+1", function() {
         nicc.upgrade_sw = true
         nicc.checker.run(1)                                                 // run the update checker very soon
     })
@@ -276,8 +276,9 @@ closure NideController(api, appSession,
     nicc.track.register("Local", function localWorker(track, name, options) {
         options = merge({
             startup: {
-                initcmds: 'App.version = "0.15.0+1";;\n'
-                    'App.cache = "ffb60d8cfda18ac9da683d25a42f1af5";;\n'
+                initcmds: 'chns("Start");;\n'
+                    'App.version = "0.17.0+1";;\n'
+                    'App.cache = "961c37293f269568b8d017b7789b1b1e";;\n'
                     'App.mainInstanceID = "${App.imp.us.instanceID}";;\n'
                     'App.imp = require("naanlib:frameworks/service/imp.nlg").Imp({\n'
                     '   name: "${name}"\n'
@@ -289,7 +290,6 @@ closure NideController(api, appSession,
                     'if !module.owner.list.running.components.debugnub {\n'
                     '   require("naanlib:frameworks/common/repltools.nlg").ImportReplTools()\n'
                     '   require("naanlib:frameworks/running/debugnub.nlg").DebugNub()\n'
-                    '   require("naanlib:frameworks/running/taskexec.nlg").TaskExecutor()\n'
                     '};;\n'
             }
         }, options)
@@ -503,7 +503,7 @@ closure NideController(api, appSession,
     // disconnection.
     //
     pollint = 60000                                                         // default timeout 1 minute
-    version = "NaanIDE 0.15.0+1"
+    version = "NaanIDE 0.17.0+1"
     function statusPoll(timeoutms) {
         api.status(function (status) {
             if not status {
@@ -519,7 +519,8 @@ closure NideController(api, appSession,
                     nicc.statusEl.innerHTML = status[0].message
                 else
                     nicc.statusEl.innerHTML = version.concat("&nbsp;&nbsp;<font color=#00aa33>ready")
-                future(function poll2(){statusPoll(pollint)}, 300)          // try to reconnect more quickly
+                api.wesc.connect()                                          // try to connecct our websockets too
+                future(function poll2(){statusPoll(pollint)}, 300)          // do first poll soon
             }
             window.nideHost.setConnectivity(nicc.connected)
         }, timeoutms)
@@ -581,7 +582,7 @@ closure NideController(api, appSession,
     addUI(function(local loading) {
         loading = window.localStorage.getItem("nide-loading")
         loading = loading.split("|")
-        if loading.0 == "0.15.0+1"
+        if loading.0 == "0.17.0+1"
             window.localStorage.removeItem("nide-loading")
         statusPoll(1)
     })

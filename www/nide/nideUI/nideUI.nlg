@@ -6,7 +6,7 @@
  *
  * column positioning:                          //                          //                      !
  *
- * Copyright (c) 2017-2024 by Richard C. Zulch
+ * Copyright (c) 2017-2026 by Richard C. Zulch
  *
  */
 
@@ -39,21 +39,6 @@ function escapeHTML(html) {
         .appendChild(document.createTextNode(html))
         .parentNode
         .innerHTML
-};
-
-
-/*
- * initToolTips
- *
- *     Initialize tooltips within an element and its children.
- *
- */
-
-function initToolTips(element, local tooltipTriggerList) {
-    tooltipTriggerList = Array.from(element.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    niui.tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        js.w.bootstrap.Tooltip.getOrCreateInstance(tooltipTriggerEl)
-    })
 };
 
 
@@ -236,7 +221,12 @@ closure niuiBase(nicc, local niui) {
     niui.butpub = document.getElementById("NidePublishButton")
     niui.butpub.disabled = true
     niui.spinner = document.getElementById("NideSpinner")
-    initToolTips(document)
+
+    if niui.terminal
+        niui.terminal.onclick = function () {
+            App.openTerm()
+            return (false)
+        }
 
     //
     // niui.appendCss
@@ -249,7 +239,20 @@ closure niuiBase(nicc, local niui) {
         style.innerHTML = css
         document.head.appendChild(style)
     }
-    
+
+
+    // initToolTips
+    //
+    //     Initialize tooltips within an element and its children.
+    //
+
+    niui.initToolTips = function initToolTips(element, local tooltipTriggerList) {
+        tooltipTriggerList = Array.from(element.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        niui.tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            js.w.bootstrap.Tooltip.getOrCreateInstance(tooltipTriggerEl)
+        })
+    }
+
     //
     // niui.alert()
     //
@@ -368,17 +371,6 @@ closure niuiBase(nicc, local niui) {
 
     niui.setMessage = function setMessage(msg) {
         jquery("#NideMessage").text(msg)
-    }
-
-    //
-    // terminal
-    //
-    // Open the terminal window.
-    //
-
-    niui.terminal.onclick = function () {
-        App.openTerm()
-        return (false)
     }
 
     //
@@ -619,6 +611,8 @@ closure niuiBase(nicc, local niui) {
     if not mangled()
         jquery("#NideMessage").html("<font color=#ee2200><strong>Confidential - not for distribution")
 
+    initToolTips(document)
+
     let (projID) {
         projID = nicc.sessionLoad(`openProject)
         if projID
@@ -641,7 +635,7 @@ closure niuiBase(nicc, local niui) {
 
 function niuiInit(local manifest, nidecommon, nidebrowser) {
 
-    manifest = `(setElementClass, escapeHTML, initToolTips, firstClass, makeNavBar, niuiBase, niuiInit)
+    manifest = `(setElementClass, escapeHTML, firstClass, makeNavBar, niuiBase, niuiInit)
 
     if !js.w
         throw("module nideUI can only be used in a browser")
@@ -649,7 +643,6 @@ function niuiInit(local manifest, nidecommon, nidebrowser) {
         compobj.manifest = manifest
         modobj.exports.MakeNideUI = niuiBase
         modobj.exports.escapeHTML = escapeHTML
-        modobj.exports.initToolTips = initToolTips
 
         function niuiReload() {
             jspath = js.r("path")

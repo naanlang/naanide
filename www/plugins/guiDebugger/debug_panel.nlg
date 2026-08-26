@@ -263,12 +263,16 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     //
     depan.attach = function attach(executor) {
         depan.executor = executor
-        depan.commander = DebugCommand(depan.executor, depan)
-        depan.running = -1                                                  // no match for any state
-        runState(depan.commander.debugStatus())
+        depan.running = true
+        updateControls()
         future(function() {                                                 // don't delay the caller
+            depan.commander = DebugCommand(depan.executor, depan)
             depan.remote = depan.commander.remote()
-            updateControls()
+            depan.running = -1                                              // no match for any state
+            runState(depan.commander.debugStatus())
+            depan.running = -1                                              // no match for any state
+            depan.commander.query()                                         // get updated status
+            depan.commander.attach()                                        // ensure we're attached
             doFutures(5000)
         }).run()
     }
@@ -307,7 +311,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     // focusSource
     // Focus the source display on the specified module, component, and line/column.
     //
-    function focusSource(modname, compname, location, local error, data, item) {
+    closure focusSource(modname, compname, location, local error, data, item) {
         if modname != depan.editModname || compname != depan.editCompname {
             if modname && compname {
                 `(error, data) = depan.remote.compsources(modname, compname)

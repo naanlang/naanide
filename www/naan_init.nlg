@@ -24,7 +24,6 @@ defineExt("nlg", true);                                                     // o
 if !module.owner.list.running.components.debugnub {
     require("naanlib:frameworks/common/repltools.nlg").ImportReplTools()
     require("naanlib:frameworks/running/debugnub.nlg").DebugNub()
-    require("naanlib:frameworks/running/taskexec.nlg").TaskExecutor()
 };
 
 
@@ -126,6 +125,7 @@ function dupeSessionCheck() {
             } else if msg.op == "duplicate" && msg.id == appSession.\.inst.instanceID {
                 appSession._duplicate_reload = true
                 saveSession()
+                js.t.Working()                                              // preserve saved state
                 jsdebugger()
                 js.w.location.reload()
             }
@@ -174,9 +174,10 @@ function loadNide(local hostpath, baseurl, guid, bapi, bide, bui) {
     bapi = require("naanlib:frameworks/client/apiclient.nlg").APIClient(App.imp, {
         url: hostpath
         guid: guid
-        instanceID: appSession.\.inst.clientInstanceID
     })
-    appSession.\.inst.clientInstanceID = bapi.instanceID
+    `(error) = bapi.connect()
+    if error
+        ErrorDebuglog("NaanIDE: cannot connect to our server", error)
     bide = require("nide/nideClient/nideClient.nlg").NideController(bapi, appSession)
     bui = require("nide/nideUI/nideUI.nlg").MakeNideUI(bide)
     bide.setUI(bui)

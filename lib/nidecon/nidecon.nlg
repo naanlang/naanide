@@ -59,7 +59,7 @@ closure NideCon(options, local nicon) {
     // Launch the browser on our API server, after it is open.
     //
     nicon.launchBrowser = closure launchBrowser(
-        local platform, result, open, apps, nu, execFile) {
+        local platform, result, open, apps, browsers, item, nu, execFile) {
         if connect()
             return
         platform = js.g.process.platform
@@ -68,8 +68,14 @@ closure NideCon(options, local nicon) {
             if !result.0 {
                 open = result.1.default
                 apps = result.1.apps
+                browsers = []
+                for item in [chrome, safari, edge, firefox, brave, browser]
+                    try {                                                   // moronic "open" throws exception if not supported
+                        if apps[item]
+                            browsers.push(apps[item])                       // only attempt approved browsers
+                    } catch { }
                 result = await(open(nicon.net.oururl, { app: {
-                    name: [apps.chrome, apps.safari, apps.edge]
+                    name: browsers
                 }}))
             }
         } else {                                                            // linux/android/etc.
@@ -246,7 +252,7 @@ closure NideCon(options, local nicon) {
     //
     nicon.remote = closure remote(destID, local relaycon, error, context) {
         relaycon = relayMod.RelayCon(nicon.net.host, nicon.net.guid, { destID: destID })
-        `(error) = relaycon.connect()
+        `(error) = relaycon.connect(destID)
         if !error {
             nicon.relays.push(relaycon)
             `(error, context) = relaycon.context()
