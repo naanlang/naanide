@@ -62,7 +62,7 @@ closure NaanREPL(replDiv, notify, local narp, repl, pending) {
     
     // jsRelease
     //
-    // Release the interpreter after jsAquire.
+    // Release the JS terminal after jsAquire. These are not balanced.
     //
     narp.jsRelease = function jsRelease() {
         repl.On("interrupt", function(repl, code) {

@@ -245,7 +245,7 @@ closure MakeDebug(niui, local debug) {
         niui.track.watch(closure watch(changes) {
             if changes.added || changes.deleted || changes.updated
                 future(debug.debex.resetContents, 0)
-            else if changes.attention
+            else if changes.attention && !debug.noattention
                 future(function(){ debug.debex.selectExec(changes.attention.0) }, 100)
                 
         })
@@ -286,8 +286,7 @@ closure MakeDebug(niui, local debug) {
         debug.butPopup.disabled = true
         if instance.children
             return (false)
-        if debug.connection
-            debug.connection.termDetach(debug.repl, debug.guidb)
+        debug.connection.termDetach()
         debug.connection = false
         debug.exec = instance
         debug.targetName.textContent = instance.type.concat(" : ", instance.name)

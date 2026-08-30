@@ -24,7 +24,6 @@ savedGUID = false;                              // persistent guid
 closure NideCon(options, local nicon) {
     global(js, apiServerMod, nodeMod, commonMod, relayMod, savedGUID, JSpath, module)
     nicon = new(object, this)
-    nicon.relays = []
     nicon.rc = nodeMod.NaanlangRC()
     nicon.defPort = 8008
     processNetOptions(options)
@@ -230,19 +229,9 @@ closure NideCon(options, local nicon) {
     //  [ "7040da37-c029-42fa-a740-5db28bde4d1d",
     //    "5fa859ec-e271-4ec1-a3a2-47a362cdceaf" ]
     //
-    nicon.clients = closure clients(local error, ids) {
-        if connect()
-            return
-        if nicon.serverRemote {
-            `(error, ids) = nicon.serverRemote.evalq(App.nidecon.clients())
-            if error {                                                      // can't report error from here
-                ErrorDebuglog("NideCon.clients remote fail:", error)
-                ids = []
-            }
-            ids
-        }
-        else
-            nicon.api.Relays().map(function(item) { item.destID })
+    nicon.clients = closure clients() {
+        App.imp.discover().1.filter(function(item) { item.type == "Client IMP" })
+            .map(function(item) { item.destID })
     }
 
     // remote
@@ -250,18 +239,17 @@ closure NideCon(options, local nicon) {
     // Create a remote evaluation context object for the specified browser client. This returns a
     // standard result tuple.
     //
-    nicon.remote = closure remote(destID, local relaycon, error, context) {
-        relaycon = relayMod.RelayCon(nicon.net.host, nicon.net.guid, { destID: destID })
-        `(error) = relaycon.connect(destID)
-        if !error {
-            nicon.relays.push(relaycon)
-            `(error, context) = relaycon.context()
-            if context {
-                if destID == "server"
-                    nicon.serverRemote = context
+    nicon.remote = closure remote(destID, local error, relaycon) {
+        if destID == "server" {
+            destID = App.imp.discover().1.find(function(item){ item.type == "Server IMP" }).destID
+            if !destID {
+                error = Error("cannot find server")
+                ErrorDebuglog("NideCon.remote:", error)
+                return (list(error))
             }
         }
-        list(error, context)
+        relaycon = relayMod.RelayCon(App.imp, { name: "nidecon-remote" })
+        relaycon.context(destID)
     }
 
     // loadStartupModule
@@ -317,11 +305,8 @@ closure NideCon(options, local nicon) {
 
     // process exit hook
     //
-    js.g.process.on("exit", function(local conn) {
+    js.g.process.on("exit", function() {
         App.api.notify("NideServer exited")
-        for conn in nicon.relays
-            conn.close()
-        nicon.relays = []
     })
 
     // finis

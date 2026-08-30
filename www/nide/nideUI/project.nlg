@@ -818,7 +818,7 @@ closure MakeProject(niui, local project, txeditdiv, pecondiv) {
         }
         else if error {
             niui.alert("<h5>project failed to run</h5><hr>".concat(ErrorString(error)),
-                {class:"alert-warning", unique: "project-build" })
+                {class:"alert-warning", unique: "project-build", timeout:2000})
         }
         else {
             niui.alert("<strong>build ".concat(stage, "+", buildno, " completed successfully</strong>"),

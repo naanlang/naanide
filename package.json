@@ -1,6 +1,6 @@
 {
     "name": "@naanlang/naanide",
-    "version": "0.17.0",
+    "version": "0.17.1",
     "author": "Richard C. Zulch",
     "description": "NaanIDE",
     "main": "./bin/index.js",
@@ -9,7 +9,7 @@
         "pouchdb": "^8.0.1",
         "ws": "^8.16.0",
         "open": "^11.0.0",
-        "@naanlang/naan": "^1.7.0"
+        "@naanlang/naan": "^1.7.1"
     },
     "devDependencies": {},
     "keywords": [],
@@ -25,5 +25,8 @@
         "start": "node ./bin/index.js",
         "debug": "node --inspect-brk ./bin/index.js",
         "scripting": "node ./bin/index.js examples/idecon_debug.nlg"
+    },
+    "allowScripts": {
+        "leveldown@5.6.0": true
     }
 }

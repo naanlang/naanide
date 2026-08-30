@@ -46,6 +46,7 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     
     // right side
     depan.divRight = document.getElementById("GudeRight")
+    depan.conGroup = document.getElementById("GudeControls")
     depan.conPause = document.getElementById("GudePause")
     depan.conResume = document.getElementById("GudeResume")
     depan.conStepOver = document.getElementById("GudeStepOver")
@@ -508,38 +509,48 @@ closure DebugPanel(gude, debcon, html, local depan, session, futup, delayer, upd
     }
 
     // doFutures
-    // Update futures for the current remote now, and then the specified interval. If no interval
+    // Update futures for the current remote now, and then at the specified interval. If no interval
     // then cancel updating.
-    closure doFutures(interval, local running) {
+    closure doFutures(interval) {
         if futup {                                                          // cancel updating in other closure
-            assign(futup.running, false)
-            futup.cancel()                                                  // don't run if still pending
-            futup.delay.signal()                                            // don't delay further
-            futup.updating.wait()                                           // wait for pending update
+            futup.run = false
+            futup.delay.run()                                               // don't delay further
+            futup.running.wait()                                            // wait for stop
             futup = false
         }
         if !interval
             return
-        running = true
+        futup.run = true
         futup = future(function futuresUpdater() {                          // periodic updates
-            while running {
-                futup.updating.reset()                                      // cancel will have to wait
+            while futup.run {
                 futuresUpdate()
-                futup.updating.signal()                                     // cancel may proceed
-                if !running
+                if !futup.run
                     break
                 futup.delay = future(function futuresUpdateDelay() { }, interval)
                 futup.delay.wait()                                          // delay for next update
             }
+            futup.running.signal()
         }, 0)
-        futup.running = `running
-        futup.updating = new(nonce)
-        futup.updating.signal()
+        futup.running = new(nonce)
     }
 
     //
     // run controls
     //
+
+    depan.conGroup.addEventListener("keydown", function(event) {
+        event.preventDefault()
+        if event.key == "c"
+            controlOp(depan.conResume)
+        else if event.key == "n"
+            controlOp(depan.conStepOver)
+        else if event.key == "s"
+            controlOp(depan.conStepInto)
+        else if event.key == "f"
+            controlOp(depan.conStepOut)
+        else if event.key == "q"
+            controlOp(depan.conStop)
+    })
 
     depan.conPause.addEventListener("click", function(event) {
         event.preventDefault()
