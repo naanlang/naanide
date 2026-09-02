@@ -115,9 +115,14 @@ function loadSession(local comMod, key, data) {
  * to broadcast back to us. Could easily be a second with Chrome due to throttling, but definitely
  * slower than our first use of the id.
  *
+ * Note: it is absolutely essential to reload the page with the restart parameter, because if you
+ * try to use saved state then Chromium browsers (as of 20260902) lose their teeny-weeny little
+ * minds and fall on their sword and die and steal your debugging time while you trace things like
+ * failed fetch calls that don't show up in DevTools. Strongly advise you not revisit this drama.
+ *
  */
 
-function dupeSessionCheck() {
+function dupeSessionCheck(local url) {
     if !bcSession {
         bcSession = xnew(js.w.BroadcastChannel, "NaanIDE-instanceID-check")
         bcSession.addEventListener("message", function(event, local msg) {
@@ -131,8 +136,9 @@ function dupeSessionCheck() {
                 appSession._duplicate_reload = true
                 saveSession()
                 js.t.Working()                                              // preserve saved state
-                jsdebugger()
-                js.w.location.reload()
+                url = xnew(js.w.URL, js.w.location.href)
+                url.searchParams.set("restart", "1")
+                js.w.location.replace(url.href)
             }
         })
     }
@@ -154,19 +160,22 @@ function dupeSessionCheck() {
 serverurl = js.w.location.protocol.concat("//", js.w.location.host);
 authState = { };
 
-function loadNide(local hostpath, baseurl, guid, bapi, bide, bui) {
+function loadNide(local hostpath, baseurl, guid, url, bapi, bide, bui) {
     hostpath = js.w.location.origin.concat(js.r("path").dirname(js.w.location.pathname))
     if hostpath.slice(-1) != "/"
         hostpath = hostpath.concat("/")                                     // must end in "/"
     baseurl = js.w.location.href.split(RegExp("[?#]"))[0]                   // URL without variables or hashes
-    guid = xnew(js.w.URL, js.w.location.href).searchParams.get("guid")
+    url = xnew(js.w.URL, js.w.location.href)
+    guid = url.searchParams.get("guid")
     if guid {                                                               // remove the GUID from the visible URL
         storeSecret(guid)
         authState.guid = guid
-        js.w.history.replaceState(authState, "", baseurl)
     }
     else
         guid = loadSecret()                                                 // see if we have stored the GUID
+    url.searchParams.delete("guid")
+    url.searchParams.delete("restart")
+    js.w.history.replaceState(authState, "", url)
     loadSession()
     App.imp = require("naanlib:frameworks/service/imp.nlg").Imp({
         name: "NaanIDE"
