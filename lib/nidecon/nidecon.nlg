@@ -17,12 +17,28 @@ savedGUID = false;                              // persistent guid
 /*
  * NideCon
  *
- *     Make a NaanNide controller object.
+ * Make a NaanNide controller object.
+ * 
+ *  Options:
+ *  {
+ *      statics:    <tuple>                     // tuple of ExpressJS static server path pairs
+ *      guid:       <string>                    // server secret that clients must provide
+ *      listener:   <string>                    // where to bind listener: [ip/hostname:]port
+ *      fixedPort:  <integer>                   // specific server listener port to use, or
+ *      basePort:   <integer>                   // base port to hunt for free port
+ *      gateway:    <string>                    // API Gateway handler component path
+ *  }
+ * 
+ *  If not specified above, following are used from .naanlang/naanlangrc file:
+ *      ideserver.guid      <string>            // guid
+ *      ideserver.listener  <string>            // where to bind listener: [ip/hostname:]port
+ *      ideserver.baseport  <integer>           // base port for finding open port
+ *      ideserver.gateway   <string>            // API Gateway handler component path
  *
  */
 
 closure NideCon(options, local nicon) {
-    global(js, apiServerMod, nodeMod, commonMod, relayMod, savedGUID, JSpath, module)
+    global(App, js, apiServerMod, nodeMod, commonMod, runMod, savedGUID, JSpath, module)
     nicon = new(object, this)
     nicon.rc = nodeMod.NaanlangRC()
     nicon.defPort = 8008
@@ -30,16 +46,47 @@ closure NideCon(options, local nicon) {
 
     // processNetOptions
     //
-    // Process options whether client or server, with optional port update.
+    // Process options whether client or server. This only assigns net.port if fixed.
     //
-    function processNetOptions(options, port, local net) {
-        net = nicon.net || {
-                guid: options.guid || nicon.rc.ideserver.guid || savedGUID || commonMod.UUID()
+    function processNetOptions(options, local net, listener, host) {
+        net = {
+            guid: options.guid || nicon.rc.ideserver.guid || savedGUID || commonMod.UUID()
+        }
+        if !string(listener = options.listener)
+            listener = nicon.rc.ideserver.listener
+        listener = listener.trim()
+        if string(listener) {                                               // [ip/hostname:]port
+            if RegExp("^\d+\$").test(listener)
+                net.port = toint(listener)
+            else {
+                host = options.listener.match(RegExp("^(?:\\[([^\\]]+)\\]|([^:]+?))?(?::(\\d+))?$"))
+                // Group 1: The host inside brackets OR the host before the colon
+                // Group 2: The host if no port exists at all
+                // Group 3: The port
+                net.listenIP = host[1] || host[2]
+                if host[3]
+                    net.port = toint(host[3])
             }
-        net.port = options.fixedPort || port || nicon.defPort
-        net.host = "localhost:${tostring(net.port)}"
-        net.oururl = "http://${net.host}/nide.html?guid=${net.guid}"
+        }
+        if options.fixedPort
+            net.port = options.fixedPort                                    // override port
         nicon.net = net
+    }
+    
+    // updatePort
+    //
+    // Update our port to a specific value, and derive the host and oururl fields.
+    //
+    function updatePort(port, local net, listenIP) {
+        net = new(nicon.net)
+        if !net.listenIP || net.listenIP == "0.0.0.0"
+            listenIP = "localhost"                                          // bound to loopback
+        else
+            listenIP = net.listenIP                                         // specific interface
+        net.port = port
+        net.host = "${listenIP}:${tostring(net.port)}"
+        net.oururl = "http://${net.host}/nide.html?guid=${net.guid}"
+        net
     }
 
     // connect
@@ -141,30 +188,17 @@ closure NideCon(options, local nicon) {
     // argument is true to note that our requested port is busy, and the caller can try to connect to
     // it as a client for remote access.
     //
-    // Options:
-    //  {
-    //      statics:    <tuple>                 // tuple of ExpressJS static server path pairs
-    //      guid:       <string>                // server secret that clients must provide
-    //      fixedPort:  <integer>               // specific server listener port to use, or
-    //      basePort:   <integer>               // base port to hunt for free port
-    //      gateway:    <string>                // API Gateway handler component path
-    //  }
-    //
-    // If not specified above, following are used from .naanlang/naanlangrc file:
-    //      ideserver.guid      <string>        // guid
-    //      ideserver.baseport  <integer>       // base port for finding open port
-    //      ideserver.gateway   <string>        // API Gateway handler component path
-    //
     nicon.startServer = closure startServer(local config, error, port) {
         config = {
             name: "NaanIDEServer"
             relpath: "www"
             statics: options.statics || undefined
             guid: nicon.net.guid
+            listenIP: nicon.net.listenIP
             gateway: options.gateway || nicon.rc.ideserver.gateway || undefined
         }
-        if options.fixedPort
-            config.fixedPort = options.fixedPort
+        if nicon.net.port
+            config.fixedPort = nicon.net.port                               // specific port requested
         else
             config.basePort = options.basePort || toint(nicon.rc.ideserver.baseport) || nicon.defPort
         nicon.api = apiServerMod.APIServer(config)
@@ -174,7 +208,7 @@ closure NideCon(options, local nicon) {
         else {
 //            nicon.api.workco.spawn("NideServer", "NaanIDE Server")
 //            nicon.api.workco.spawn("NaanIDE-Server-Play", "Play")
-            processNetOptions(options, port)                                // port may have been updated
+            nicon.net = updatePort(port)
             savedGUID = config.guid
             list(false, nicon.api)
         }
@@ -185,15 +219,26 @@ closure NideCon(options, local nicon) {
     // After startServer fails because the server already exists, call this method to connect to the
     // existing server. This creates a relay connection so that the clients() and remote() methods
     // still work, just as if we were running the server. This returns a result tuple with the url
-    // of the remote server if we are successful.
+    // of the remote server if we are successful. This can also be used to connect to an arbitrary
+    // server if you are so inclined.
     //
     // Options:
     //  {
-    //      keepRunning: <boolean>              // don't auto-quit the REPL
+    //      keepRunning:    <boolean>           // don't auto-quit the REPL
+    //      url:            <string>            // server to connect to
+    //      guid:           <guid>              // server guid
     //  }
     //
-    nicon.connectServer = closure connectServer(options, local error, remote, oururl) {
-        `(error, remote) = nicon.remote("server")
+    nicon.connectServer = closure connectServer(options, local apic, error, remote, oururl) {
+        net = updatePort(nicon.net.port)
+        options = merge({
+            url: "http://${net.host}"
+            guid: net.guid
+        }, options)
+        apic = require("naanlib:frameworks/client/apiclient.nlg").APIClient(App.imp, options)
+        `(error) = apic.connect()
+        if !error
+            `(error, remote) = nicon.remote(apic.serverID)
         if !error
             `(error, oururl) = remote.evalq(App.nidecon.net.oururl)         // get remote server's URL
         if !error && options.keepRunning
@@ -237,9 +282,11 @@ closure NideCon(options, local nicon) {
     // remote
     //
     // Create a remote evaluation context object for the specified browser client. This returns a
-    // standard result tuple.
+    // standard result tuple. The special destID "server" connects to our server. This is useful if
+    // we want to connect to an existing remote server. It works with the lower server but results in
+    // redunant serialization.
     //
-    nicon.remote = closure remote(destID, local error, relaycon) {
+    nicon.remote = closure remote(destID, local error, base, remote) {
         if destID == "server" {
             destID = App.imp.discover().1.find(function(item){ item.type == "Server IMP" }).destID
             if !destID {
@@ -248,8 +295,14 @@ closure NideCon(options, local nicon) {
                 return (list(error))
             }
         }
-        relaycon = relayMod.RelayCon(App.imp, { name: "nidecon-remote" })
-        relaycon.context(destID)
+        if !error
+            `(error, base) = runMod.RemoteRequester(destID)
+        if !error
+            `(error, remote) = base.context()
+        if error
+            list(error)
+        else
+            list(false, remote)
     }
 
     // loadStartupModule
@@ -331,5 +384,5 @@ function niconInit(local manifest) {
     apiServerMod = require("naanlib:frameworks/node/apiserver.nlg")
     nodeMod = require("naanlib:frameworks/node")
     commonMod = require("naanlib:frameworks/common")
-    relayMod = require("naanlib:frameworks/client/relaycon.nlg")
+    runMod = require("naanlib:frameworks/running/remote_req.nlg")
 } ();

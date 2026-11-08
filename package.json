@@ -1,6 +1,6 @@
 {
     "name": "@naanlang/naanide",
-    "version": "0.17.2",
+    "version": "0.17.3",
     "author": "Richard C. Zulch",
     "description": "NaanIDE",
     "main": "./bin/index.js",
@@ -10,7 +10,7 @@
         "ws": "^8.16.0",
         "open": "^11.0.0",
         "@lydell/node-pty": "^1.2.0-beta.15",
-        "@naanlang/naan": "^1.7.2"
+        "@naanlang/naan": "^1.7.3"
     },
     "devDependencies": {},
     "keywords": [],

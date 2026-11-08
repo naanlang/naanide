@@ -37,7 +37,7 @@ var stateKey;
 
 var start_params = {
     naanpath: naanpath.replace(/\\/g, "\\\\"),
-    guid: process.env.NAANIDE_SERVER_GUID
+    guid: process.env.NAANIDE_SECRET
 };
 
 var cmd_text = ""
@@ -46,7 +46,7 @@ var cmd_text = ""
     + "Naan.module.defineLoc('naanlib', App.naanpath);;"                    // defines "naanlib:" prefix for require
     + "Naan.module.nodeparse('lib/node_server_init.nlg');;\n";              // Naan initialization
 
-var server_port;
+var listen;
 var cmd_mod;
 var eval_text;
 var list_commands;
@@ -55,11 +55,11 @@ var do_interactive;
 process.argv.every((val, index) => {
     if (index < 2)
         return (true);
-    if (val == "--port") {
-        server_port = "-";
+    if (val == "--listen") {
+        listen = "-";
         return (true);
     }
-    if (server_port == "-" && val.substring(0,1) == "-")
+    if (listen == "-" && val.substring(0,1) == "-")
         return (false);
     if (val == "-e") {
         eval_text = 1;
@@ -75,7 +75,7 @@ process.argv.every((val, index) => {
         console.log(
             "Usage: naanide [options] [command] [command-arguments]\n\n" +
             "Options:\n" +
-            "  --port <port>        use the specified port\n" +
+            "  --listen [host:]port use the specified hostname and port\n" +
             "  -e <expression>      evaluate an expression\n" +
             "  --list               list available commands\n" +
             "  --version            print the NaanIDE version\n" +
@@ -83,29 +83,25 @@ process.argv.every((val, index) => {
             "  -h, --help           print this usage information\n" +
             "\n" +
             "Environment variables:\n" +
-            "  NAANIDE_SERVER_PORT  default server port\n" +
-            "  NAANIDE_SERVER_GUID  static server secret\n"
+            "  NAANIDE_LISTEN       default server [host:]port\n" +
+            "  NAANIDE_SECRET       static server secret\n"
         );
         process.exit(0);
     }
     if (val == "--version") {
-        console.log("0.17.2");
+        console.log("0.17.3");
         process.exit(0);
     }
     if (val == "--buildno") {
-        console.log("0.17.2+1");
+        console.log("0.17.3+1");
         process.exit(0);
     }
     if (val.substring(0,1) == "-") {
         console.log("naanide: bad option: " + val);
         process.exit(9);
     }
-    if (server_port == "-") {
-        server_port = parseInt(val);
-        if (typeof(server_port) != "number") {
-            console.log("naanide: invalid port: " + server_port);
-            process.exit(9);
-        }
+    if (listen == "-") {
+        listen = val;
         return (true);
     }
     if (eval_text == 1) {
@@ -117,14 +113,14 @@ process.argv.every((val, index) => {
     return (false);
 });
 
-if (server_port == "-") {
-    console.log("naanide: --port requires an argument");
+if (listen == "-") {
+    console.log("naanide: --listen requires an argument");
     process.exit(9);
 }
-if (server_port > 0)
-    start_params.serverPort = server_port;
-else if (process.env.NAANIDE_SERVER_PORT)
-    start_params.serverPort = process.env.NAANIDE_SERVER_PORT;
+if (listen)
+    start_params.serverListen = listen;
+else if (process.env.NAANIDE_LISTEN)
+    start_params.serverListen = process.env.NAANIDE_LISTEN;
 
 if (list_commands) {
     var files1 = fs.readdirSync(jspath.join(__dirname, "../nidecom"));
@@ -209,7 +205,7 @@ if (eval_text) {
 // Attempt to load our state, but leave statePath/stateKey set in any case.
 //
 function loadState() {
-    stateKey = "Zulch Laboratories, Inc.-0.17.2+1";
+    stateKey = "Zulch Laboratories, Inc.-0.17.3+1";
     statePath = jspath.join(os.homedir(), `.naanlang/session.state`);
     try {
         var sessions = fs.readFileSync(statePath);
@@ -297,8 +293,8 @@ function versionCheck(minver) {
  *
  * This defines the Naan symbol NaanStartParams as:
  *  {
- *      naanpath: <string>                      // path to the naan library
- *      serverPort: <integer>                   // defined if the command line specified a port
+ *      naanpath:       <string>                // path to the naan library
+ *      serverListen:   <string>                // defined if the command line specified a [host:]port
  *  }
  *
  */

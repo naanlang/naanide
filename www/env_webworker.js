@@ -17,7 +17,7 @@
  */
 
 importScripts(
-        "lib/core/naanlib.js?naanver=0.17.2+1"
+        "lib/core/naanlib.js?naanver=0.17.3+1"
 
 );
 

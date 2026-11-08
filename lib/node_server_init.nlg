@@ -14,21 +14,6 @@ loglevel(3);
 
 
 /*
- * Debugging & Tools
- *
- */
-
-if !module.owner.list.running.components.debugnub {
-    require("naanlib:frameworks/common/repltools.nlg").ImportReplTools()
-    require("naanlib:frameworks/running/debugnub.nlg").DebugNub()
-};
-
-App.shell = require("naanlib:frameworks/node/shell.nlg").ShellConnect({
-    cwd: js.d
-})
-
-
-/*
  * versionCheck
  *
  * Ensure that Node is at least as new as the specified version.
@@ -70,12 +55,12 @@ function saveState() {
  *
  * This uses the Naan symbol NaanStartParams as:
  *  {
- *      naanpath:   <string>                    // path to the naan library
- *      serverPort: <integer>                   // defined if the command line specified a port
- *      guid:       <string>                    // server secret
- *      cmd_mod:    <string>                    // name of a command to execute
- *      cmd_path:   <string>                    // path to command's module
- *      cmd_args:   [<string>]                  // arguments to the command
+ *      naanpath:       <string>                // path to the naan library
+ *      serverListen:   <integer>               // defined if command line [host:]port
+ *      guid:           <string>                // server secret
+ *      cmd_mod:        <string>                // name of a command to execute
+ *      cmd_path:       <string>                // path to command's module
+ *      cmd_args:       [<string>]              // arguments to the command
  *  }
  *
  */
@@ -89,6 +74,15 @@ closure startup(local error, api, exists, oururl) {
         debuglog("NaanIDE: startup parameters missing.")
         js.g.process.exit(3)
     }
+
+    if !module.owner.list.running.components.debugnub {
+        require("naanlib:frameworks/common/repltools.nlg").ImportReplTools()
+        require("naanlib:frameworks/running/debugnub.nlg").DebugNub()
+    }
+    
+    App.shell = require("naanlib:frameworks/node/shell.nlg").ShellConnect({
+        cwd: js.d
+    })
 
     App.imp = require("naanlib:frameworks/service/imp.nlg").Imp({
         name: "NaanIDE Server"
@@ -107,7 +101,7 @@ closure startup(local error, api, exists, oururl) {
     App.api = undefined
     App.naanpath = NaanStartParams.naanpath
     App.nidecon = require("lib/nidecon").NideCon({
-        fixedPort: NaanStartParams.serverPort
+        listener: NaanStartParams.serverListen
         guid: NaanStartParams.guid
         statics: [
             list("", NaanStartParams.naanpath)
@@ -130,7 +124,7 @@ closure startup(local error, api, exists, oururl) {
         if exists {
             `(error, oururl) = App.nidecon.connectServer()
             if error {
-                ErrorDebuglog("NaanIDE: server at port ${NaanStartParams.serverPort} not responding", error)
+                ErrorDebuglog("NaanIDE: server ${api.oururl} not responding", error)
                 js.g.process.exit(1)
             }
             debuglog("existing server access:", oururl)
@@ -146,4 +140,8 @@ closure startup(local error, api, exists, oururl) {
         if error
             ErrorDebuglog("NaanIDE: can't launch browser:", error)
     }
-}();
+};
+
+if symbol(NideBuild)
+    startup()
+

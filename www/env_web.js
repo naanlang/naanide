@@ -623,7 +623,7 @@ exports.NaanControllerWeb = function() {
         statedoc.curversion = kStateCurrentVersion;
         statedoc.firstver = kStateFirstVersion;
         statedoc.licensee = "MIT-License";
-        statedoc.verstring = "0.17.2+1";
+        statedoc.verstring = "0.17.3+1";
         statedoc.date = new Date().toISOString();
         statedoc.prefs = prefs;
         statedoc.naan = naanlib.saveState(false);                           // true to optimize, which is a bit slower
@@ -641,7 +641,7 @@ exports.NaanControllerWeb = function() {
             || statedoc.firstver > kStateCurrentVersion
             || statedoc.curversion < kStateFirstVersion
             || statedoc.licensee != "MIT-License"
-            || statedoc.verstring != "0.17.2+1"
+            || statedoc.verstring != "0.17.3+1"
             || !(naanstate = statedoc.naan))
         {
             localStorage.removeItem("NaanState_Nide");
@@ -704,7 +704,7 @@ exports.NaanControllerWeb = function() {
                     op: "VsiteOpen",
                     name: vsiteName,
                     naancont: contSelf,
-                    title: vsiteName + " 0.17.2+1"
+                    title: vsiteName + " 0.17.3+1"
                 });
             }
         } catch (e) {
@@ -718,7 +718,7 @@ exports.NaanControllerWeb = function() {
                     op: "VsiteClose",
                     name: vsiteName,
                     naancont: contSelf,
-                    title: vsiteName + " 0.17.2+1"
+                    title: vsiteName + " 0.17.3+1"
                 });
                 termTextOut("\x1b[90m\x1b[3m".concat("\nwindow closed", "\x1b[0m\n"));
             }
@@ -734,7 +734,7 @@ exports.NaanControllerWeb = function() {
                     op: "VsiteVisibilityChange",
                     name: vsiteName,
                     naancont: contSelf,
-                    title: vsiteName + " 0.17.2+1",
+                    title: vsiteName + " 0.17.3+1",
                     hidden: window.document.visibilityState == "hidden",
                     window: window
                 });
@@ -750,13 +750,13 @@ exports.NaanControllerWeb = function() {
         if (!loading) {
             var msg = '<span style="color:#00aa33">caching</span>';
             window.document.getElementById("NideStatus").innerHTML = msg;
-            localStorage.setItem("nide-loading", "0.17.2+1".concat("|", msg));
+            localStorage.setItem("nide-loading", "0.17.3+1".concat("|", msg));
         }
         naanlib.banner();
         var hostpath = window.location.origin.concat(naanlib.js.r("path").dirname(window.location.pathname));
         naanlib.start({
-            cmd: 'App.version = "0.17.2+1";;\r\n'
-                + 'App.cache = "770c5d92c5c782236bd2596a3d3ed71e";;\r\n'
+            cmd: 'App.version = "0.17.3+1";;\r\n'
+                + 'App.cache = "2f4e9349170bbe47c6fe733587976a5f";;\r\n'
                 + 'Naan.module.requireQuery({ naanver: App.cache });;\r\n'
                 + 'Naan.module.webparse("naan_init.nlg", "' + hostpath + '", { naanver: App.cache });;\r\n'
         });

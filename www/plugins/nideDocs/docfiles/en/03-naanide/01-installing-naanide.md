@@ -104,7 +104,7 @@ The secret can be defined in the JSON-formatted `.naanlang/naanlangrc` file in y
 Another option is to define an environment variable for NaanIDE, which can also define a static port. For example, add something like the following to your `.bash_profile` on Linux or MacOS:
 
 ```
-export NAANIDE_SERVER_GUID="mysecret"
-export NAANIDE_SERVER_PORT=8020
+export NAANIDE_SECRET="mysecret"
+export NAANIDE_LISTEN=8020
 ```
-Like the `--port` command line option, the PORT environmental variable specifies a fixed server port. The server will not start if that is not free. The naanlangrc file specifies a base port, so the server will increment that port until an available one is found.
+Like the `--listen` command line option, the LISTEN environmental variable specifies a fixed server port. The server will not start if that is not free. The naanlangrc file specifies a base port, so the server will increment that port until an available one is found.
