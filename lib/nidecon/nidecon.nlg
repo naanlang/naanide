@@ -56,7 +56,7 @@ closure NideCon(options, local nicon) {
             listener = nicon.rc.ideserver.listener
         listener = listener.trim()
         if string(listener) {                                               // [ip/hostname:]port
-            if RegExp("^\d+\$").test(listener)
+            if RegExp("^\\d+$").test(listener)
                 net.port = toint(listener)
             else {
                 host = options.listener.match(RegExp("^(?:\\[([^\\]]+)\\]|([^:]+?))?(?::(\\d+))?$"))
@@ -79,7 +79,7 @@ closure NideCon(options, local nicon) {
     //
     function updatePort(port, local net, listenIP) {
         net = new(nicon.net)
-        if !net.listenIP || net.listenIP == "0.0.0.0"
+        if !net.listenIP
             listenIP = "localhost"                                          // bound to loopback
         else
             listenIP = net.listenIP                                         // specific interface
@@ -89,25 +89,12 @@ closure NideCon(options, local nicon) {
         net
     }
 
-    // connect
-    //
-    // Try to make sure we are connected, returning false on success or a result tuple on error.
-    //
-    closure connect(local error) {
-        if !App.api && !nicon.serverRemote
-            `(error) = connectServer()
-        if error
-            list(error)
-    }
-
     // launchBrowser
     //
     // Launch the browser on our API server, after it is open.
     //
     nicon.launchBrowser = closure launchBrowser(
         local platform, result, open, apps, browsers, item, nu, execFile) {
-        if connect()
-            return
         platform = js.g.process.platform
         if platform == "darwin" || platform == "win32" {                    // supported by npm open library
             result = await(js.i("open"))
@@ -193,8 +180,8 @@ closure NideCon(options, local nicon) {
             name: "NaanIDEServer"
             relpath: "www"
             statics: options.statics || undefined
-            guid: nicon.net.guid
-            listenIP: nicon.net.listenIP
+            guid: nicon.net.guid || undefined
+            listenIP: nicon.net.listenIP || undefined
             gateway: options.gateway || nicon.rc.ideserver.gateway || undefined
         }
         if nicon.net.port
@@ -216,11 +203,9 @@ closure NideCon(options, local nicon) {
 
     // connectServer
     //
-    // After startServer fails because the server already exists, call this method to connect to the
-    // existing server. This creates a relay connection so that the clients() and remote() methods
-    // still work, just as if we were running the server. This returns a result tuple with the url
-    // of the remote server if we are successful. This can also be used to connect to an arbitrary
-    // server if you are so inclined.
+    // Call this method to connect to an existing server. This creates a relay connection so that the
+    // local methods still work, just as if we were running the server. This returns a result tuple
+    // confirming the url of the remote server if we are successful.
     //
     // Options:
     //  {
@@ -229,20 +214,23 @@ closure NideCon(options, local nicon) {
     //      guid:           <guid>              // server guid
     //  }
     //
-    nicon.connectServer = closure connectServer(options, local apic, error, remote, oururl) {
-        net = updatePort(nicon.net.port)
-        options = merge({
-            url: "http://${net.host}"
-            guid: net.guid
-        }, options)
+    nicon.connectServer = closure connectServer(url, local options, urlob, apic, error, remote, oururl) {
+        options = { url: url }
+        try {
+            urlob = xnew(js.g.URL, url)
+            if !urlob.searchParams.get("guid")
+                options.guid = nicon.net.guid
+        } catch {
+            return (list(Error("invalid URL ${url}:", exception)))
+        }
         apic = require("naanlib:frameworks/client/apiclient.nlg").APIClient(App.imp, options)
         `(error) = apic.connect()
-        if !error
+        if !error {
             `(error, remote) = nicon.remote(apic.serverID)
+            nicon.serverID = apic.serverID
+        }
         if !error
             `(error, oururl) = remote.evalq(App.nidecon.net.oururl)         // get remote server's URL
-        if !error && options.keepRunning
-            js.expr = false
         list(error, oururl)
     }
     
@@ -275,7 +263,7 @@ closure NideCon(options, local nicon) {
     //    "5fa859ec-e271-4ec1-a3a2-47a362cdceaf" ]
     //
     nicon.clients = closure clients() {
-        App.imp.discover().1.filter(function(item) { item.type == "Client IMP" })
+        App.imp.discover(nicon.serverID).1.filter(function(item) { item.type == "Client IMP" })
             .map(function(item) { item.destID })
     }
 

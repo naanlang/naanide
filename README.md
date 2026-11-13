@@ -4,7 +4,7 @@ NaanIDE
 NaanIDE is an Integrated Development Environment for the NaaN software platform.
 
 #### Release:
-     **Naanide for NPM** version **0.17.3+1**  
+     **Naanide for NPM** version **0.17.4+1**  
      Copyright (c) 2021-2026 Zulch Laboratories, Inc.
 
 #### Features
@@ -82,7 +82,8 @@ With no arguments`naanide` starts a new local server at an available port and la
 
     naanide [options] [source file] [arguments]
 
-    --port <port>               override the IP port
+    --listen [interface:]port   create server, default localhost:8008
+    --connect <url>             connect to existing server
     -e <expression>             evaluate an expression
     --list                      list available commands
     --version                   print NaaN version
@@ -103,7 +104,8 @@ You can also write your own automation scripts. The following are quick "one lin
 
 
     # display server information:
-    naanide -e App.nidecon.net
+    naanide --connect localhost -e \
+        'App.nidecon.remote("server").1.evalq(App.nidecon.net)'
     {
         guid  : "55491048-1014-45f5-9af5-a2f674af8d94",
         port  : 8008,
@@ -111,13 +113,21 @@ You can also write your own automation scripts. The following are quick "one lin
         oururl: "http://localhost:8008/nide.html?guid=55491048-1014-45f5-9af5-a2f674af8d94" }
 
     # display an alert in the browser from the command line:
-    naanide -e 'App.nidecon.remote(App.nidecon.clients().0).1.evalq(js.w.alert("Hello, NaanIDE User!"))'
+    naanide --connect localhost \
+        -e 'App.nidecon.remote(App.nidecon.clients().0).1.evalq(js.w.alert("Hello, NaanIDE User!"))'
 
     # list currently open projects in browser tabs:
-    naanide -e 'body (for id in App.nidecon.clients() \
-        printline(App.nidecon.remote(id).1.evalq(App.uimodel.project.active.name()).1));;'
+    naanide --connect localhost:8009 \
+        -e 'body (for id in App.nidecon.clients() \
+            printline(App.nidecon.remote(id).1.evalq(App.uimodel.project.active.name()).1));;'
     naanide
     naanlib
+
+These are starting to get long, so you may want to make them into *commands* that can be executed with one word. Existing commands are either inbuilt into naanide or in `~/.naanlang/nidecom`. You can list them:
+
+    naanide --list
+
+Try `naanide idecon_debug` to get started.
 
 ## In Case of Difficulty
 

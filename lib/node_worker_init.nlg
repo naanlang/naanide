@@ -40,4 +40,7 @@ function init(local metadata) {
     })
     if metadata.maintext
         textparse(metadata.maintext)
-}();
+};
+
+if symbol(NideBuild)
+    init()
