@@ -1,6 +1,6 @@
 /*
  * nideClient.nlg
- * NaanIDE version 0.17.5+1
+ * NaanIDE version 0.17.6+1
  *
  *     Naan IDE controller for browsers.
  *
@@ -246,7 +246,7 @@ closure NideController(api, appSession,
     nicc.projman = require("naanlib:frameworks/project/projects.nlg").ProjectManager(nicc.locate, nicc.track, "Nide").1
     nicc.projects = nicc.projman.tracker()
     nicc.projects.open()
-    nicc.sworker = require("naanlib:frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.17.5+1", function() {
+    nicc.sworker = require("naanlib:frameworks/browser/workers.nlg").TrackServiceWorkers(nicc.track, "NaanIDE", "0.17.6+1", function() {
         nicc.upgrade_sw = true
         nicc.checker.run(1)                                                 // run the update checker very soon
     })
@@ -274,8 +274,8 @@ closure NideController(api, appSession,
         options = merge({
             startup: {
                 initcmds: 'chns("Start");;\n'
-                    'App.version = "0.17.5+1";;\n'
-                    'App.cache = "d15d00e38848b10383e73dfb95a667b4";;\n'
+                    'App.version = "0.17.6+1";;\n'
+                    'App.cache = "efeb769a89fce921acb4e6179bcfd34e";;\n'
                     'App.mainInstanceID = "${App.imp.us.instanceID}";;\n'
                     'App.imp = require("naanlib:frameworks/service/imp.nlg").Imp({\n'
                     '   name: "${name}"\n'
@@ -501,7 +501,7 @@ closure NideController(api, appSession,
     // disconnection.
     //
     pollint = 60000                                                         // default timeout 1 minute
-    version = "NaanIDE 0.17.5+1"
+    version = "NaanIDE 0.17.6+1"
     function statusPoll(timeoutms) {
         api.status(function (status) {
             if not status {
@@ -580,7 +580,7 @@ closure NideController(api, appSession,
     addUI(function(local loading) {
         loading = window.localStorage.getItem("nide-loading")
         loading = loading.split("|")
-        if loading.0 == "0.17.5+1"
+        if loading.0 == "0.17.6+1"
             window.localStorage.removeItem("nide-loading")
         statusPoll(1)
     })
