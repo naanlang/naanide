@@ -183,7 +183,8 @@ function loadNide(local hostpath, baseurl, guid, url, bapi, bide, bui) {
         instanceID: appSession.\.inst.instanceID
         meta: {
             host: baseurl
-        } } )
+        }
+        services: [ "discovery", "naan-remote-responder" ] })
     bapi = require("naanlib:frameworks/client/apiclient.nlg").APIClient(App.imp, {
         url: hostpath
         guid: guid

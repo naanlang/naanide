@@ -88,12 +88,10 @@ closure startup(local error, api, exists, oururl) {
     App.imp = require("naanlib:frameworks/service/imp.nlg").Imp({
         name: "NaanIDE Server"
         type: "Server IMP"
+        services: [ "discovery", "naan-remote-responder" ]
     })
     require("naanlib:frameworks/running/remote_res.nlg")
-        .RemoteResponder(App.imp.us.instanceID, {                           // make our server remotable
-        name: "NaanIDE Server"
-        type: "Node Remote"
-    })
+        .RemoteResponder(App.imp.us.instanceID)                             // make our server remotable
     App.exec = require("naanlib:frameworks/node/worker.nlg").CurBot({
         name: "NaanIDE Server"
         type: "NaaN Server"

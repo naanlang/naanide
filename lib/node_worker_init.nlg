@@ -34,6 +34,7 @@ function init(local metadata) {
     App.imp = require("naanlib:frameworks/service/imp.nlg").Imp({
         name: metadata.name
         type: "node-worker"
+        services: [ "naan-node-worker-nub" ]
     })
     require("naanlib:frameworks/service/nubnode.nlg").NodeWorkerNub(App.imp, {
         name: App.imp.us.name

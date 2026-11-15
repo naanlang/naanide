@@ -59,7 +59,7 @@ closure NideCon(options, local nicon) {
             if RegExp("^\\d+$").test(listener)
                 net.port = toint(listener)
             else {
-                host = options.listener.match(RegExp("^(?:\\[([^\\]]+)\\]|([^:]+?))?(?::(\\d+))?$"))
+                host = listener.match(RegExp("^(?:\\[([^\\]]+)\\]|([^:]+?))?(?::(\\d+))?$"))
                 // Group 1: The host inside brackets OR the host before the colon
                 // Group 2: The host if no port exists at all
                 // Group 3: The port
@@ -71,22 +71,6 @@ closure NideCon(options, local nicon) {
         if options.fixedPort
             net.port = options.fixedPort                                    // override port
         nicon.net = net
-    }
-    
-    // updatePort
-    //
-    // Update our port to a specific value, and derive the host and oururl fields.
-    //
-    function updatePort(port, local net, listenIP) {
-        net = new(nicon.net)
-        if !net.listenIP
-            listenIP = "localhost"                                          // bound to loopback
-        else
-            listenIP = net.listenIP                                         // specific interface
-        net.port = port
-        net.host = "${listenIP}:${tostring(net.port)}"
-        net.oururl = "http://${net.host}/nide.html?guid=${net.guid}"
-        net
     }
 
     // launchBrowser
@@ -193,10 +177,9 @@ closure NideCon(options, local nicon) {
         if error
             list(error, false, error.code == "EADDRINUSE")
         else {
-//            nicon.api.workco.spawn("NideServer", "NaanIDE Server")
-//            nicon.api.workco.spawn("NaanIDE-Server-Play", "Play")
-            nicon.net = updatePort(port)
-            savedGUID = config.guid
+            nicon.net.port = port
+            nicon.net.oururl = "http://localhost:${tostring(port)}/nide.html?guid=${nicon.net.guid}"
+            savedGUID = config.guid                                         // save persistently
             list(false, nicon.api)
         }
     }
